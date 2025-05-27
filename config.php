@@ -1,5 +1,5 @@
 <?php
-// Database configuration
+// Enhanced configuration with session support
 define('DB_HOST', 'localhost');
 define('DB_USER', 'svc_terminal-app');
 define('DB_PASS', 'HxjV[pHnF)5riLPh');
@@ -53,7 +53,7 @@ if ($conn->query($sql) !== TRUE) {
 $sql = "CREATE TABLE IF NOT EXISTS command_history (
     id INT(11) AUTO_INCREMENT PRIMARY KEY,
     host_id VARCHAR(50) NOT NULL,
-    session_id VARCHAR(64) NOT NULL,
+    session_id VARCHAR(64) DEFAULT NULL,
     command TEXT NOT NULL,
     output LONGTEXT,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -69,6 +69,13 @@ $sql = "CREATE TABLE IF NOT EXISTS command_history (
 
 if ($conn->query($sql) !== TRUE) {
     die("Error creating command_history table: " . $conn->error);
+}
+
+// Check if session_id column exists and add it if missing (for backwards compatibility)
+$result = $conn->query("SHOW COLUMNS FROM command_history LIKE 'session_id'");
+if ($result->num_rows === 0) {
+    $conn->query("ALTER TABLE command_history ADD COLUMN session_id VARCHAR(64) DEFAULT NULL AFTER host_id");
+    $conn->query("ALTER TABLE command_history ADD INDEX idx_session_id (session_id)");
 }
 
 // Shell sessions table for tracking persistent shell state

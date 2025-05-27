@@ -88,10 +88,12 @@ $(document).ready(function() {
             }
         }, 3000); // Refresh every 3 seconds
         
-        // Session timeout warning
-        setTimeout(function() {
-            showSessionWarning();
-        }, (SESSION_TIMEOUT - 300) * 1000); // 5 minutes before timeout
+        // Session timeout warning (only if SESSION_TIMEOUT is defined)
+        if (typeof SESSION_TIMEOUT !== 'undefined' && SESSION_TIMEOUT > 300) {
+            setTimeout(function() {
+                showSessionWarning();
+            }, (SESSION_TIMEOUT - 300) * 1000); // 5 minutes before timeout
+        }
     }
 
     // Function to show session timeout warning

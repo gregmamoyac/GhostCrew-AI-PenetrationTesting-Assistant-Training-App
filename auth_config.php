@@ -27,10 +27,6 @@ define('ADMIN_DB_USER', 'svc_ghostcrew_admin');
 define('ADMIN_DB_PASS', 'SecureP@ssw0rd2024!');
 define('ADMIN_DB_NAME', 'ghostcrew_admin');
 
-// Application configuration
-define('APP_URL', 'http://localhost/GhostCrew');
-define('LOCAL_LISTENER_URL', 'http://localhost/GhostCrew/local');
-
 // Security settings
 define('SESSION_TIMEOUT', 3600); // 1 hour
 define('MAX_LOGIN_ATTEMPTS', 5);

