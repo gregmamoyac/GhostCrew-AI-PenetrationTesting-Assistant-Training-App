@@ -588,7 +588,7 @@ function handleReports($pdo) {
 
 function handleLogs($pdo) {
     $stmt = $pdo->query("
-        SELECT al.*, u.full_name as user_name 
+        SELECT al.*, u.username as user_name 
         FROM audit_log al 
         LEFT JOIN users u ON al.user_id = u.id 
         ORDER BY al.timestamp DESC 

@@ -46,6 +46,17 @@ body {
     padding: 20px;
 }
 
+.clippy {
+    height: 50vh;
+    width: 50vh;
+    position: absolute;
+    right: 10px;
+    top: 10vh;
+    background-image: url("../../img/clippy.png");
+    background-size: 100% 100%;
+    z-index: -1;
+}
+
 /* Header Styles */
 .header {
     background: rgba(22, 27, 34, 0.95);
@@ -683,22 +694,22 @@ body {
 }
 
 .alert-success {
-    background: rgba(63, 185, 80, 0.1);
-    color: var(--accent-green);
+    background: rgba(63, 185, 80, 1);
+    color: var(--text-primary);
     border-left-color: var(--accent-green);
     border-color: rgba(63, 185, 80, 0.3);
 }
 
 .alert-danger {
-    background: rgba(248, 81, 73, 0.1);
-    color: var(--accent-red);
+    background: rgba(248, 81, 73, 1);
+    color: var(--text-primary);
     border-left-color: var(--accent-red);
     border-color: rgba(248, 81, 73, 0.3);
 }
 
 .alert-info {
-    background: rgba(88, 166, 255, 0.1);
-    color: var(--accent-blue);
+    background: rgba(88, 166, 255, 1);
+    color: var(--text-primary);
     border-left-color: var(--accent-blue);
     border-color: rgba(88, 166, 255, 0.3);
 }

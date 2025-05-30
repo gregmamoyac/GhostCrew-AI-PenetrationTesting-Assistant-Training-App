@@ -268,7 +268,7 @@ $setupCommand = "mshta \"" . APP_URL . "/local/autoconnect.hta?token=" . urlenco
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
     </script>
-    
+    <div class="clippy"></div>
     <!-- Enhanced terminal.js will be loaded -->
     <script src="js/enhanced_terminal.js"></script>
 </body>

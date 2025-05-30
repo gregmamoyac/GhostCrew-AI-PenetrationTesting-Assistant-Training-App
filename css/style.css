@@ -41,6 +41,17 @@ body {
     padding: 0;
 }
 
+.clippy {
+    height: 50vh;
+    width: 50vh;
+    position: absolute;
+    right: 10px;
+    top: 10vh;
+    background-image: url("../img/clippy.png");
+    background-size: 100% 100%;
+    z-index: -1;
+}
+
 /* Header styles */
 header {
     background: linear-gradient(135deg, var(--tertiary-dark) 0%, var(--secondary-dark) 100%);

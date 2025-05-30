@@ -72,6 +72,17 @@ $redirect = $_GET['redirect'] ?? $_POST['redirect'] ?? 'index.php';
             justify-content: center;
         }
 
+        .clippy {
+            height: 50vh;
+            width: 50vh;
+            position: absolute;
+            right: 10px;
+            top: 10vh;
+            background-image: url("img/clippy.png");
+            background-size: 100% 100%;
+            z-index: -1;
+        }
+
         .login-container {
             background: linear-gradient(135deg, var(--tertiary-dark) 0%, var(--secondary-dark) 100%);
             border: 1px solid var(--border-color);
@@ -323,7 +334,7 @@ $redirect = $_GET['redirect'] ?? $_POST['redirect'] ?? 'index.php';
             </div>
         </div>
     </div>
-
+    <div class="clippy"></div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <script>
         function togglePassword() {

@@ -13,7 +13,7 @@
     <!-- Login Screen -->
     <div id="loginScreen" class="login-container">
         <div class="logo" style="justify-content: center; margin-bottom: 30px;">
-            <span>👻</span> GhostCrew Manage
+            <span><img src="../img/clippy.png" height="32px" width="32px"></span> GhostCrew Manage
         </div>
         <form id="loginForm">
             <div class="form-group">
@@ -34,7 +34,7 @@
         <div class="container">
             <div class="header">
                 <div class="logo">
-                    <span>👻</span> GhostCrew Manage
+                <img src="../img/clippy.png" height="50px" width="50px"></span> GhostCrew Manage
                 </div>
                 <div class="user-info">
                     <span id="currentUser">Welcome, User</span>
@@ -428,7 +428,7 @@
             </div>
         </div>
     </div>
-
+    <div class="clippy"></div>
     <script src="js/main.js"></script>
 </body>
 </html>
