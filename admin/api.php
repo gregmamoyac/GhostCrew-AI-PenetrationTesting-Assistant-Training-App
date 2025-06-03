@@ -67,7 +67,13 @@ try {
             handleSaveFeedback($pdo, $input);
             break;
         case 'reports':
-            handleReports($pdo);
+            handleEnhancedReports($pdo, $_GET);
+            break;
+        case 'detailed_report':
+            handleDetailedReport($pdo, $_GET['type'], $_GET);
+            break;
+        case 'export_report':
+            handleExportReport($pdo, $_GET['type'], $_GET);
             break;
         case 'logs':
             handleLogs($pdo);
@@ -94,6 +100,12 @@ try {
         case 'toggle_user_status':
             handleToggleUserStatus($pdo, $input);
             break;
+        case 'user_grades':
+            handleUserGrades($pdo, $_GET['user_id']);
+            break;
+        case 'managers_list':
+            handleManagersList($pdo);
+            break;
         default:
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'Invalid action']);
@@ -101,6 +113,32 @@ try {
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+}
+
+function validateUserAccess($requiredRole, $currentUserRole, $targetUserId = null, $currentUserId = null) {
+    $roleHierarchy = ['operator' => 1, 'manager' => 2, 'admin' => 3];
+    
+    // Admin can access everything
+    if ($currentUserRole === 'admin') {
+        return true;
+    }
+    
+    // Manager can access operator data and their own
+    if ($currentUserRole === 'manager') {
+        if ($requiredRole === 'operator' || $requiredRole === 'manager') {
+            return true;
+        }
+        if ($targetUserId && $targetUserId == $currentUserId) {
+            return true;
+        }
+    }
+    
+    // Operator can only access their own data
+    if ($currentUserRole === 'operator') {
+        return $targetUserId && $targetUserId == $currentUserId;
+    }
+    
+    return false;
 }
 
 function handleToggleUserStatus($pdo, $input) {
@@ -222,8 +260,9 @@ function handleDashboard($pdo) {
     // Get chart data (filtered by role)
     $charts = [];
     
-    // Activity chart - sessions and commands per day for last 7 days
+    // Activity chart - sessions, commands, and active users per day for last 7 days
     if ($userRole === 'operator') {
+        // Sessions data
         $stmt = $pdo->prepare("
             SELECT DATE(start_time) as date, COUNT(*) as sessions 
             FROM remote_sessions 
@@ -234,6 +273,7 @@ function handleDashboard($pdo) {
         $stmt->execute([$userId]);
         $sessionData = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
+        // Commands data
         $stmt = $pdo->prepare("
             SELECT DATE(timestamp) as date, COUNT(*) as commands 
             FROM command_log 
@@ -243,7 +283,22 @@ function handleDashboard($pdo) {
         ");
         $stmt->execute([$userId]);
         $commandData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Active users for operator is just themselves when they log in
+        $activeUsersData = [];
+        if ($userId) {
+            $stmt = $pdo->prepare("
+                SELECT DATE(login_time) as date, 1 as active_users 
+                FROM user_sessions 
+                WHERE user_id = ? AND login_time >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                GROUP BY DATE(login_time)
+                ORDER BY date
+            ");
+            $stmt->execute([$userId]);
+            $activeUsersData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
     } else if ($userRole === 'manager') {
+        // Sessions data for operators
         $stmt = $pdo->query("
             SELECT DATE(rs.start_time) as date, COUNT(*) as sessions 
             FROM remote_sessions rs 
@@ -254,6 +309,7 @@ function handleDashboard($pdo) {
         ");
         $sessionData = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
+        // Commands data for operators
         $stmt = $pdo->query("
             SELECT DATE(cl.timestamp) as date, COUNT(*) as commands 
             FROM command_log cl 
@@ -263,7 +319,19 @@ function handleDashboard($pdo) {
             ORDER BY date
         ");
         $commandData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Active users (operators only)
+        $stmt = $pdo->query("
+            SELECT DATE(us.login_time) as date, COUNT(DISTINCT us.user_id) as active_users 
+            FROM user_sessions us 
+            JOIN users u ON us.user_id = u.id 
+            WHERE u.role = 'operator' AND us.login_time >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            GROUP BY DATE(us.login_time)
+            ORDER BY date
+        ");
+        $activeUsersData = $stmt->fetchAll(PDO::FETCH_ASSOC);
     } else {
+        // All sessions for admins
         $stmt = $pdo->query("
             SELECT DATE(start_time) as date, COUNT(*) as sessions 
             FROM remote_sessions 
@@ -273,6 +341,7 @@ function handleDashboard($pdo) {
         ");
         $sessionData = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
+        // All commands for admins
         $stmt = $pdo->query("
             SELECT DATE(timestamp) as date, COUNT(*) as commands 
             FROM command_log 
@@ -281,9 +350,19 @@ function handleDashboard($pdo) {
             ORDER BY date
         ");
         $commandData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // All active users for admins
+        $stmt = $pdo->query("
+            SELECT DATE(login_time) as date, COUNT(DISTINCT user_id) as active_users 
+            FROM user_sessions 
+            WHERE login_time >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            GROUP BY DATE(login_time)
+            ORDER BY date
+        ");
+        $activeUsersData = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     
-    // Prepare chart data
+    // Prepare chart data for last 7 days
     $last7Days = [];
     for ($i = 6; $i >= 0; $i--) {
         $last7Days[] = date('M j', strtotime("-$i days"));
@@ -291,28 +370,42 @@ function handleDashboard($pdo) {
     
     $sessionCounts = array_fill(0, 7, 0);
     $commandCounts = array_fill(0, 7, 0);
+    $activeUsersCounts = array_fill(0, 7, 0);
     
+    // Process session data
     foreach ($sessionData as $row) {
         $dayIndex = 6 - (strtotime('today') - strtotime($row['date'])) / 86400;
         if ($dayIndex >= 0 && $dayIndex < 7) {
-            $sessionCounts[$dayIndex] = $row['sessions'];
+            $sessionCounts[$dayIndex] = (int)$row['sessions'];
         }
     }
     
+    // Process command data
     foreach ($commandData as $row) {
         $dayIndex = 6 - (strtotime('today') - strtotime($row['date'])) / 86400;
         if ($dayIndex >= 0 && $dayIndex < 7) {
-            $commandCounts[$dayIndex] = $row['commands'];
+            $commandCounts[$dayIndex] = (int)$row['commands'];
+        }
+    }
+    
+    // Process active users data
+    foreach ($activeUsersData as $row) {
+        $dayIndex = 6 - (strtotime('today') - strtotime($row['date'])) / 86400;
+        if ($dayIndex >= 0 && $dayIndex < 7) {
+            $activeUsersCounts[$dayIndex] = (int)$row['active_users'];
         }
     }
     
     $charts['activity'] = [
         'labels' => $last7Days,
-        'sessions' => $sessionCounts,
-        'commands' => $commandCounts
+        'datasets' => [
+            'active_users' => $activeUsersCounts,
+            'sessions' => $sessionCounts,
+            'commands' => $commandCounts
+        ]
     ];
     
-    // Status chart
+    // Status chart - command execution status distribution
     if ($userRole === 'operator') {
         $stmt = $pdo->prepare("SELECT status, COUNT(*) as count FROM command_log WHERE user_id = ? GROUP BY status");
         $stmt->execute([$userId]);
@@ -329,25 +422,45 @@ function handleDashboard($pdo) {
     }
     $statusData = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
+    // Ensure we have some data for the status chart
+    if (empty($statusData)) {
+        $statusData = [
+            ['status' => 'No Data', 'count' => 0]
+        ];
+    }
+    
     $charts['status'] = [
         'labels' => array_column($statusData, 'status'),
-        'values' => array_column($statusData, 'count')
+        'values' => array_map('intval', array_column($statusData, 'count'))
     ];
     
     echo json_encode(['success' => true, 'stats' => $stats, 'charts' => $charts]);
 }
 
 function handleUsers($pdo) {
-    $stmt = $pdo->query("SELECT id, username, full_name, email, role, is_active, last_login, created_at FROM users ORDER BY id");
-    $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Ensure is_active is returned as integer
-    foreach ($users as &$user) {
-        $user['is_active'] = (int)$user['is_active'];
-        $user['id'] = (int)$user['id'];
+    try {
+        $stmt = $pdo->query("
+            SELECT u.id, u.username, u.full_name, u.email, u.role, u.is_active, 
+                   u.last_login, u.created_at, u.manager_id,
+                   m.full_name as manager_name, m.role as manager_role
+            FROM users u 
+            LEFT JOIN users m ON u.manager_id = m.id 
+            ORDER BY u.id
+        ");
+        $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Ensure is_active is returned as integer
+        foreach ($users as &$user) {
+            $user['is_active'] = (int)$user['is_active'];
+            $user['id'] = (int)$user['id'];
+            $user['manager_id'] = $user['manager_id'] ? (int)$user['manager_id'] : null;
+        }
+        
+        echo json_encode(['success' => true, 'users' => $users]);
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
-    
-    echo json_encode(['success' => true, 'users' => $users]);
 }
 
 function handleSessions($pdo) {
@@ -364,6 +477,7 @@ function handleSessions($pdo) {
     // Ensure has_feedback is properly converted to integer
     foreach ($sessions as &$session) {
         $session['has_feedback'] = (int)$session['has_feedback'];
+        $session['user_id'] = (int)$session['user_id'];
     }
     
     echo json_encode(['success' => true, 'sessions' => $sessions]);
@@ -501,89 +615,112 @@ function handleSaveFeedback($pdo, $input) {
 }
 
 function handleReports($pdo) {
-    $stats = [];
-    
-    // Total sessions
-    $stmt = $pdo->query("SELECT COUNT(*) FROM remote_sessions");
-    $stats['total_sessions'] = $stmt->fetchColumn();
-    
-    // Average duration
-    $stmt = $pdo->query("
-        SELECT AVG(TIMESTAMPDIFF(MINUTE, start_time, end_time)) as avg_duration 
-        FROM remote_sessions 
-        WHERE end_time IS NOT NULL
-    ");
-    $avgDuration = $stmt->fetchColumn();
-    $stats['avg_duration'] = $avgDuration ? round($avgDuration) . 'm' : '0m';
-    
-    // Top command
-    $stmt = $pdo->query("
-        SELECT SUBSTRING_INDEX(command, ' ', 1) as base_command, COUNT(*) as count 
-        FROM command_log 
-        GROUP BY base_command 
-        ORDER BY count DESC 
-        LIMIT 1
-    ");
-    $topCommand = $stmt->fetch(PDO::FETCH_ASSOC);
-    $stats['top_command'] = $topCommand ? $topCommand['base_command'] : '-';
-    
-    // Completion rate
-    $stmt = $pdo->query("
-        SELECT 
-            (SELECT COUNT(*) FROM command_log WHERE status = 'completed') * 100.0 / 
-            (SELECT COUNT(*) FROM command_log) as completion_rate
-    ");
-    $stats['completion_rate'] = round($stmt->fetchColumn());
-    
-    // Chart data
-    $charts = [];
-    
-    // Command usage
-    $stmt = $pdo->query("
-        SELECT SUBSTRING_INDEX(command, ' ', 1) as base_command, COUNT(*) as count 
-        FROM command_log 
-        GROUP BY base_command 
-        ORDER BY count DESC 
-        LIMIT 10
-    ");
-    $commandUsage = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    $charts['command_usage'] = [
-        'labels' => array_column($commandUsage, 'base_command'),
-        'values' => array_column($commandUsage, 'count')
-    ];
-    
-    // Duration distribution
-    $stmt = $pdo->query("
-        SELECT 
-            CASE 
-                WHEN TIMESTAMPDIFF(MINUTE, start_time, end_time) < 5 THEN '0-5 min'
-                WHEN TIMESTAMPDIFF(MINUTE, start_time, end_time) < 15 THEN '5-15 min'
-                WHEN TIMESTAMPDIFF(MINUTE, start_time, end_time) < 30 THEN '15-30 min'
-                WHEN TIMESTAMPDIFF(MINUTE, start_time, end_time) < 60 THEN '30-60 min'
-                ELSE '60+ min'
-            END as duration_range,
-            COUNT(*) as count
-        FROM remote_sessions 
-        WHERE end_time IS NOT NULL
-        GROUP BY duration_range
-        ORDER BY 
-            CASE duration_range
-                WHEN '0-5 min' THEN 1
-                WHEN '5-15 min' THEN 2
-                WHEN '15-30 min' THEN 3
-                WHEN '30-60 min' THEN 4
-                WHEN '60+ min' THEN 5
-            END
-    ");
-    $durationData = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    $charts['duration'] = [
-        'labels' => array_column($durationData, 'duration_range'),
-        'values' => array_column($durationData, 'count')
-    ];
-    
-    echo json_encode(['success' => true, 'stats' => $stats, 'charts' => $charts]);
+    try {
+        $stats = [];
+        
+        // Total sessions
+        $stmt = $pdo->query("SELECT COUNT(*) FROM remote_sessions");
+        $stats['total_sessions'] = $stmt->fetchColumn();
+        
+        // Average duration
+        $stmt = $pdo->query("
+            SELECT AVG(TIMESTAMPDIFF(MINUTE, start_time, end_time)) as avg_duration 
+            FROM remote_sessions 
+            WHERE end_time IS NOT NULL
+        ");
+        $avgDuration = $stmt->fetchColumn();
+        $stats['avg_duration'] = $avgDuration ? round($avgDuration) . 'm' : '0m';
+        
+        // Top command
+        $stmt = $pdo->query("
+            SELECT SUBSTRING_INDEX(command, ' ', 1) as base_command, COUNT(*) as count 
+            FROM command_log 
+            GROUP BY base_command 
+            ORDER BY count DESC 
+            LIMIT 1
+        ");
+        $topCommand = $stmt->fetch(PDO::FETCH_ASSOC);
+        $stats['top_command'] = $topCommand ? $topCommand['base_command'] : '-';
+        
+        // Completion rate
+        $stmt = $pdo->query("
+            SELECT 
+                COALESCE(
+                    (SELECT COUNT(*) FROM command_log WHERE status = 'completed') * 100.0 / 
+                    NULLIF((SELECT COUNT(*) FROM command_log), 0), 0
+                ) as completion_rate
+        ");
+        $completionRate = $stmt->fetchColumn();
+        $stats['completion_rate'] = round($completionRate);
+        
+        // Chart data
+        $charts = [];
+        
+        // Command usage - ensure we have data
+        $stmt = $pdo->query("
+            SELECT SUBSTRING_INDEX(command, ' ', 1) as base_command, COUNT(*) as count 
+            FROM command_log 
+            GROUP BY base_command 
+            ORDER BY count DESC 
+            LIMIT 10
+        ");
+        $commandUsage = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        if (empty($commandUsage)) {
+            // Provide default data if no commands exist
+            $commandUsage = [
+                ['base_command' => 'No Data', 'count' => 0]
+            ];
+        }
+        
+        $charts['command_usage'] = [
+            'labels' => array_column($commandUsage, 'base_command'),
+            'values' => array_map('intval', array_column($commandUsage, 'count'))
+        ];
+        
+        // Duration distribution
+        $stmt = $pdo->query("
+            SELECT 
+                CASE 
+                    WHEN TIMESTAMPDIFF(MINUTE, start_time, end_time) < 5 THEN '0-5 min'
+                    WHEN TIMESTAMPDIFF(MINUTE, start_time, end_time) < 15 THEN '5-15 min'
+                    WHEN TIMESTAMPDIFF(MINUTE, start_time, end_time) < 30 THEN '15-30 min'
+                    WHEN TIMESTAMPDIFF(MINUTE, start_time, end_time) < 60 THEN '30-60 min'
+                    ELSE '60+ min'
+                END as duration_range,
+                COUNT(*) as count
+            FROM remote_sessions 
+            WHERE end_time IS NOT NULL
+            GROUP BY duration_range
+            ORDER BY 
+                CASE duration_range
+                    WHEN '0-5 min' THEN 1
+                    WHEN '5-15 min' THEN 2
+                    WHEN '15-30 min' THEN 3
+                    WHEN '30-60 min' THEN 4
+                    WHEN '60+ min' THEN 5
+                END
+        ");
+        $durationData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        if (empty($durationData)) {
+            // Provide default data if no sessions exist
+            $durationData = [
+                ['duration_range' => 'No Data', 'count' => 0]
+            ];
+        }
+        
+        $charts['duration'] = [
+            'labels' => array_column($durationData, 'duration_range'),
+            'values' => array_map('intval', array_column($durationData, 'count'))
+        ];
+        
+        echo json_encode(['success' => true, 'stats' => $stats, 'charts' => $charts]);
+        
+    } catch (Exception $e) {
+        error_log("Reports error: " . $e->getMessage());
+        echo json_encode(['success' => false, 'message' => 'Error loading reports: ' . $e->getMessage()]);
+    }
 }
 
 function handleLogs($pdo) {
@@ -596,7 +733,29 @@ function handleLogs($pdo) {
     ");
     $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    echo json_encode(['success' => true, 'logs' => $logs]);
+    // Get chatbot conversations as additional log entries
+    $chatStmt = $pdo->query("
+        SELECT 
+            cc.timestamp,
+            cc.user_id,
+            u.username as user_name,
+            'chat_message' as action_type,
+            cc.session_id as ip_address,
+            CONCAT('Type: ', cc.message_type, ', Message: ', cc.message) as action_details
+        FROM chatbot_conversations cc
+        LEFT JOIN users u ON cc.user_id = u.id
+        ORDER BY cc.timestamp DESC
+        LIMIT 500
+    ");
+    $chatLogs = $chatStmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Merge and sort logs
+    $allLogs = array_merge($logs, $chatLogs);
+    usort($allLogs, function($a, $b) {
+        return strtotime($b['timestamp']) - strtotime($a['timestamp']);
+    });
+    
+    echo json_encode(['success' => true, 'logs' => array_slice($allLogs, 0, 1000)]);
 }
 
 function handleSettings($pdo) {
@@ -626,50 +785,65 @@ function handleSaveSettings($pdo, $input) {
     echo json_encode(['success' => true]);
 }
 
+// UPDATED: Save user function to include manager assignment
 function handleSaveUser($pdo, $input) {
-    $isUpdate = $input['action'] === 'update_user';
-    $userId = $input['user_id'] ?? null;
-    $username = $input['username'];
-    $fullName = $input['full_name'];
-    $email = $input['email'];
-    $role = $input['role'];
-    $isActive = $input['is_active'];
-    $password = $input['password'] ?? '';
-    
-    if ($isUpdate && $userId) {
-        // Update user
-        if (!empty($password)) {
+    try {
+        $isUpdate = $input['action'] === 'update_user';
+        $userId = $input['user_id'] ?? null;
+        $username = $input['username'];
+        $fullName = $input['full_name'];
+        $email = $input['email'];
+        $role = $input['role'];
+        $isActive = $input['is_active'];
+        $password = $input['password'] ?? '';
+        $managerId = $input['manager_id'] ?? null; // New field
+        
+        if ($isUpdate && $userId) {
+            // Update user
+            if (!empty($password)) {
+                $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+                $stmt = $pdo->prepare("
+                    UPDATE users 
+                    SET username = ?, full_name = ?, email = ?, role = ?, is_active = ?, 
+                        password_hash = ?, manager_id = ?, updated_at = NOW() 
+                    WHERE id = ?
+                ");
+                $stmt->execute([$username, $fullName, $email, $role, $isActive, $passwordHash, $managerId, $userId]);
+            } else {
+                $stmt = $pdo->prepare("
+                    UPDATE users 
+                    SET username = ?, full_name = ?, email = ?, role = ?, is_active = ?, 
+                        manager_id = ?, updated_at = NOW() 
+                    WHERE id = ?
+                ");
+                $stmt->execute([$username, $fullName, $email, $role, $isActive, $managerId, $userId]);
+            }
+        } else {
+            // Create user
+            if (empty($password)) {
+                echo json_encode(['success' => false, 'message' => 'Password is required for new users']);
+                return;
+            }
+            
             $passwordHash = password_hash($password, PASSWORD_DEFAULT);
             $stmt = $pdo->prepare("
-                UPDATE users 
-                SET username = ?, full_name = ?, email = ?, role = ?, is_active = ?, password_hash = ?, updated_at = NOW() 
-                WHERE id = ?
+                INSERT INTO users (username, full_name, email, role, is_active, password_hash, manager_id, created_at, created_by) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?)
             ");
-            $stmt->execute([$username, $fullName, $email, $role, $isActive, $passwordHash, $userId]);
-        } else {
-            $stmt = $pdo->prepare("
-                UPDATE users 
-                SET username = ?, full_name = ?, email = ?, role = ?, is_active = ?, updated_at = NOW() 
-                WHERE id = ?
-            ");
-            $stmt->execute([$username, $fullName, $email, $role, $isActive, $userId]);
-        }
-    } else {
-        // Create user
-        if (empty($password)) {
-            echo json_encode(['success' => false, 'message' => 'Password is required for new users']);
-            return;
+            $stmt->execute([$username, $fullName, $email, $role, $isActive, $passwordHash, $managerId, $input['created_by'] ?? null]);
         }
         
-        $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-        $stmt = $pdo->prepare("
-            INSERT INTO users (username, full_name, email, role, is_active, password_hash, created_at) 
-            VALUES (?, ?, ?, ?, ?, ?, NOW())
-        ");
-        $stmt->execute([$username, $fullName, $email, $role, $isActive, $passwordHash]);
+        echo json_encode(['success' => true]);
+        
+    } catch (PDOException $e) {
+        if ($e->getCode() == 23000) { // Integrity constraint violation
+            echo json_encode(['success' => false, 'message' => 'Username or email already exists']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+        }
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
-    
-    echo json_encode(['success' => true]);
 }
 
 function handleDeleteUser($pdo, $input) {
@@ -693,13 +867,19 @@ function handleDeleteUser($pdo, $input) {
 
 function handleResetPassword($pdo, $input) {
     $userId = $input['user_id'];
-    $newPassword = 'temp' . substr(str_shuffle('0123456789abcdefghijklmnopqrstuvwxyz'), 0, 8);
+    $newPassword = $input['new_password'] ?? null;
+    
+    if (!$newPassword) {
+        // Generate random password if none provided (backwards compatibility)
+        $newPassword = 'temp' . substr(str_shuffle('0123456789abcdefghijklmnopqrstuvwxyz'), 0, 8);
+    }
+    
     $passwordHash = password_hash($newPassword, PASSWORD_DEFAULT);
     
     $stmt = $pdo->prepare("UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?");
     $stmt->execute([$passwordHash, $userId]);
     
-    echo json_encode(['success' => true, 'new_password' => $newPassword]);
+    echo json_encode(['success' => true, 'message' => 'Password updated successfully']);
 }
 
 function handleDeleteSession($pdo, $input) {
@@ -756,4 +936,531 @@ try {
 } catch (Exception $e) {
     // Table might already exist, continue
 }
+
+// Handle user grades
+function handleUserGrades($pdo, $userId) {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT sf.*, rs.session_id, rs.start_time
+            FROM session_feedback sf 
+            JOIN remote_sessions rs ON sf.session_id = rs.session_id
+            WHERE sf.user_id = ? 
+            ORDER BY sf.graded_at DESC
+        ");
+        $stmt->execute([$userId]);
+        $grades = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode(['success' => true, 'grades' => $grades]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
+// NEW: Handle managers list for user creation/editing
+function handleManagersList($pdo) {
+    try {
+        $stmt = $pdo->query("
+            SELECT id, full_name, role 
+            FROM users 
+            WHERE role IN ('manager', 'admin') AND is_active = 1 
+            ORDER BY role DESC, full_name ASC
+        ");
+        $managers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode(['success' => true, 'managers' => $managers]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
+// Enhanced Reports API Functions
+function handleEnhancedReports($pdo, $params = []) {
+    error_log("handleEnhancedReports called with params: " . json_encode($params));
+    try {
+        $startDate = $params['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
+        $endDate = $params['end_date'] ?? date('Y-m-d');
+
+        // Add this right after $endDate is set in handleEnhancedReports
+        $actualStartDate = date('Y-m-d', strtotime($endDate . ' -14 days'));
+        error_log("Query date range: " . $actualStartDate . " to " . $endDate);
+
+        $userRole = $params['user_role'] ?? '';
+        
+        $stats = [];
+        $charts = [];
+        
+        // ============ OVERVIEW STATISTICS ============
+        
+        // Total users by role
+        $stmt = $pdo->query("
+            SELECT role, COUNT(*) as count, 
+                   SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_count
+            FROM users 
+            GROUP BY role
+        ");
+        $userStats = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Session statistics
+        $stmt = $pdo->prepare("
+            SELECT 
+                COUNT(*) as total_sessions,
+                COUNT(CASE WHEN status = 'active' THEN 1 END) as active_sessions,
+                COUNT(CASE WHEN status = 'completed' OR status = 'terminated' THEN 1 END) as completed_sessions,
+                AVG(TIMESTAMPDIFF(MINUTE, start_time, COALESCE(end_time, NOW()))) as avg_duration,
+                COUNT(CASE WHEN DATE(start_time) >= ? THEN 1 END) as recent_sessions
+            FROM remote_sessions 
+            WHERE DATE(start_time) BETWEEN ? AND ?
+        ");
+        $stmt->execute([$startDate, $startDate, $endDate]);
+        $sessionStats = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        // Add this after any session query
+        $testStmt = $pdo->query("SELECT COUNT(*) as total, MAX(start_time) as latest FROM remote_sessions");
+        $testResult = $testStmt->fetch(PDO::FETCH_ASSOC);
+        error_log("Total sessions in DB: " . $testResult['total'] . ", Latest: " . $testResult['latest']);
+        
+        // Command statistics
+        $stmt = $pdo->prepare("
+        SELECT 
+            COUNT(*) as total_commands,
+            COUNT(CASE WHEN cl.status = 'completed' THEN 1 END) as successful_commands,
+            COUNT(CASE WHEN cl.status = 'failed' THEN 1 END) as failed_commands,
+            AVG(cl.execution_time) as avg_execution_time
+        FROM command_log cl
+        JOIN remote_sessions rs ON cl.session_id = rs.session_id
+        WHERE DATE(cl.timestamp) BETWEEN ? AND ?
+        ");
+        $stmt->execute([$startDate, $endDate]);
+        $commandStats = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        // Grading statistics
+        $stmt = $pdo->prepare("
+            SELECT 
+                COUNT(*) as total_graded,
+                AVG(overall_score) as avg_score,
+                AVG(rating) as avg_rating,
+                COUNT(CASE WHEN overall_score >= 80 THEN 1 END) as high_performers,
+                COUNT(CASE WHEN overall_score < 60 THEN 1 END) as low_performers
+            FROM session_feedback sf
+            JOIN remote_sessions rs ON sf.session_id = rs.session_id
+            WHERE DATE(sf.graded_at) BETWEEN ? AND ?
+        ");
+        $stmt->execute([$startDate, $endDate]);
+        $gradingStats = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        // Chatbot interaction statistics
+        $stmt = $pdo->prepare("
+            SELECT 
+                COUNT(*) as total_messages,
+                COUNT(CASE WHEN message_type = 'user' THEN 1 END) as user_messages,
+                COUNT(CASE WHEN message_type = 'bot' THEN 1 END) as bot_responses,
+                COUNT(CASE WHEN suggested_command IS NOT NULL THEN 1 END) as suggestions_given,
+                COUNT(CASE WHEN command_executed = 1 THEN 1 END) as suggestions_executed,
+                AVG(response_time) as avg_response_time
+            FROM chatbot_conversations cc
+            JOIN remote_sessions rs ON cc.session_id = rs.session_id
+            WHERE DATE(cc.timestamp) BETWEEN ? AND ?
+        ");
+        $stmt->execute([$startDate, $endDate]);
+        $chatbotStats = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        // Login activity
+        $stmt = $pdo->prepare("
+            SELECT 
+                COUNT(DISTINCT user_id) as unique_users,
+                COUNT(*) as total_logins,
+                COUNT(CASE WHEN DATE(login_time) = CURDATE() THEN 1 END) as today_logins
+            FROM user_sessions 
+            WHERE DATE(login_time) BETWEEN ? AND ?
+        ");
+        $stmt->execute([$startDate, $endDate]);
+        $loginStats = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        $stats['overview'] = [
+            'users' => $userStats,
+            'sessions' => $sessionStats,
+            'commands' => $commandStats,
+            'grading' => $gradingStats,
+            'chatbot' => $chatbotStats,
+            'logins' => $loginStats
+        ];
+        
+        // ============ CHART DATA ============
+        
+        // User activity over time (last 14 days) - Simplified
+        $actualStartDate = date('Y-m-d', strtotime($endDate . ' -14 days'));
+        $stmt = $pdo->prepare("
+        SELECT 
+            DATE(start_time) as date,
+            COUNT(DISTINCT user_id) as active_users,
+            COUNT(*) as sessions
+        FROM remote_sessions 
+        WHERE DATE(start_time) >= ?
+        GROUP BY DATE(start_time)
+        ORDER BY date
+        ");
+        $stmt->execute([$actualStartDate]);
+        $sessionActivityData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Get command counts separately 
+        $stmt = $pdo->prepare("
+        SELECT 
+            DATE(cl.timestamp) as date,
+            COUNT(*) as commands
+        FROM command_log cl
+        JOIN remote_sessions rs ON cl.session_id = rs.session_id
+        WHERE DATE(cl.timestamp) >= ?
+        GROUP BY DATE(cl.timestamp)
+        ORDER BY date
+        ");
+        $stmt->execute([$actualStartDate]);
+        $commandActivityData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Combine the data
+        $activityData = [];
+        $dateIndex = [];
+
+        // Process session data
+        foreach ($sessionActivityData as $row) {
+        $date = $row['date'];
+        $activityData[$date] = [
+            'date' => $date,
+            'active_users' => (int)$row['active_users'],
+            'sessions' => (int)$row['sessions'],
+            'commands' => 0
+        ];
+        $dateIndex[$date] = true;
+        }
+
+        // Add command data
+        foreach ($commandActivityData as $row) {
+        $date = $row['date'];
+        if (isset($activityData[$date])) {
+            $activityData[$date]['commands'] = (int)$row['commands'];
+        } else {
+            $activityData[$date] = [
+                'date' => $date,
+                'active_users' => 0,
+                'sessions' => 0,
+                'commands' => (int)$row['commands']
+            ];
+        }
+        }
+
+        // Convert to indexed array and sort
+        $activityData = array_values($activityData);
+        usort($activityData, function($a, $b) {
+        return strtotime($a['date']) - strtotime($b['date']);
+        });
+
+        // Debug: Log the activity data
+        error_log("Activity data: " . json_encode($activityData));
+        
+        // Grade distribution
+        $stmt = $pdo->prepare("
+            SELECT 
+                CASE 
+                    WHEN overall_score >= 90 THEN '90-100'
+                    WHEN overall_score >= 80 THEN '80-89'
+                    WHEN overall_score >= 70 THEN '70-79'
+                    WHEN overall_score >= 60 THEN '60-69'
+                    ELSE 'Below 60'
+                END as grade_range,
+                COUNT(*) as count
+            FROM session_feedback sf
+            JOIN remote_sessions rs ON sf.session_id = rs.session_id
+            WHERE DATE(sf.graded_at) BETWEEN ? AND ?
+            GROUP BY grade_range
+            ORDER BY 
+                CASE grade_range
+                    WHEN '90-100' THEN 1
+                    WHEN '80-89' THEN 2
+                    WHEN '70-79' THEN 3
+                    WHEN '60-69' THEN 4
+                    ELSE 5
+                END
+        ");
+        $stmt->execute([$startDate, $endDate]);
+        $gradeDistribution = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Most used commands
+        // Most used commands
+        $stmt = $pdo->prepare("
+        SELECT 
+            SUBSTRING_INDEX(cl.command, ' ', 1) as base_command,
+            COUNT(*) as usage_count,
+            COUNT(CASE WHEN cl.status = 'completed' THEN 1 END) as success_count,
+            ROUND(COUNT(CASE WHEN cl.status = 'completed' THEN 1 END) * 100.0 / COUNT(*), 1) as success_rate
+        FROM command_log cl
+        JOIN remote_sessions rs ON cl.session_id = rs.session_id
+        WHERE DATE(cl.timestamp) BETWEEN ? AND ?
+        GROUP BY base_command
+        ORDER BY usage_count DESC
+        LIMIT 10
+        ");
+        $stmt->execute([$startDate, $endDate]);
+        $commandUsage = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Session duration trends
+        $stmt = $pdo->prepare("
+        SELECT 
+            DATE(rs.start_time) as date,
+            AVG(TIMESTAMPDIFF(MINUTE, rs.start_time, COALESCE(rs.end_time, NOW()))) as avg_duration,
+            COUNT(*) as session_count
+        FROM remote_sessions rs
+        WHERE DATE(rs.start_time) BETWEEN ? AND ?
+        GROUP BY DATE(rs.start_time)
+        ORDER BY date
+        ");
+        $stmt->execute([$startDate, $endDate]);
+        $durationTrends = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // User performance by role
+        $stmt = $pdo->prepare("
+            SELECT 
+                u.role,
+                COUNT(DISTINCT sf.session_id) as graded_sessions,
+                AVG(sf.overall_score) as avg_score,
+                AVG(sf.rating) as avg_rating,
+                COUNT(DISTINCT rs.session_id) as total_sessions
+            FROM users u
+            LEFT JOIN remote_sessions rs ON u.id = rs.user_id
+            LEFT JOIN session_feedback sf ON rs.session_id = sf.session_id
+            WHERE DATE(rs.start_time) BETWEEN ? AND ?
+            GROUP BY u.role
+        ");
+        $stmt->execute([$startDate, $endDate]);
+        $performanceByRole = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Chatbot effectiveness
+        $stmt = $pdo->prepare("
+            SELECT 
+                DATE(cc.timestamp) as date,
+                COUNT(CASE WHEN cc.suggested_command IS NOT NULL THEN 1 END) as suggestions_given,
+                COUNT(CASE WHEN cc.command_executed = 1 THEN 1 END) as suggestions_executed,
+                AVG(cc.response_time) as avg_response_time
+            FROM chatbot_conversations cc
+            JOIN remote_sessions rs ON cc.session_id = rs.session_id
+            WHERE DATE(cc.timestamp) BETWEEN ? AND ?
+            GROUP BY DATE(cc.timestamp)
+            ORDER BY date
+        ");
+        $stmt->execute([$startDate, $endDate]);
+        $chatbotEffectiveness = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Prepare chart data
+        $charts = [
+            'activity' => prepareActivityChart($activityData),
+            'grade_distribution' => prepareGradeDistributionChart($gradeDistribution),
+            'command_usage' => prepareCommandUsageChart($commandUsage),
+            'duration_trends' => prepareDurationTrendsChart($durationTrends),
+            'performance_by_role' => preparePerformanceChart($performanceByRole),
+            'chatbot_effectiveness' => prepareChatbotChart($chatbotEffectiveness)
+        ];
+        
+        echo json_encode(['success' => true, 'stats' => $stats, 'charts' => $charts]);
+        
+    } catch (Exception $e) {
+        error_log("Enhanced reports error: " . $e->getMessage());
+        echo json_encode(['success' => false, 'message' => 'Error loading reports: ' . $e->getMessage()]);
+    }
+}
+
+function prepareActivityChart($data) {
+    $dates = [];
+    $users = [];
+    $sessions = [];
+    $commands = [];
+    
+    // Fill in missing dates for the last 14 days
+    for ($i = 13; $i >= 0; $i--) {
+        $date = date('M j', strtotime("-$i days"));
+        $dbDate = date('Y-m-d', strtotime("-$i days"));
+        
+        $dates[] = $date;
+        
+        $found = false;
+        foreach ($data as $row) {
+            if ($row['date'] === $dbDate) {
+                $users[] = (int)$row['active_users'];
+                $sessions[] = (int)$row['sessions'];
+                $commands[] = (int)$row['commands'];
+                $found = true;
+                break;
+            }
+        }
+        
+        if (!$found) {
+            $users[] = 0;
+            $sessions[] = 0;
+            $commands[] = 0;
+        }
+    }
+    
+    return [
+        'labels' => $dates,
+        'datasets' => [
+            'active_users' => $users,
+            'sessions' => $sessions,
+            'commands' => $commands
+        ]
+    ];
+}
+
+function prepareGradeDistributionChart($data) {
+    if (empty($data)) {
+        return ['labels' => ['No Data'], 'values' => [0]];
+    }
+    
+    return [
+        'labels' => array_column($data, 'grade_range'),
+        'values' => array_map('intval', array_column($data, 'count'))
+    ];
+}
+
+function prepareCommandUsageChart($data) {
+    if (empty($data)) {
+        return ['labels' => ['No Data'], 'usage' => [0], 'success_rates' => [0]];
+    }
+    
+    return [
+        'labels' => array_column($data, 'base_command'),
+        'usage' => array_map('intval', array_column($data, 'usage_count')),
+        'success_rates' => array_map('floatval', array_column($data, 'success_rate'))
+    ];
+}
+
+function prepareDurationTrendsChart($data) {
+    $dates = [];
+    $durations = [];
+    
+    foreach ($data as $row) {
+        $dates[] = date('M j', strtotime($row['date']));
+        $durations[] = round((float)$row['avg_duration'], 1);
+    }
+    
+    return [
+        'labels' => $dates,
+        'values' => $durations
+    ];
+}
+
+function preparePerformanceChart($data) {
+    if (empty($data)) {
+        return ['labels' => ['No Data'], 'scores' => [0], 'ratings' => [0]];
+    }
+    
+    return [
+        'labels' => array_column($data, 'role'),
+        'scores' => array_map(function($score) { return round((float)$score, 1); }, array_column($data, 'avg_score')),
+        'ratings' => array_map(function($rating) { return round((float)$rating, 1); }, array_column($data, 'avg_rating'))
+    ];
+}
+
+function prepareChatbotChart($data) {
+    $dates = [];
+    $suggestions = [];
+    $executed = [];
+    $effectiveness = [];
+    
+    foreach ($data as $row) {
+        $dates[] = date('M j', strtotime($row['date']));
+        $suggestions[] = (int)$row['suggestions_given'];
+        $executed[] = (int)$row['suggestions_executed'];
+        $effectiveness[] = $row['suggestions_given'] > 0 ? 
+            round(($row['suggestions_executed'] / $row['suggestions_given']) * 100, 1) : 0;
+    }
+    
+    return [
+        'labels' => $dates,
+        'suggestions' => $suggestions,
+        'executed' => $executed,
+        'effectiveness' => $effectiveness
+    ];
+}
+
+function handleDetailedReport($pdo, $type, $params = []) {
+    $startDate = $params['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
+    $endDate = $params['end_date'] ?? date('Y-m-d');
+    
+    try {
+        switch ($type) {
+            case 'user_performance':
+                $stmt = $pdo->prepare("
+                    SELECT 
+                        u.full_name,
+                        u.role,
+                        COUNT(DISTINCT rs.session_id) as total_sessions,
+                        COUNT(DISTINCT sf.session_id) as graded_sessions,
+                        AVG(sf.overall_score) as avg_score,
+                        AVG(sf.rating) as avg_rating,
+                        COUNT(cl.id) as total_commands,
+                        COUNT(CASE WHEN cl.status = 'completed' THEN 1 END) as successful_commands,
+                        AVG(TIMESTAMPDIFF(MINUTE, rs.start_time, rs.end_time)) as avg_session_duration
+                    FROM users u
+                    LEFT JOIN remote_sessions rs ON u.id = rs.user_id AND DATE(rs.start_time) BETWEEN ? AND ?
+                    LEFT JOIN session_feedback sf ON rs.session_id = sf.session_id
+                    LEFT JOIN command_log cl ON rs.session_id = cl.session_id
+                    WHERE u.is_active = 1
+                    GROUP BY u.id, u.full_name, u.role
+                    ORDER BY avg_score DESC
+                ");
+                $stmt->execute([$startDate, $endDate]);
+                break;
+                
+            case 'grading_analytics':
+                $stmt = $pdo->prepare("
+                    SELECT 
+                        sf.session_id,
+                        u.full_name as student_name,
+                        g.full_name as grader_name,
+                        sf.overall_score,
+                        sf.rating,
+                        sf.graded_at,
+                        rs.start_time as session_date,
+                        COUNT(cl.id) as commands_in_session
+                    FROM session_feedback sf
+                    JOIN remote_sessions rs ON sf.session_id = rs.session_id
+                    JOIN users u ON sf.user_id = u.id
+                    LEFT JOIN users g ON sf.graded_by = g.id
+                    LEFT JOIN command_log cl ON rs.session_id = cl.session_id
+                    WHERE DATE(sf.graded_at) BETWEEN ? AND ?
+                    GROUP BY sf.id
+                    ORDER BY sf.graded_at DESC
+                ");
+                $stmt->execute([$startDate, $endDate]);
+                break;
+                
+            case 'chatbot_analytics':
+                $stmt = $pdo->prepare("
+                    SELECT 
+                        u.full_name as user_name,
+                        COUNT(CASE WHEN cc.message_type = 'user' THEN 1 END) as questions_asked,
+                        COUNT(CASE WHEN cc.suggested_command IS NOT NULL THEN 1 END) as suggestions_received,
+                        COUNT(CASE WHEN cc.command_executed = 1 THEN 1 END) as suggestions_executed,
+                        AVG(cc.response_time) as avg_response_time,
+                        COUNT(CASE WHEN cc.rating = 1 THEN 1 END) as helpful_ratings,
+                        COUNT(CASE WHEN cc.rating = 0 THEN 1 END) as unhelpful_ratings
+                    FROM chatbot_conversations cc
+                    JOIN remote_sessions rs ON cc.session_id = rs.session_id
+                    JOIN users u ON cc.user_id = u.id
+                    WHERE DATE(cc.timestamp) BETWEEN ? AND ?
+                    GROUP BY cc.user_id, u.full_name
+                    ORDER BY questions_asked DESC
+                ");
+                $stmt->execute([$startDate, $endDate]);
+                break;
+                
+            default:
+                throw new Exception("Unknown report type: $type");
+        }
+        
+        $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'data' => $data, 'type' => $type]);
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
 ?>

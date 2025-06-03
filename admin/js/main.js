@@ -10,6 +10,11 @@ let currentData = {
 let currentEditingUser = null;
 let sortDirection = {};
 let charts = {}; // Store chart instances
+// Global variable to store current report data
+let currentReportData = {};
+
+// Initialize charts object on window for global access
+window.charts = {};
 
 // API Base URL - adjust this to your server path
 const API_BASE = 'api.php';
@@ -67,7 +72,7 @@ async function login() {
             currentUser = data.user;
             saveSession(data.user, data.session_token || 'temp_token');
             
-            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('loginScreen').setAttribute('style', 'display:none !important');
             document.getElementById('mainApp').style.display = 'block';
             document.getElementById('currentUser').textContent = `Welcome, ${data.user.full_name}`;
 
@@ -98,10 +103,10 @@ function logout() {
     clearSession();
     currentUser = null;
     document.getElementById('loginScreen').style.display = 'block';
-    document.getElementById('mainApp').style.display = 'none';
+    document.getElementById('mainApp').setAttribute('style', 'display:none !important');
     document.getElementById('username').value = '';
     document.getElementById('password').value = '';
-    document.getElementById('loginError').style.display = 'none';
+    document.getElementById('loginError').setAttribute('style', 'display:none !important');
     
     // Destroy all charts
     Object.values(charts).forEach(chart => {
@@ -111,35 +116,111 @@ function logout() {
 }
 
 function setupRoleBasedAccess(role) {
+    // Get all navigation tabs
     const userManagementTab = document.getElementById('usersTab');
+    const sessionsTab = document.querySelector('.nav-tab[onclick*="sessions"]');
+    const feedbackTab = document.querySelector('.nav-tab[onclick*="feedback"]');
+    const reportsTab = document.querySelector('.nav-tab[onclick*="reports"]');
     const logsTab = document.getElementById('logsTab');
     const settingsTab = document.getElementById('settingsTab');
+    const profileTab = document.getElementById('profileTab');
+    const dashboardTab = document.querySelector('.nav-tab[onclick*="dashboard"]');
     
-    if (role === 'operator') {
-        // Operators have limited access
-        if (userManagementTab) userManagementTab.style.display = 'none';
-        if (logsTab) logsTab.style.display = 'none';
-        if (settingsTab) settingsTab.style.display = 'none';
-    } else if (role === 'manager') {
-        // Managers can see users but not system settings or logs
-        if (userManagementTab) userManagementTab.style.display = 'block';
-        if (logsTab) logsTab.style.display = 'none'; // Add this line
-        if (settingsTab) settingsTab.style.display = 'none';
-    } else {
-        // Admins see everything
-        if (userManagementTab) userManagementTab.style.display = 'block';
-        if (logsTab) logsTab.style.display = 'block';
-        if (settingsTab) settingsTab.style.display = 'block';
+    // All tabs array for easy management
+    const allTabs = [
+        { element: dashboardTab, name: 'dashboard' },
+        { element: userManagementTab, name: 'users' },
+        { element: sessionsTab, name: 'sessions' },
+        { element: feedbackTab, name: 'feedback' },
+        { element: reportsTab, name: 'reports' },
+        { element: logsTab, name: 'logs' },
+        { element: settingsTab, name: 'settings' },
+        { element: profileTab, name: 'profile' }
+    ];
+    
+    // Define access permissions for each role
+    const rolePermissions = {
+        'operator': [
+            'dashboard',  // Can see their own stats
+            'sessions',   // Can see their own sessions only
+            'sessionView',   // Can see their own sessions only
+            'feedback',   // Can see their own grades only
+            'gradeView',   // Can see their own grades only
+            'profile'     // Can manage their own profile
+        ],
+        'manager': [
+            'dashboard',  // Can see team stats
+            'users',      // Can manage operators
+            'sessions',   // Can see all sessions
+            'sessionView',// Can see sessions
+            'feedback',   // Can grade sessions
+            'gradeView',   // Can see grades
+            'reports',    // Can view reports
+            'profile'     // Can manage their own profile
+        ],
+        'admin': [
+            'dashboard',  // Can see all stats
+            'users',      // Can manage all users
+            'sessions',   // Can see all sessions
+            'sessionView',// Can see sessions
+            'feedback',   // Can grade all sessions
+            'gradeView',   // Can see grades
+            'reports',    // Can view all reports
+            'logs',       // Can view system logs
+            'settings',   // Can modify system settings
+            'profile'     // Can manage their own profile
+        ]
+    };
+    
+    // Get permissions for current role
+    const allowedTabs = rolePermissions[role] || [];
+    
+    // Hide/show tabs based on permissions
+    allTabs.forEach(tab => {
+        if (tab.element) {
+            if (allowedTabs.includes(tab.name)) {
+                tab.element.style.display = 'block';
+                tab.element.style.removeProperty('display');
+            } else {
+                tab.element.style.display = 'none';
+            }
+        }
+    });
+    
+    // Store role permissions globally for use in other functions
+    window.currentUserPermissions = allowedTabs;
+    
+    // If current active tab is not allowed, redirect to dashboard
+    const activeTab = localStorage.getItem('activeTab');
+    if (activeTab && !allowedTabs.includes(activeTab)) {
+        localStorage.setItem('activeTab', 'dashboard');
+        showSection('dashboard');
     }
+    
+    console.log(`Role-based access configured for ${role}:`, allowedTabs);
 }
 
-// Navigation
+//Navigation
 function showSection(sectionId, clickedElement = null) {
+
+    console.log(`sectionId:`, sectionId);
+    console.log(`clickedElement:`, clickedElement);
+    console.log(`window.currentUserPermissions:`, window.currentUserPermissions);
+    console.log(`window.currentUserPermissions:`, window.currentUserPermissions);
+    console.log(`window.currentUserPermissions.includes(sectionId):`, window.currentUserPermissions.includes(sectionId));
+
+    // Check if user has permission to access this section
+    if (!window.currentUserPermissions || !window.currentUserPermissions.includes(sectionId)) {
+        showAlert('Access denied: Insufficient permissions', 'danger');
+        return;
+    }
+    
     // Check if we're leaving the feedback section and reset it
     const currentActiveSection = document.querySelector('.content-section.active');
     if (currentActiveSection && currentActiveSection.id === 'feedback' && sectionId !== 'feedback') {
         resetFeedbackSection();
     }
+
     
     // Hide all sections
     document.querySelectorAll('.content-section').forEach(section => {
@@ -152,13 +233,16 @@ function showSection(sectionId, clickedElement = null) {
     });
     
     // Show selected section and activate tab
-    document.getElementById(sectionId).classList.add('active');
+    const targetSection = document.getElementById(sectionId);
+    if (targetSection) {
+        targetSection.classList.add('active');
+    }
     
     // If clickedElement is provided, use it; otherwise find the tab button
     if (clickedElement) {
         clickedElement.classList.add('active');
     } else {
-        const tabButton = document.querySelector(`[onclick="showSection('${sectionId}', this)"]`);
+        const tabButton = document.querySelector(`[onclick*="${sectionId}"]`);
         if (tabButton) {
             tabButton.classList.add('active');
         }
@@ -190,6 +274,9 @@ function showSection(sectionId, clickedElement = null) {
         case 'settings':
             loadSettings();
             break;
+        case 'profile':
+            loadProfile();
+            break;
     }
 }
 
@@ -211,14 +298,28 @@ async function loadDashboard() {
         
         if (data.success) {
             // Update statistics
-            document.getElementById('totalUsers').textContent = data.stats.total_users;
-            document.getElementById('activeSessions').textContent = data.stats.active_sessions;
-            document.getElementById('totalCommands').textContent = data.stats.total_commands;
-            document.getElementById('avgExecutionTime').textContent = data.stats.avg_execution_time;
+            document.getElementById('totalUsers').textContent = data.stats.total_users || 0;
+            document.getElementById('activeSessions').textContent = data.stats.active_sessions || 0;
+            document.getElementById('totalCommands').textContent = data.stats.total_commands || 0;
+            document.getElementById('avgExecutionTime').textContent = data.stats.avg_execution_time || 0;
             
-            // Create charts
-            createActivityChart(data.charts.activity);
-            createStatusChart(data.charts.status);
+            // Create charts with error handling
+            if (data.charts && data.charts.activity) {
+                createActivityChart(data.charts.activity);
+            } else {
+                console.warn('No activity chart data received');
+                createActivityChart({ labels: [], datasets: { active_users: [], sessions: [], commands: [] } });
+            }
+            
+            if (data.charts && data.charts.status) {
+                createStatusChart(data.charts.status);
+            } else {
+                console.warn('No status chart data received');
+                createStatusChart({ labels: ['No Data'], values: [0] });
+            }
+        } else {
+            console.error('Dashboard API error:', data.message);
+            showAlert('Error loading dashboard data: ' + (data.message || 'Unknown error'), 'danger');
         }
     } catch (error) {
         console.error('Dashboard load error:', error);
@@ -226,69 +327,684 @@ async function loadDashboard() {
     }
 }
 
-async function refreshDashboard() {
-    await loadDashboard();
-    showAlert('Dashboard refreshed!', 'success');
+function getDefaultStartDate() {
+    const date = new Date();
+    date.setDate(date.getDate() - 30);
+    return date.toISOString().split('T')[0];
+}
+
+function getDefaultEndDate() {
+    return new Date().toISOString().split('T')[0];
+}
+
+function updateOverviewStats(stats) {
+    // Update main stat cards
+    document.getElementById('totalUsers').textContent = stats.overview.users.reduce((sum, u) => sum + u.active_count, 0);
+    document.getElementById('totalSessions').textContent = stats.overview.sessions.total_sessions || 0;
+    document.getElementById('avgScore').textContent = stats.overview.grading.avg_score ? Math.round(stats.overview.grading.avg_score) : 0;
+    document.getElementById('chatbotInteractions').textContent = stats.overview.chatbot.total_messages || 0;
+    
+    // Update grading stats
+    if (document.getElementById('totalGraded')) {
+        document.getElementById('totalGraded').textContent = stats.overview.grading.total_graded || 0;
+        document.getElementById('avgGrade').textContent = stats.overview.grading.avg_score ? Math.round(stats.overview.grading.avg_score) : 0;
+        document.getElementById('highPerformers').textContent = stats.overview.grading.high_performers || 0;
+        document.getElementById('lowPerformers').textContent = stats.overview.grading.low_performers || 0;
+    }
+    
+    // Update chatbot stats
+    if (document.getElementById('totalMessages')) {
+        document.getElementById('totalMessages').textContent = stats.overview.chatbot.total_messages || 0;
+        document.getElementById('suggestionsGiven').textContent = stats.overview.chatbot.suggestions_given || 0;
+        document.getElementById('suggestionsExecuted').textContent = stats.overview.chatbot.suggestions_executed || 0;
+        
+        const executionRate = stats.overview.chatbot.suggestions_given > 0 ? 
+            Math.round((stats.overview.chatbot.suggestions_executed / stats.overview.chatbot.suggestions_given) * 100) : 0;
+        document.getElementById('suggestionRate').textContent = executionRate + '%';
+    }
+    
+    // Update login stats
+    if (document.getElementById('uniqueUsers')) {
+        document.getElementById('uniqueUsers').textContent = stats.overview.logins.unique_users || 0;
+        document.getElementById('totalLogins').textContent = stats.overview.logins.total_logins || 0;
+        document.getElementById('todayLogins').textContent = stats.overview.logins.today_logins || 0;
+        document.getElementById('avgSessionLength').textContent = stats.overview.sessions.avg_duration ? 
+            Math.round(stats.overview.sessions.avg_duration) + 'm' : '0m';
+    }
+}
+
+function createAllCharts(charts) {
+    // Destroy existing charts
+    Object.values(window.charts || {}).forEach(chart => {
+        if (chart && typeof chart.destroy === 'function') {
+            chart.destroy();
+        }
+    });
+    window.charts = {};
+    
+    // Create new charts
+    createActivityChart(charts.activity);
+    createCommandChart(charts.command_usage);
+    createGradeDistributionChart(charts.grade_distribution);
+    createDurationTrendsChart(charts.duration_trends);
+    createPerformanceByRoleChart(charts.performance_by_role);
+    createChatbotEffectivenessChart(charts.chatbot_effectiveness);
+    createComprehensiveActivityChart(charts.activity);
+    createCommandSuccessChart(charts.command_usage);
 }
 
 function createActivityChart(data) {
-    // Destroy existing chart if it exists
-    if (charts.activity) {
-        charts.activity.destroy();
+    console.log('createActivityChart called with:', data); // DEBUG
+    const canvas = document.getElementById('activityChart');
+    if (!canvas) {
+        console.warn('Activity chart canvas not found');
+        return;
     }
     
-    const ctx = document.getElementById('activityChart').getContext('2d');
-    charts.activity = new Chart(ctx, {
+    // Destroy existing chart if it exists
+    if (window.charts && window.charts.activity) {
+        window.charts.activity.destroy();
+    }
+    
+    // Ensure window.charts exists
+    if (!window.charts) {
+        window.charts = {};
+    }
+    
+    const ctx = canvas.getContext('2d');
+    window.charts.activity = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: data.labels,
+            labels: data.labels || [],
             datasets: [{
-                label: 'Sessions',
-                data: data.sessions,
+                label: 'Active Users',
+                data: data.datasets?.active_users || data.active_users || [],
                 borderColor: '#58a6ff',
                 backgroundColor: 'rgba(88, 166, 255, 0.1)',
                 tension: 0.4,
                 fill: true
             }, {
-                label: 'Commands',
-                data: data.commands,
+                label: 'Sessions',
+                data: data.datasets?.sessions || data.sessions || [],
                 borderColor: '#a9a7ff',
                 backgroundColor: 'rgba(169, 167, 255, 0.1)',
+                tension: 0.4,
+                fill: true
+            }, {
+                label: 'Commands',
+                data: data.datasets?.commands || data.commands || [],
+                borderColor: '#3fb950',
+                backgroundColor: 'rgba(63, 185, 80, 0.1)',
                 tension: 0.4,
                 fill: true
             }]
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
             plugins: {
                 legend: {
                     position: 'top',
-                    labels: {
-                        color: '#f0f6fc'
+                    labels: { 
+                        color: '#f0f6fc',
+                        usePointStyle: true,
+                        padding: 20
                     }
                 }
             },
             scales: {
                 x: {
-                    ticks: {
-                        color: '#8b949e'
+                    type: 'category',
+                    ticks: { 
+                        color: '#8b949e',
+                        maxRotation: 45
                     },
-                    grid: {
-                        color: '#30363d'
+                    grid: { 
+                        color: '#30363d',
+                        display: true
                     }
                 },
                 y: {
                     beginAtZero: true,
-                    ticks: {
-                        color: '#8b949e'
+                    ticks: { 
+                        color: '#8b949e',
+                        stepSize: 1
                     },
-                    grid: {
-                        color: '#30363d'
+                    grid: { 
+                        color: '#30363d',
+                        display: true
                     }
+                }
+            },
+            elements: {
+                point: {
+                    radius: 4,
+                    hoverRadius: 6
+                },
+                line: {
+                    borderWidth: 2
                 }
             }
         }
     });
+}
+
+function createCommandChart(data) {
+    const canvas = document.getElementById('commandChart');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    window.charts.commands = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.labels || ['No Data'],
+            datasets: [{
+                label: 'Usage Count',
+                data: data.usage || [0],
+                backgroundColor: [
+                    '#58a6ff', '#a9a7ff', '#3fb950', '#d29922', '#f85149',
+                    '#17a2b8', '#8b949e', '#fd7e14', '#6f42c1', '#e83e8c'
+                ],
+                borderColor: '#21262d',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#8b949e' },
+                    grid: { color: '#30363d' }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: '#8b949e' },
+                    grid: { color: '#30363d' }
+                }
+            }
+        }
+    });
+}
+
+function createGradeDistributionChart(data) {
+    const canvas = document.getElementById('gradeChart');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    window.charts.grades = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: data.labels || ['No Data'],
+            datasets: [{
+                data: data.values || [0],
+                backgroundColor: ['#3fb950', '#58a6ff', '#d29922', '#f85149', '#8b949e'],
+                borderColor: '#21262d',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { color: '#f0f6fc', padding: 20 }
+                }
+            }
+        }
+    });
+}
+
+function createDurationTrendsChart(data) {
+    const canvas = document.getElementById('durationChart');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    window.charts.duration = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.labels || [],
+            datasets: [{
+                label: 'Average Duration (minutes)',
+                data: data.values || [],
+                borderColor: '#d29922',
+                backgroundColor: 'rgba(210, 153, 34, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    labels: { color: '#f0f6fc' }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#8b949e' },
+                    grid: { color: '#30363d' }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: '#8b949e' },
+                    grid: { color: '#30363d' }
+                }
+            }
+        }
+    });
+}
+
+function createPerformanceByRoleChart(data) {
+    const canvas = document.getElementById('performanceByRoleChart');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    window.charts.performance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.labels || ['No Data'],
+            datasets: [{
+                label: 'Average Score',
+                data: data.scores || [0],
+                backgroundColor: '#58a6ff',
+                borderColor: '#21262d',
+                borderWidth: 1,
+                yAxisID: 'y'
+            }, {
+                label: 'Average Rating',
+                data: data.ratings || [0],
+                backgroundColor: '#a9a7ff',
+                borderColor: '#21262d',
+                borderWidth: 1,
+                yAxisID: 'y1'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: { color: '#f0f6fc' }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#8b949e' },
+                    grid: { color: '#30363d' }
+                },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    max: 100,
+                    ticks: { color: '#8b949e' },
+                    grid: { color: '#30363d' }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    max: 5,
+                    ticks: { color: '#8b949e' },
+                    grid: { drawOnChartArea: false }
+                }
+            }
+        }
+    });
+}
+
+function createChatbotEffectivenessChart(data) {
+    const canvas = document.getElementById('chatbotEffectivenessChart');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    window.charts.chatbot = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.labels || [],
+            datasets: [{
+                label: 'Suggestions Given',
+                data: data.suggestions || [],
+                borderColor: '#58a6ff',
+                backgroundColor: 'rgba(88, 166, 255, 0.1)',
+                tension: 0.4
+            }, {
+                label: 'Suggestions Executed',
+                data: data.executed || [],
+                borderColor: '#3fb950',
+                backgroundColor: 'rgba(63, 185, 80, 0.1)',
+                tension: 0.4
+            }, {
+                label: 'Effectiveness %',
+                data: data.effectiveness || [],
+                borderColor: '#d29922',
+                backgroundColor: 'rgba(210, 153, 34, 0.1)',
+                tension: 0.4,
+                yAxisID: 'y1'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: { color: '#f0f6fc' }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#8b949e' },
+                    grid: { color: '#30363d' }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: '#8b949e' },
+                    grid: { color: '#30363d' }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    max: 100,
+                    ticks: { color: '#8b949e' },
+                    grid: { drawOnChartArea: false }
+                }
+            }
+        }
+    });
+}
+
+function createComprehensiveActivityChart(data) {
+    const canvas = document.getElementById('comprehensiveActivityChart');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    window.charts.comprehensive = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.labels || [],
+            datasets: [{
+                label: 'Active Users',
+                data: data.datasets.active_users || [],
+                backgroundColor: 'rgba(88, 166, 255, 0.8)',
+                borderColor: '#58a6ff',
+                borderWidth: 1
+            }, {
+                label: 'Sessions',
+                data: data.datasets.sessions || [],
+                backgroundColor: 'rgba(169, 167, 255, 0.8)',
+                borderColor: '#a9a7ff',
+                borderWidth: 1
+            }, {
+                label: 'Commands',
+                data: data.datasets.commands || [],
+                backgroundColor: 'rgba(63, 185, 80, 0.8)',
+                borderColor: '#3fb950',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: { color: '#f0f6fc' }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#8b949e' },
+                    grid: { color: '#30363d' }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: '#8b949e' },
+                    grid: { color: '#30363d' }
+                }
+            }
+        }
+    });
+}
+
+function createCommandSuccessChart(data) {
+    const canvas = document.getElementById('commandSuccessChart');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    window.charts.commandSuccess = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.labels || ['No Data'],
+            datasets: [{
+                label: 'Success Rate %',
+                data: data.success_rates || [0],
+                backgroundColor: data.success_rates ? data.success_rates.map(rate => 
+                    rate >= 80 ? '#3fb950' : rate >= 60 ? '#d29922' : '#f85149'
+                ) : ['#8b949e'],
+                borderColor: '#21262d',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#8b949e' },
+                    grid: { color: '#30363d' }
+                },
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: { 
+                        color: '#8b949e',
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    },
+                    grid: { color: '#30363d' }
+                }
+            }
+        }
+    });
+}
+
+// Report tab management
+function showReportTab(tabName, element) {
+    // Remove active class from all tabs and content
+    document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.report-tab-content').forEach(content => content.classList.remove('active'));
+    
+    // Add active class to clicked tab and corresponding content
+    element.classList.add('active');
+    document.getElementById(tabName + 'Report').classList.add('active');
+    
+    // Load tab-specific content
+    loadTabContent(tabName);
+}
+
+async function loadTabContent(tabName) {
+    switch (tabName) {
+        case 'performance':
+            await loadDetailedReport('user_performance');
+            break;
+        case 'grading':
+            await loadDetailedReport('grading_analytics');
+            break;
+        case 'chatbot':
+            await loadDetailedReport('chatbot_analytics');
+            break;
+    }
+}
+
+async function loadDetailedReports() {
+    // Load all detailed reports in background
+    await loadDetailedReport('user_performance');
+    await loadDetailedReport('grading_analytics');
+    await loadDetailedReport('chatbot_analytics');
+}
+
+async function loadDetailedReport(type) {
+    try {
+        const startDate = document.getElementById('reportStartDate').value || getDefaultStartDate();
+        const endDate = document.getElementById('reportEndDate').value || getDefaultEndDate();
+        
+        const params = new URLSearchParams({
+            type: type,
+            start_date: startDate,
+            end_date: endDate
+        });
+        
+        const response = await fetch(`${API_BASE}?action=detailed_report&${params}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            renderDetailedReportTable(type, data.data);
+        }
+    } catch (error) {
+        console.error(`Error loading ${type} report:`, error);
+    }
+}
+
+function renderDetailedReportTable(type, data) {
+    let containerId, headers, rowRenderer;
+    
+    switch (type) {
+        case 'user_performance':
+            containerId = 'userPerformanceTable';
+            headers = ['User', 'Role', 'Sessions', 'Graded', 'Avg Score', 'Avg Rating', 'Commands', 'Success Rate', 'Avg Duration'];
+            rowRenderer = (row) => [
+                row.full_name || 'Unknown',
+                row.role || 'Unknown',
+                row.total_sessions || 0,
+                row.graded_sessions || 0,
+                row.avg_score && !isNaN(parseFloat(row.avg_score)) ? Math.round(parseFloat(row.avg_score)) : '-',
+                row.avg_rating && !isNaN(parseFloat(row.avg_rating)) ? parseFloat(row.avg_rating).toFixed(1) : '-',
+                row.total_commands || 0,
+                row.total_commands > 0 ? Math.round((row.successful_commands / row.total_commands) * 100) + '%' : '-',
+                row.avg_session_duration && !isNaN(parseFloat(row.avg_session_duration)) ? Math.round(parseFloat(row.avg_session_duration)) + 'm' : '-'
+            ];
+            break;
+            
+        case 'grading_analytics':
+            containerId = 'gradingAnalyticsTable';
+            headers = ['Session', 'Student', 'Grader', 'Score', 'Rating', 'Commands', 'Session Date', 'Graded Date'];
+            rowRenderer = (row) => [
+                row.session_id || 'Unknown',
+                row.student_name || 'Unknown',
+                row.grader_name || 'Unknown',
+                (row.overall_score || 0) + '/100',
+                row.rating && !isNaN(parseInt(row.rating)) ? '★'.repeat(parseInt(row.rating)) + '☆'.repeat(5 - parseInt(row.rating)) : 'Not rated',
+                row.commands_in_session || 0,
+                formatDate(row.session_date),
+                formatDate(row.graded_at)
+            ];
+            break;
+            
+        case 'chatbot_analytics':
+            containerId = 'chatbotAnalyticsTable';
+            headers = ['User', 'Questions', 'Suggestions Received', 'Suggestions Executed', 'Execution Rate', 'Avg Response Time', 'Helpful Ratings'];
+            rowRenderer = (row) => [
+                row.user_name,
+                row.questions_asked || 0,
+                row.suggestions_received || 0,
+                row.suggestions_executed || 0,
+                row.suggestions_received > 0 ? Math.round((row.suggestions_executed / row.suggestions_received) * 100) + '%' : '-',
+                row.avg_response_time && !isNaN(parseFloat(row.avg_response_time)) ? parseFloat(row.avg_response_time).toFixed(2) + 's' : '-',
+                (row.helpful_ratings || 0) + '/' + ((row.helpful_ratings || 0) + (row.unhelpful_ratings || 0))
+            ];
+            break;
+    }
+    
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    const table = `
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
+                </thead>
+                <tbody>
+                    ${data.map(row => `<tr>${rowRenderer(row).map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    container.innerHTML = table;
+}
+
+// Utility functions
+function refreshReports() {
+    loadReports();
+    showAlert('Reports updated!', 'success');
+}
+
+// Export functions for detailed reports
+async function exportDetailedReport(type, format) {
+    try {
+        const startDate = document.getElementById('reportStartDate').value || getDefaultStartDate();
+        const endDate = document.getElementById('reportEndDate').value || getDefaultEndDate();
+        
+        const params = new URLSearchParams({
+            type: type,
+            start_date: startDate,
+            end_date: endDate
+        });
+        
+        const response = await fetch(`${API_BASE}?action=detailed_report&${params}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            if (format === 'excel') {
+                exportToExcel(`${type}_report.xlsx`, data.data);
+            } else if (format === 'pdf') {
+                exportToPDF(`${type.replace('_', ' ').toUpperCase()} Report`, data.data);
+            }
+        }
+    } catch (error) {
+        console.error('Export error:', error);
+        showAlert('Error exporting report', 'danger');
+    }
+}
+
+function exportChart(chartType) {
+    const chart = window.charts[chartType];
+    if (chart) {
+        const url = chart.toBase64Image();
+        const link = document.createElement('a');
+        link.download = `${chartType}_chart.png`;
+        link.href = url;
+        link.click();
+        showAlert('Chart exported successfully!', 'success');
+    }
+}
+
+function resetReportFilters() {
+    document.getElementById('reportStartDate').value = getDefaultStartDate();
+    document.getElementById('reportEndDate').value = getDefaultEndDate();
+    document.getElementById('userRoleFilter').value = '';
+    loadReports();
+}
+
+async function refreshDashboard() {
+    await loadDashboard();
+    showAlert('Dashboard refreshed!', 'success');
 }
 
 // System Logs
@@ -313,21 +1029,56 @@ function renderLogsTable() {
     
     let filteredLogs = filterLogs();
     
-    filteredLogs.forEach(log => {
+    filteredLogs.forEach((log, index) => {
         const user = currentData.users.find(u => u.id === log.user_id);
+        const userName = user ? user.full_name : (log.user_name || 'System');
+        
+        // Truncate details for display
+        let displayDetails = log.action_details || '-';
+        const isLong = displayDetails.length > 100;
+        const truncatedDetails = isLong ? displayDetails.substring(0, 100) + '...' : displayDetails;
+        
         const row = tbody.insertRow();
         row.innerHTML = `
             <td>${formatDate(log.timestamp)}</td>
-            <td>${user ? user.full_name : 'System'}</td>
+            <td>${userName}</td>
             <td><span class="status-badge">${log.action_type}</span></td>
             <td>${log.ip_address || '-'}</td>
-            <td>${log.action_details ? JSON.stringify(JSON.parse(log.action_details)).substring(0, 100) + '...' : '-'}</td>
+            <td>
+                <span class="log-details ${isLong ? 'expandable' : ''}" onclick="${isLong ? `expandLogDetails(${index})` : ''}" data-full="${encodeURIComponent(displayDetails)}">
+                    ${truncatedDetails}
+                </span>
+            </td>
         `;
     });
 
     if (filteredLogs.length === 0) {
         const row = tbody.insertRow();
-        row.innerHTML = `<td colspan="8" style="text-align: center; color: var(--text-secondary); font-style: italic; padding: 40px;">No results found</td>`;
+        row.innerHTML = `<td colspan="5" style="text-align: center; color: var(--text-secondary); font-style: italic; padding: 40px;">No results found</td>`;
+    }
+}
+
+function expandLogDetails(index) {
+    const detailSpan = document.querySelector(`.log-details[onclick="expandLogDetails(${index})"]`);
+    if (detailSpan) {
+        const fullText = decodeURIComponent(detailSpan.dataset.full);
+        
+        // Create modal for full details
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.style.display = 'block';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 800px;">
+                <div class="modal-header">
+                    <h3>Log Details</h3>
+                    <button class="close-btn" onclick="this.closest('.modal').remove()">&times;</button>
+                </div>
+                <div style="max-height: 400px; overflow-y: auto;">
+                    <pre style="white-space: pre-wrap; word-break: break-word; background: var(--primary-dark); padding: 16px; border-radius: 8px; color: var(--text-primary);">${fullText}</pre>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
     }
 }
 
@@ -701,7 +1452,7 @@ function showConfirmModal(message, onConfirm) {
 }
 
 function closeConfirmModal() {
-    document.getElementById('confirmModal').style.display = 'none';
+    document.getElementById('confirmModal').setAttribute('style', 'display:none !important');
 }
 
 // Event Listeners
@@ -740,8 +1491,10 @@ document.getElementById('userForm').addEventListener('submit', async function(e)
         full_name: document.getElementById('userFullName').value,
         email: document.getElementById('userEmail').value,
         role: document.getElementById('userRole').value,
+        manager_id: document.getElementById('userManager').value || null,
         is_active: parseInt(document.getElementById('userStatus').value),
-        password: document.getElementById('userPassword').value
+        password: document.getElementById('userPassword').value,
+        created_by: currentUser ? currentUser.id : null
     };
     
     try {
@@ -798,7 +1551,7 @@ window.addEventListener('click', function(e) {
     modals.forEach(modalId => {
         const modal = document.getElementById(modalId);
         if (e.target === modal) {
-            modal.style.display = 'none';
+            modal.setAttribute('style', 'display:none !important');
         }
     });
 });
@@ -809,23 +1562,31 @@ document.addEventListener('DOMContentLoaded', function() {
     const storedUser = getStoredUser();
     if (storedUser) {
         currentUser = storedUser;
-        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('loginScreen').setAttribute('style', 'display:none !important');
         document.getElementById('mainApp').style.display = 'block';
         document.getElementById('currentUser').textContent = `Welcome, ${storedUser.full_name}`;
+        
+        // Set up role-based access FIRST
         setupRoleBasedAccess(storedUser.role);
         
-        // Restore active tab after the app is shown
+        // Then restore active tab (will be filtered by permissions)
         const activeTab = localStorage.getItem('activeTab') || 'dashboard';
-        if (document.getElementById(activeTab)) {
+        if (hasPermission(activeTab)) {
             showSection(activeTab);
         } else {
-            // Fallback to dashboard if stored tab doesn't exist
+            // Fallback to dashboard if stored tab is not accessible
             showSection('dashboard');
         }
+
+        if (document.getElementById('reportStartDate')) {
+            document.getElementById('reportStartDate').value = getDefaultStartDate();
+            document.getElementById('reportEndDate').value = getDefaultEndDate();
+        }
+
     } else {
         // Show login screen initially
         document.getElementById('loginScreen').style.display = 'block';
-        document.getElementById('mainApp').style.display = 'none';
+        document.getElementById('mainApp').setAttribute('style', 'display:none !important');
     }
 });
 
@@ -839,18 +1600,29 @@ setInterval(() => {
 }, 60000); // Check every minute
 
 function createStatusChart(data) {
-    // Destroy existing chart if it exists
-    if (charts.status) {
-        charts.status.destroy();
+    const canvas = document.getElementById('statusChart');
+    if (!canvas) {
+        console.warn('Status chart canvas not found');
+        return;
     }
     
-    const ctx = document.getElementById('statusChart').getContext('2d');
-    charts.status = new Chart(ctx, {
+    // Ensure window.charts exists
+    if (!window.charts) {
+        window.charts = {};
+    }
+    
+    // Destroy existing chart if it exists
+    if (window.charts.status) {
+        window.charts.status.destroy();
+    }
+    
+    const ctx = canvas.getContext('2d');
+    window.charts.status = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: data.labels,
+            labels: data.labels || ['No Data'],
             datasets: [{
-                data: data.values,
+                data: data.values || [0],
                 backgroundColor: ['#3fb950', '#d29922', '#f85149', '#8b949e'],
                 borderColor: '#21262d',
                 borderWidth: 2
@@ -858,12 +1630,14 @@ function createStatusChart(data) {
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
             plugins: {
                 legend: {
                     position: 'bottom',
                     labels: {
                         color: '#f0f6fc',
-                        padding: 20
+                        padding: 20,
+                        usePointStyle: true
                     }
                 }
             }
@@ -871,15 +1645,35 @@ function createStatusChart(data) {
     });
 }
 
+// Add resize handler for charts
+function handleChartResize() {
+    Object.values(window.charts || {}).forEach(chart => {
+        if (chart && typeof chart.resize === 'function') {
+            chart.resize();
+        }
+    });
+}
+
+// Add resize event listener
+window.addEventListener('resize', handleChartResize);
+
 // User Management
 async function loadUsers() {
+    // Don't check permissions here - let role-based filtering handle access
+    // This function is called by other sections that operators need access to
+    
     try {
         const response = await fetch(`${API_BASE}?action=users`);
         const data = await response.json();
         
         if (data.success) {
-            currentData.users = data.users;
-            renderUsersTable();
+            // Filter users based on permissions
+            currentData.users = filterDataByPermissions(data.users, 'users');
+            
+            // Only render the users table if we're actually on the users section
+            if (document.getElementById('users').classList.contains('active')) {
+                renderUsersTable();
+            }
         }
     } catch (error) {
         console.error('Users load error:', error);
@@ -896,6 +1690,7 @@ function renderUsersTable() {
     filteredUsers.forEach(user => {
         // Convert is_active to boolean for consistent checking
         const isActive = user.is_active == 1 || user.is_active === true || user.is_active === 'true';
+        const managerInfo = user.manager_name ? `${user.manager_name} (${user.manager_role})` : 'No Manager';
         
         const row = tbody.insertRow();
         row.innerHTML = `
@@ -904,6 +1699,7 @@ function renderUsersTable() {
             <td>${user.full_name}</td>
             <td>${user.email}</td>
             <td><span class="status-badge">${user.role}</span></td>
+            <td>${managerInfo}</td>
             <td><span class="status-badge ${isActive ? 'status-active' : 'status-inactive'}">${isActive ? 'Active' : 'Inactive'}</span></td>
             <td>${formatDate(user.last_login)}</td>
             <td>
@@ -921,7 +1717,7 @@ function renderUsersTable() {
     // Add no results message if needed
     if (filteredUsers.length === 0) {
         const row = tbody.insertRow();
-        row.innerHTML = `<td colspan="8" style="text-align: center; color: var(--text-secondary); font-style: italic; padding: 40px;">No results found</td>`;
+        row.innerHTML = `<td colspan="9" style="text-align: center; color: var(--text-secondary); font-style: italic; padding: 40px;">No results found</td>`;
     }
 }
 
@@ -987,10 +1783,34 @@ function filterUsers() {
     return filtered;
 }
 
-function showUserModal(userId = null) {
+async function loadManagersList() {
+    try {
+        const response = await fetch(`${API_BASE}?action=managers_list`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const managerSelect = document.getElementById('userManager');
+            managerSelect.innerHTML = '<option value="">No Manager</option>';
+            
+            data.managers.forEach(manager => {
+                const option = document.createElement('option');
+                option.value = manager.id;
+                option.textContent = `${manager.full_name} (${manager.role})`;
+                managerSelect.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Load managers error:', error);
+    }
+}
+
+async function showUserModal(userId = null) {
     currentEditingUser = userId;
     const modal = document.getElementById('userModal');
     const title = document.getElementById('userModalTitle');
+    
+    // Load managers list
+    await loadManagersList();
     
     if (userId) {
         const user = currentData.users.find(u => u.id === userId);
@@ -1004,6 +1824,7 @@ function showUserModal(userId = null) {
         document.getElementById('userFullName').value = user.full_name;
         document.getElementById('userEmail').value = user.email;
         document.getElementById('userRole').value = user.role;
+        document.getElementById('userManager').value = user.manager_id || '';
         document.getElementById('userStatus').value = user.is_active;
         document.getElementById('userPassword').value = '';
         document.getElementById('userPassword').placeholder = 'Leave blank to keep current password';
@@ -1011,18 +1832,29 @@ function showUserModal(userId = null) {
         title.textContent = 'Add New User';
         document.getElementById('userForm').reset();
         document.getElementById('userPassword').placeholder = 'Enter password';
+        document.getElementById('userManager').value = '';
     }
     
     modal.style.display = 'block';
 }
 
 function closeUserModal() {
-    document.getElementById('userModal').style.display = 'none';
+    document.getElementById('userModal').setAttribute('style', 'display:none !important');
     currentEditingUser = null;
 }
 
 function editUser(userId) {
-    showUserModal(userId);
+    // Convert userId to number for comparison
+    const userIdNum = parseInt(userId);
+    const user = currentData.users.find(u => parseInt(u.id) === userIdNum);
+    
+    if (!user) {
+        showAlert('User not found', 'danger');
+        console.error('User not found. Available users:', currentData.users.map(u => ({id: u.id, username: u.username})));
+        return;
+    }
+    
+    showUserModal(userIdNum);
 }
 
 async function deleteUser(userId) {
@@ -1060,44 +1892,84 @@ async function deleteUser(userId) {
 
 async function resetPassword(userId) {
     const user = currentData.users.find(u => u.id === userId);
-    showConfirmModal(
-        `Reset password for user "${user.full_name}"? A new temporary password will be generated.`,
-        async () => {
-            try {
-                const response = await fetch(API_BASE, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'reset_password',
-                        user_id: userId
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    showAlert(`Password reset! New password: ${data.new_password}`, 'info');
-                } else {
-                    showAlert('Error resetting password: ' + data.message, 'danger');
-                }
-            } catch (error) {
-                console.error('Reset password error:', error);
-                showAlert('Error resetting password', 'danger');
-            }
+    
+    // Create custom password input modal
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'block';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Reset Password for ${user.full_name}</h3>
+                <button class="close-btn" onclick="this.remove()">&times;</button>
+            </div>
+            <form id="resetPasswordForm">
+                <div class="form-group">
+                    <label class="form-label">New Password:</label>
+                    <input type="password" id="newPassword" class="form-input" required minlength="8">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Confirm Password:</label>
+                    <input type="password" id="confirmPassword" class="form-input" required>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="this.closest('.modal').remove()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Reset Password</button>
+                </div>
+            </form>
+        </div>
+    `;
+    
+    modal.querySelector('#resetPasswordForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        
+        if (newPassword !== confirmPassword) {
+            showAlert('Passwords do not match', 'danger');
+            return;
         }
-    );
+        
+        try {
+            const response = await fetch(API_BASE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'reset_password',
+                    user_id: userId,
+                    new_password: newPassword
+                })
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                showAlert('Password reset successfully!', 'success');
+                modal.remove();
+            } else {
+                showAlert('Error resetting password: ' + data.message, 'danger');
+            }
+        } catch (error) {
+            showAlert('Error resetting password', 'danger');
+        }
+    });
+    
+    document.body.appendChild(modal);
 }
 
 // Session Management
 async function loadSessions() {
+    if (!hasPermission('sessions')) {
+        showAlert('Access denied', 'danger');
+        return;
+    }
+    
     try {
         const response = await fetch(`${API_BASE}?action=sessions`);
         const data = await response.json();
         
         if (data.success) {
-            currentData.sessions = data.sessions;
+            // Filter sessions based on permissions
+            currentData.sessions = filterDataByPermissions(data.sessions, 'sessions');
             populateSessionFilters();
             renderSessionsTable();
         }
@@ -1126,29 +1998,58 @@ function renderSessionsTable() {
     let filteredSessions = filterSessions();
     
     filteredSessions.forEach(session => {
-        const user = currentData.users.find(u => u.id === session.user_id);
+        // Ensure we have users data loaded and find the correct user
+        let user = currentData.users.find(u => parseInt(u.id) === parseInt(session.user_id));
+        
+        // If user not found in current data, try to get it from the session data itself
+        if (!user && session.user_name) {
+            user = { full_name: session.user_name };
+        }
+        
+        const userName = user ? user.full_name : `Unknown User (ID: ${session.user_id})`;
         const duration = calculateDuration(session.start_time, session.end_time);
-        // Convert to boolean more explicitly
         const hasGrade = session.has_feedback === 1 || session.has_feedback === true;
+        
+        // Determine what buttons to show based on permissions
+        const canView = canViewSession(session.session_id);
+        const canGrade = canGradeSession(session.session_id);
+        const canDelete = canDeleteSession(session.session_id);
+        
+        let actionButtons = '';
+        
+        if (canView) {
+            actionButtons += `<button class="btn btn-secondary btn-small" onclick="viewSessionDetailPage('${session.session_id}')">View</button>`;
+            
+            if (hasGrade) {
+                actionButtons += `<button class="btn btn-primary btn-small" onclick="viewGradePage('${session.session_id}')">View Grade</button>`;
+            }
+        }
+        
+        if (canGrade && !hasGrade) {
+            actionButtons += `<button class="btn btn-primary btn-small" onclick="gradeSession('${session.session_id}')">Grade</button>`;
+        } else if (canGrade && hasGrade) {
+            actionButtons += `<button class="btn btn-warning btn-small" onclick="gradeSession('${session.session_id}')">Edit Grade</button>`;
+        }
+        
+        if (canDelete) {
+            actionButtons += `<button class="btn btn-danger btn-small" onclick="deleteSession('${session.session_id}')">Delete</button>`;
+        }
+        
+        if (!actionButtons) {
+            actionButtons = '<span style="color: var(--text-secondary); font-style: italic;">No actions available</span>';
+        }
         
         const row = tbody.insertRow();
         row.innerHTML = `
             <td>${session.session_id}</td>
-            <td>${user ? user.full_name : 'Unknown'}</td>
+            <td>${userName}</td>
             <td>${session.hostname}</td>
             <td>${formatDate(session.start_time)}</td>
             <td>${duration}</td>
             <td>${session.total_commands}</td>
             <td><span class="status-badge status-${session.status}">${session.status}</span></td>
             <td>${hasGrade ? '<span class="status-badge status-graded">Graded</span>' : '<span class="status-badge status-ungraded">Ungraded</span>'}</td>
-            <td>
-                <button class="btn btn-secondary btn-small" onclick="viewSessionDetailPage('${session.session_id}')">View</button>
-                ${hasGrade ? 
-                    `<button class="btn btn-primary btn-small" onclick="viewGradePage('${session.session_id}')">View Grade</button>` :
-                    `<button class="btn btn-primary btn-small" onclick="gradeSession('${session.session_id}')">Grade</button>`
-                }
-                <button class="btn btn-danger btn-small" onclick="deleteSession('${session.session_id}')">Delete</button>
-            </td>
+            <td>${actionButtons}</td>
         `;
     });
 
@@ -1296,7 +2197,7 @@ function toggleOutput(index) {
 }
 
 function closeSessionModal() {
-    document.getElementById('sessionModal').style.display = 'none';
+    document.getElementById('sessionModal').setAttribute('style', 'display:none !important');
 }
 
 async function deleteSession(sessionId) {
@@ -1333,23 +2234,65 @@ async function deleteSession(sessionId) {
 
 // Feedback and Grading
 async function loadFeedback() {
+    if (!hasPermission('feedback')) {
+        showAlert('Access denied', 'danger');
+        return;
+    }
+    
     await loadUsers(); // Ensure users are loaded for the dropdowns
     populateGradingFilters();
+    
+    // For operators, auto-select their own user and load their sessions
+    if (currentUser && currentUser.role === 'operator') {
+        document.getElementById('gradingUserFilter').value = currentUser.id;
+        document.getElementById('gradingUserFilter').disabled = true; // Disable since they can only see their own
+        await loadUserSessions();
+        
+        // Show message about viewing own grades
+        document.getElementById('gradingContent').innerHTML = `
+            <div class="operator-feedback-info">
+                <div class="info-card">
+                    <h4>📚 Your Learning Progress</h4>
+                    <p>Here you can view your session grades and feedback from instructors.</p>
+                    <p>Select a session from the dropdown above to view detailed feedback.</p>
+                </div>
+            </div>
+        `;
+    }
 }
 
 function populateGradingFilters() {
     const userFilter = document.getElementById('gradingUserFilter');
     userFilter.innerHTML = '<option value="">Select User</option>';
     
-    currentData.users.filter(u => u.role === 'operator' || u.role === 'admin').forEach(user => {
+    let usersToShow = [];
+    
+    if (currentUser.role === 'operator') {
+        // Operators can only see themselves
+        usersToShow = [currentUser];
+    } else if (currentUser.role === 'manager') {
+        // Managers see operators and themselves
+        usersToShow = currentData.users.filter(u => u.role === 'operator' || u.id == currentUser.id);
+    } else {
+        // Admins see everyone (except other admins for grading purposes)
+        usersToShow = currentData.users.filter(u => u.role === 'operator' || u.role === 'manager');
+    }
+    
+    usersToShow.forEach(user => {
         const option = document.createElement('option');
         option.value = user.id;
-        option.textContent = user.full_name;
+        option.textContent = user.full_name + (user.id == currentUser.id ? ' (You)' : '');
         userFilter.appendChild(option);
     });
 }
 
 function gradeSession(sessionId) {
+    // Check if user can grade this session
+    if (!canGradeSession(sessionId)) {
+        showAlert('Access denied: You cannot grade sessions', 'danger');
+        return;
+    }
+    
     // Store the session ID for potential use after saving
     window.currentGradingSessionId = sessionId;
     
@@ -1391,10 +2334,32 @@ async function loadUserSessions() {
 
 async function loadGradingContent(sessionId) {
     if (!sessionId) {
-        document.getElementById('gradingContent').innerHTML = '<p>Select a user and session to begin grading.</p>';
+        if (currentUser.role === 'operator') {
+            document.getElementById('gradingContent').innerHTML = `
+                <div class="operator-feedback-info">
+                    <div class="info-card">
+                        <h4>📚 Your Learning Progress</h4>
+                        <p>Select a session from the dropdown above to view your grades and feedback.</p>
+                    </div>
+                </div>
+            `;
+        } else {
+            document.getElementById('gradingContent').innerHTML = '<p>Select a user and session to begin grading.</p>';
+        }
         return;
     }
     
+    // Check if operator is trying to access their own session
+    if (currentUser.role === 'operator') {
+        const response = await fetch(`${API_BASE}?action=session_detail&session_id=${sessionId}`);
+        const data = await response.json();
+        if (data.success && data.session.user_id != currentUser.id) {
+            showAlert('Access denied: You can only view your own sessions', 'danger');
+            return;
+        }
+    }
+    
+    // Rest of the existing loadGradingContent function...
     try {
         const response = await fetch(`${API_BASE}?action=grading_data&session_id=${sessionId}`);
         const data = await response.json();
@@ -1406,10 +2371,9 @@ async function loadGradingContent(sessionId) {
             const conversations = data.conversations || [];
             const existingFeedback = data.feedback;
             
-            // Create chronological timeline
+            // Create timeline as before...
             const timeline = [];
             
-            // Add commands to timeline
             commands.forEach(cmd => {
                 timeline.push({
                     type: 'command',
@@ -1418,7 +2382,6 @@ async function loadGradingContent(sessionId) {
                 });
             });
             
-            // Add conversations to timeline
             conversations.forEach(conv => {
                 timeline.push({
                     type: 'conversation',
@@ -1427,19 +2390,41 @@ async function loadGradingContent(sessionId) {
                 });
             });
             
-            // Sort by timestamp
             timeline.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            
+            const isOperatorViewing = currentUser.role === 'operator';
+            const canGrade = !isOperatorViewing; // Only non-operators can grade
             
             const content = `
                 <div class="grading-form">
-                    <h3>Grading Session: ${sessionId}</h3>
-                    <p><strong>Student:</strong> ${user ? user.full_name : 'Unknown'}</p>
+                    <h3>${isOperatorViewing ? 'Viewing' : 'Grading'} Session: ${sessionId}</h3>
+                    <p><strong>${isOperatorViewing ? 'Your Session' : 'Student'}:</strong> ${user ? user.full_name : 'Unknown'}</p>
                     <p><strong>Session Date:</strong> ${formatDate(session.start_time)}</p>
                     <p><strong>Commands Executed:</strong> ${commands.length}</p>
                     <p><strong>Chat Interactions:</strong> ${conversations.length}</p>
                     
+                    ${existingFeedback && isOperatorViewing ? `
+                        <div class="feedback-display">
+                            <h4>📊 Your Grade</h4>
+                            <div class="grade-summary">
+                                <div class="grade-item">
+                                    <span class="grade-label">Overall Score:</span>
+                                    <span class="grade-value">${existingFeedback.overall_score}/100</span>
+                                </div>
+                                <div class="grade-item">
+                                    <span class="grade-label">Rating:</span>
+                                    <span class="grade-value">${'★'.repeat(existingFeedback.rating)}${'☆'.repeat(5-existingFeedback.rating)}</span>
+                                </div>
+                                <div class="grade-item">
+                                    <span class="grade-label">Instructor Feedback:</span>
+                                    <span class="grade-value">${existingFeedback.instructor_feedback}</span>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+                    
                     <div class="grading-timeline">
-                        <h4>Session Timeline (Commands & Conversations)</h4>
+                        <h4>${isOperatorViewing ? 'Your Session Timeline' : 'Session Timeline (Commands & Conversations)'}</h4>
                         ${timeline.map(item => {
                             if (item.type === 'command') {
                                 return `
@@ -1455,12 +2440,20 @@ async function loadGradingContent(sessionId) {
                                                     <pre>${item.data.output}</pre>
                                                 </div>
                                             ` : ''}
-                                            <div class="form-group">
-                                                <label class="form-label">Feedback for this command:</label>
-                                                <input type="text" class="form-input" id="cmd_${item.data.id}" 
-                                                       value="${existingFeedback?.command_feedback?.[item.data.command] || ''}" 
-                                                       placeholder="Enter feedback for this command">
-                                            </div>
+                                            ${existingFeedback?.command_feedback?.[item.data.command] ? `
+                                                <div class="instructor-feedback">
+                                                    <strong>💬 Instructor Feedback:</strong>
+                                                    <p>${existingFeedback.command_feedback[item.data.command]}</p>
+                                                </div>
+                                            ` : ''}
+                                            ${canGrade ? `
+                                                <div class="form-group">
+                                                    <label class="form-label">Feedback for this command:</label>
+                                                    <input type="text" class="form-input" id="cmd_${item.data.id}" 
+                                                           value="${existingFeedback?.command_feedback?.[item.data.command] || ''}" 
+                                                           placeholder="Enter feedback for this command">
+                                                </div>
+                                            ` : ''}
                                         </div>
                                     </div>
                                 `;
@@ -1469,7 +2462,7 @@ async function loadGradingContent(sessionId) {
                                     <div class="grading-timeline-item conversation-item">
                                         <div class="timeline-time">${formatDate(item.timestamp)}</div>
                                         <div class="timeline-content">
-                                            <h5>${item.data.message_type === 'user' ? 'Student Question' : 'Bot Response'}</h5>
+                                            <h5>${item.data.message_type === 'user' ? (isOperatorViewing ? 'Your Question' : 'Student Question') : 'Bot Response'}</h5>
                                             <div class="chat-message ${item.data.message_type}">
                                                 ${item.data.message}
                                             </div>
@@ -1480,35 +2473,37 @@ async function loadGradingContent(sessionId) {
                         }).join('')}
                     </div>
                     
-                    <div class="feedback-section">
-                        <h4>Overall Session Grading</h4>
-                        <div class="grade-input">
-                            <label class="form-label">Overall Score (0-100):</label>
-                            <input type="number" id="overallScore" class="form-input" min="0" max="100" 
-                                value="${existingFeedback?.overall_score || ''}" style="width: 100px;"
-                                oninput="this.value = Math.max(0, Math.min(100, this.value))">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">Overall Rating:</label>
-                            <div class="rating-stars" id="ratingStars">
-                                ${[1,2,3,4,5].map(i => 
-                                    `<span class="star ${(existingFeedback?.rating >= i) ? 'active' : ''}" 
-                                           onclick="setRating(${i})">★</span>`
-                                ).join('')}
+                    ${canGrade ? `
+                        <div class="feedback-section">
+                            <h4>Overall Session Grading</h4>
+                            <div class="grade-input">
+                                <label class="form-label">Overall Score (0-100):</label>
+                                <input type="number" id="overallScore" class="form-input" min="0" max="100" 
+                                    value="${existingFeedback?.overall_score || ''}" style="width: 100px;"
+                                    oninput="this.value = Math.max(0, Math.min(100, this.value))">
                             </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Overall Rating:</label>
+                                <div class="rating-stars" id="ratingStars">
+                                    ${[1,2,3,4,5].map(i => 
+                                        `<span class="star ${(existingFeedback?.rating >= i) ? 'active' : ''}" 
+                                               onclick="setRating(${i})">★</span>`
+                                    ).join('')}
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Instructor Feedback:</label>
+                                <textarea class="form-input" id="instructorFeedback" rows="4" 
+                                          placeholder="Provide overall feedback for the student">${existingFeedback?.instructor_feedback || ''}</textarea>
+                            </div>
+                            
+                            <button class="btn btn-primary" onclick="saveFeedback('${sessionId}')">
+                                ${existingFeedback ? 'Update' : 'Save'} Feedback
+                            </button>
                         </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">Instructor Feedback:</label>
-                            <textarea class="form-input" id="instructorFeedback" rows="4" 
-                                      placeholder="Provide overall feedback for the student">${existingFeedback?.instructor_feedback || ''}</textarea>
-                        </div>
-                        
-                        <button class="btn btn-primary" onclick="saveFeedback('${sessionId}')">
-                            ${existingFeedback ? 'Update' : 'Save'} Feedback
-                        </button>
-                    </div>
+                    ` : ''}
                 </div>
             `;
             
@@ -1591,27 +2586,56 @@ async function saveFeedback(sessionId) {
 
 // Reports and Analytics
 async function loadReports() {
+    if (!hasPermission('reports')) {
+        showAlert('Access denied', 'danger');
+        return;
+    }
+    
     try {
-        const response = await fetch(`${API_BASE}?action=reports`);
+        const startDate = document.getElementById('reportStartDate').value || getDefaultStartDate();
+        const endDate = document.getElementById('reportEndDate').value || getDefaultEndDate();
+        const userRole = document.getElementById('userRoleFilter').value || '';
+        
+        const params = new URLSearchParams({
+            start_date: startDate,
+            end_date: endDate,
+            user_role: userRole
+        });
+        
+        const response = await fetch(`${API_BASE}?action=reports&${params}`);
         const data = await response.json();
         
         if (data.success) {
-            updateReportStats(data.stats);
-            createCommandUsageChart(data.charts.command_usage);
-            createDurationChart(data.charts.duration);
+            currentReportData = data;
+            updateOverviewStats(data.stats);
+            createAllCharts(data.charts);
+            loadDetailedReports();
+        } else {
+            showAlert('Error loading reports: ' + (data.message || 'Unknown error'), 'danger');
         }
     } catch (error) {
         console.error('Reports load error:', error);
-        showAlert('Error loading reports', 'danger');
+        showAlert('Error loading reports: ' + error.message, 'danger');
     }
 }
 
 function updateReportStats(stats) {
-    document.getElementById('reportTotalSessions').textContent = stats.total_sessions;
-    document.getElementById('reportAvgDuration').textContent = stats.avg_duration;
-    document.getElementById('reportTopCommand').textContent = stats.top_command;
-    document.getElementById('reportCompletionRate').textContent = stats.completion_rate + '%';
+    // Safely update stats elements if they exist
+    const elements = {
+        'totalSessions': stats.total_sessions,
+        'avgDuration': stats.avg_duration,
+        'topCommand': stats.top_command,
+        'completionRate': stats.completion_rate + '%'
+    };
+    
+    Object.entries(elements).forEach(([id, value]) => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.textContent = value;
+        }
+    });
 }
+
 
 function createCommandUsageChart(data) {
     // Destroy existing chart if it exists
@@ -1619,14 +2643,20 @@ function createCommandUsageChart(data) {
         charts.commandUsage.destroy();
     }
     
-    const ctx = document.getElementById('commandUsageChart').getContext('2d');
+    const canvas = document.getElementById('commandUsageChart');
+    if (!canvas) {
+        console.warn('Command usage chart canvas not found');
+        return;
+    }
+    
+    const ctx = canvas.getContext('2d');
     charts.commandUsage = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: data.labels,
+            labels: data.labels || ['No Data'],
             datasets: [{
                 label: 'Usage Count',
-                data: data.values,
+                data: data.values || [0],
                 backgroundColor: [
                     '#58a6ff', '#a9a7ff', '#3fb950', '#d29922', 
                     '#f85149', '#17a2b8', '#8b949e'
@@ -1671,14 +2701,20 @@ function createDurationChart(data) {
         charts.duration.destroy();
     }
     
-    const ctx = document.getElementById('durationChart').getContext('2d');
+    const canvas = document.getElementById('durationChart');
+    if (!canvas) {
+        console.warn('Duration chart canvas not found');
+        return;
+    }
+    
+    const ctx = canvas.getContext('2d');
     charts.duration = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: data.labels,
+            labels: data.labels || ['No Data'],
             datasets: [{
                 label: 'Session Count',
-                data: data.values,
+                data: data.values || [0],
                 backgroundColor: '#58a6ff',
                 borderColor: '#a9a7ff',
                 borderWidth: 1
@@ -1714,6 +2750,7 @@ function createDurationChart(data) {
     });
 }
 
+
 // Session Detail Page View
 async function viewSessionDetailPage(sessionId) {
     try {
@@ -1722,6 +2759,13 @@ async function viewSessionDetailPage(sessionId) {
         
         if (data.success) {
             const session = data.session;
+            
+            // Check if user can access this session based on role
+            if (!canAccessSession(session)) {
+                showAlert('Access denied: You can only view your own sessions', 'danger');
+                return;
+            }
+            
             const user = currentData.users.find(u => u.id === session.user_id);
             const commands = data.commands;
             const conversations = data.conversations || [];
@@ -1750,11 +2794,14 @@ async function viewSessionDetailPage(sessionId) {
             // Sort by timestamp
             timeline.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
             
+            const isOwnSession = currentUser && session.user_id == currentUser.id;
+            const viewerLabel = isOwnSession ? 'Your' : (user ? user.full_name + "'s" : 'Unknown User');
+            
             const content = `
                 <div class="session-info">
-                    <h4>Session Information</h4>
+                    <h4>${viewerLabel} Session Information</h4>
                     <p><strong>Session ID:</strong> ${session.session_id}</p>
-                    <p><strong>User:</strong> ${user ? user.full_name : 'Unknown'}</p>
+                    <p><strong>${isOwnSession ? 'Your Session' : 'User'}:</strong> ${user ? user.full_name : 'Unknown'}</p>
                     <p><strong>Hostname:</strong> ${session.hostname}</p>
                     <p><strong>IP Address:</strong> ${session.ip_address}</p>
                     <p><strong>Start Time:</strong> ${formatDate(session.start_time)}</p>
@@ -1764,7 +2811,7 @@ async function viewSessionDetailPage(sessionId) {
                 </div>
                 
                 <div class="grading-timeline">
-                    <h4>Session Timeline (${timeline.length} Events)</h4>
+                    <h4>${viewerLabel} Session Timeline (${timeline.length} Events)</h4>
                     ${timeline.map(item => {
                         if (item.type === 'command') {
                             return `
@@ -1788,7 +2835,7 @@ async function viewSessionDetailPage(sessionId) {
                                 <div class="grading-timeline-item conversation-item">
                                     <div class="timeline-time">${formatDate(item.timestamp)}</div>
                                     <div class="timeline-content">
-                                        <h5>${item.data.message_type === 'user' ? 'Student Question' : 'Bot Response'}</h5>
+                                        <h5>${item.data.message_type === 'user' ? (isOwnSession ? 'Your Question' : 'Student Question') : 'Bot Response'}</h5>
                                         <div class="chat-message ${item.data.message_type}">
                                             ${item.data.message}
                                         </div>
@@ -1800,12 +2847,19 @@ async function viewSessionDetailPage(sessionId) {
                 </div>
             `;
             
-            document.getElementById('sessionViewTitle').textContent = `Session: ${sessionId}`;
+            document.getElementById('sessionViewTitle').textContent = `${viewerLabel} Session: ${sessionId}`;
             document.getElementById('sessionViewContent').innerHTML = content;
             
-            // Set up export buttons
-            document.getElementById('sessionExportPDF').onclick = () => exportSessionDetail(sessionId, 'pdf');
-            document.getElementById('sessionExportExcel').onclick = () => exportSessionDetail(sessionId, 'excel');
+            // Set up export buttons (only show for admins and managers)
+            if (currentUser.role !== 'operator') {
+                document.getElementById('sessionExportPDF').onclick = () => exportSessionDetail(sessionId, 'pdf');
+                document.getElementById('sessionExportExcel').onclick = () => exportSessionDetail(sessionId, 'excel');
+                document.getElementById('sessionExportPDF').style.display = 'inline-block';
+                document.getElementById('sessionExportExcel').style.display = 'inline-block';
+            } else {
+                document.getElementById('sessionExportPDF').style.display = 'none';
+                document.getElementById('sessionExportExcel').style.display = 'none';
+            }
             
             // Show session view
             showSection('sessionView');
@@ -1824,10 +2878,20 @@ async function viewGradePage(sessionId) {
         
         if (data.success) {
             const session = data.session;
+            
+            // Check if user can access this session based on role
+            if (!canAccessSession(session)) {
+                showAlert('Access denied: You can only view your own grades', 'danger');
+                return;
+            }
+            
             const user = currentData.users.find(u => u.id === session.user_id);
             const commands = data.commands;
             const conversations = data.conversations || [];
             const feedback = data.feedback;
+            
+            const isOwnSession = currentUser && session.user_id == currentUser.id;
+            const viewerLabel = isOwnSession ? 'Your' : (user ? user.full_name + "'s" : 'Unknown User');
             
             // Create chronological timeline
             const timeline = [];
@@ -1855,25 +2919,51 @@ async function viewGradePage(sessionId) {
             
             const content = `
                 <div class="session-info">
-                    <h4>Session Information</h4>
+                    <h4>${viewerLabel} Session Information</h4>
                     <p><strong>Session ID:</strong> ${session.session_id}</p>
-                    <p><strong>Student:</strong> ${user ? user.full_name : 'Unknown'}</p>
+                    <p><strong>${isOwnSession ? 'Your Session' : 'Student'}:</strong> ${user ? user.full_name : 'Unknown'}</p>
                     <p><strong>Session Date:</strong> ${formatDate(session.start_time)}</p>
                     <p><strong>Commands Executed:</strong> ${commands.length}</p>
                     <p><strong>Chat Interactions:</strong> ${conversations.length}</p>
                 </div>
                 
-                <div class="feedback-display">
-                    <h4>Grade Information</h4>
-                    <p><strong>Overall Score:</strong> ${feedback?.overall_score || 'Not scored'}/100</p>
-                    <p><strong>Rating:</strong> ${feedback?.rating ? '★'.repeat(feedback.rating) + '☆'.repeat(5-feedback.rating) : 'Not rated'}</p>
-                    <p><strong>Instructor Feedback:</strong> ${feedback?.instructor_feedback || 'No feedback provided'}</p>
-                    <p><strong>Graded by:</strong> ${currentData.users.find(u => u.id === feedback?.graded_by)?.full_name || 'Unknown'}</p>
-                    <p><strong>Graded on:</strong> ${feedback?.graded_at ? formatDate(feedback.graded_at) : 'Not graded'}</p>
-                </div>
+                ${feedback ? `
+                    <div class="feedback-display">
+                        <h4>${isOwnSession ? '🎓 Your Grade Information' : '📊 Grade Information'}</h4>
+                        <div class="grade-summary">
+                            <div class="grade-item">
+                                <span class="grade-label">Overall Score:</span>
+                                <span class="grade-value">${feedback.overall_score}/100</span>
+                            </div>
+                            <div class="grade-item">
+                                <span class="grade-label">Rating:</span>
+                                <span class="grade-value">${feedback.rating ? '★'.repeat(feedback.rating) + '☆'.repeat(5-feedback.rating) : 'Not rated'}</span>
+                            </div>
+                            <div class="grade-item">
+                                <span class="grade-label">Instructor Feedback:</span>
+                                <span class="grade-value">${feedback.instructor_feedback || 'No feedback provided'}</span>
+                            </div>
+                            <div class="grade-item">
+                                <span class="grade-label">Graded by:</span>
+                                <span class="grade-value">${currentData.users.find(u => u.id === feedback.graded_by)?.full_name || 'Unknown'}</span>
+                            </div>
+                            <div class="grade-item">
+                                <span class="grade-label">Graded on:</span>
+                                <span class="grade-value">${feedback.graded_at ? formatDate(feedback.graded_at) : 'Not graded'}</span>
+                            </div>
+                        </div>
+                    </div>
+                ` : `
+                    <div class="feedback-display">
+                        <h4>${isOwnSession ? '📝 Your Session Status' : '📝 Session Status'}</h4>
+                        <p style="text-align: center; color: var(--accent-yellow); font-style: italic;">
+                            ${isOwnSession ? 'Your session has not been graded yet.' : 'This session has not been graded yet.'}
+                        </p>
+                    </div>
+                `}
                 
                 <div class="grading-timeline">
-                    <h4>Session Timeline with Grades</h4>
+                    <h4>${viewerLabel} Session Timeline with ${feedback ? 'Feedback' : 'Activity'}</h4>
                     ${timeline.map(item => {
                         if (item.type === 'command') {
                             const commandFeedback = feedback?.command_feedback?.[item.data.command] || '';
@@ -1891,16 +2981,17 @@ async function viewGradePage(sessionId) {
                                             </div>
                                         ` : ''}
                                         ${commandFeedback ? `
-                                            <div class="feedback-display" style="margin-top: 10px; background: rgba(63, 185, 80, 0.05);">
-                                                <strong>Instructor Feedback:</strong> ${commandFeedback}
+                                            <div class="instructor-feedback">
+                                                <strong>💬 Instructor Feedback:</strong>
+                                                <p>${commandFeedback}</p>
                                             </div>
                                         ` : ''}
-                                        <div class="form-group" style="display: none;" id="edit-cmd-${item.data.id}">
-                                            <label class="form-label">Edit feedback for this command:</label>
-                                            <input type="text" class="form-input" id="edit-input-${item.data.id}" 
-                                                   value="${commandFeedback}" 
-                                                   placeholder="Enter feedback for this command">
-                                        </div>
+                                        ${!commandFeedback && feedback ? `
+                                            <div class="instructor-feedback" style="opacity: 0.6;">
+                                                <strong>💬 Instructor Feedback:</strong>
+                                                <p><em>No specific feedback for this command</em></p>
+                                            </div>
+                                        ` : ''}
                                     </div>
                                 </div>
                             `;
@@ -1909,7 +3000,7 @@ async function viewGradePage(sessionId) {
                                 <div class="grading-timeline-item conversation-item">
                                     <div class="timeline-time">${formatDate(item.timestamp)}</div>
                                     <div class="timeline-content">
-                                        <h5>${item.data.message_type === 'user' ? 'Student Question' : 'Bot Response'}</h5>
+                                        <h5>${item.data.message_type === 'user' ? (isOwnSession ? 'Your Question' : 'Student Question') : 'Bot Response'}</h5>
                                         <div class="chat-message ${item.data.message_type}">
                                             ${item.data.message}
                                         </div>
@@ -1919,39 +3010,20 @@ async function viewGradePage(sessionId) {
                         }
                     }).join('')}
                 </div>
-                
-                <div class="feedback-section" style="display: none;" id="editGradeSection">
-                    <h4>Edit Overall Grade</h4>
-                    <div class="grade-input">
-                        <label class="form-label">Overall Score (0-100):</label>
-                        <input type="number" id="editOverallScore" class="form-input" min="0" max="100" 
-                               value="${feedback?.overall_score || ''}" style="width: 100px;"
-                               oninput="this.value = Math.max(0, Math.min(100, this.value))">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Overall Rating:</label>
-                        <div class="rating-stars" id="editRatingStars">
-                            ${[1,2,3,4,5].map(i => 
-                                `<span class="star ${(feedback?.rating >= i) ? 'active' : ''}" 
-                                       onclick="setEditRating(${i})">★</span>`
-                            ).join('')}
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Instructor Feedback:</label>
-                        <textarea class="form-input" id="editInstructorFeedback" rows="4" 
-                                  placeholder="Provide overall feedback for the student">${feedback?.instructor_feedback || ''}</textarea>
-                    </div>
-                </div>
             `;
             
-            document.getElementById('gradeViewTitle').textContent = `Grade: ${sessionId}`;
+            document.getElementById('gradeViewTitle').textContent = `${viewerLabel} Grade: ${sessionId}`;
             document.getElementById('gradeViewContent').innerHTML = content;
-            document.getElementById('gradeEditControls').style.display = 'block';
             
-            // Store session ID for editing
+            // Only show edit controls for users who can grade (not operators)
+            const editControls = document.getElementById('gradeEditControls');
+            if (canGradeSession(sessionId)) {
+                editControls.style.display = 'block';
+            } else {
+                editControls.style.display = 'none';
+            }
+            
+            // Store session ID for editing (only relevant for graders)
             window.currentEditingSessionId = sessionId;
             
             // Show grade view
@@ -1968,7 +3040,7 @@ function enableGradeEditing() {
     // Show edit controls
     document.getElementById('saveGradeBtn').style.display = 'inline-block';
     document.getElementById('cancelGradeBtn').style.display = 'inline-block';
-    document.querySelector('[onclick="enableGradeEditing()"]').style.display = 'none';
+    document.querySelector('[onclick="enableGradeEditing()"]').setAttribute('style', 'display:none !important');
     
     // Show edit section
     document.getElementById('editGradeSection').style.display = 'block';
@@ -1981,16 +3053,16 @@ function enableGradeEditing() {
 
 function cancelGradeEditing() {
     // Hide edit controls
-    document.getElementById('saveGradeBtn').style.display = 'none';
-    document.getElementById('cancelGradeBtn').style.display = 'none';
+    document.getElementById('saveGradeBtn').setAttribute('style', 'display:none !important');
+    document.getElementById('cancelGradeBtn').setAttribute('style', 'display:none !important');
     document.querySelector('[onclick="enableGradeEditing()"]').style.display = 'inline-block';
     
     // Hide edit section
-    document.getElementById('editGradeSection').style.display = 'none';
+    document.getElementById('editGradeSection').setAttribute('style', 'display:none !important');
     
     // Hide command feedback edit inputs
     document.querySelectorAll('[id^="edit-cmd-"]').forEach(el => {
-        el.style.display = 'none';
+        el.setAttribute('style', 'display:none !important');
     });
 }
 
@@ -2060,4 +3132,406 @@ async function saveGradeEdits() {
 
 function backToSessions() {
     showSection('sessions');
+}
+
+function togglePassword() {
+    const passwordInput = document.getElementById('password');
+    const toggleIcon = document.getElementById('passwordToggleIcon');
+    
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        toggleIcon.classList.remove('fa-eye');
+        toggleIcon.classList.add('fa-eye-slash');
+    } else {
+        passwordInput.type = 'password';
+        toggleIcon.classList.remove('fa-eye-slash');
+        toggleIcon.classList.add('fa-eye');
+    }
+}
+
+async function loadProfile() {
+    if (!currentUser) return;
+    
+    // Load user info
+    document.getElementById('profileUserInfo').innerHTML = `
+        <div class="profile-stat">
+            <span class="profile-stat-label">Username:</span>
+            <span class="profile-stat-value">${currentUser.username}</span>
+        </div>
+        <div class="profile-stat">
+            <span class="profile-stat-label">Full Name:</span>
+            <span class="profile-stat-value">${currentUser.full_name}</span>
+        </div>
+        <div class="profile-stat">
+            <span class="profile-stat-label">Email:</span>
+            <span class="profile-stat-value">${currentUser.email}</span>
+        </div>
+        <div class="profile-stat">
+            <span class="profile-stat-label">Role:</span>
+            <span class="profile-stat-value">${currentUser.role}</span>
+        </div>
+        <div class="profile-stat">
+            <span class="profile-stat-label">Last Login:</span>
+            <span class="profile-stat-value">${formatDate(currentUser.last_login)}</span>
+        </div>
+    `;
+    
+    // Load user's sessions
+    await loadUserProfileSessions();
+    await loadUserGrades();
+}
+
+function showChangePasswordModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'block';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Change Password</h3>
+                <button class="close-btn" onclick="this.closest('.modal').remove()">&times;</button>
+            </div>
+            <form id="changePasswordForm">
+                <div class="form-group">
+                    <label class="form-label">Current Password:</label>
+                    <input type="password" id="currentPassword" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">New Password:</label>
+                    <input type="password" id="newPassword" class="form-input" required minlength="8">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Confirm New Password:</label>
+                    <input type="password" id="confirmNewPassword" class="form-input" required>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="this.closest('.modal').remove()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Change Password</button>
+                </div>
+            </form>
+        </div>
+    `;
+    
+    modal.querySelector('#changePasswordForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        // Implementation for password change
+        // Add API endpoint for this
+    });
+    
+    document.body.appendChild(modal);
+}
+
+// Check if current user has permission for specific action
+function hasPermission(action) {
+    if (!window.currentUserPermissions) return false;
+    return window.currentUserPermissions.includes(action);
+}
+
+// Check if user can access specific user data
+function canAccessUserData(targetUserId) {
+    if (!currentUser) return false;
+    
+    const currentUserId = currentUser.id;
+    const currentUserRole = currentUser.role;
+    
+    // Admin can access everything
+    if (currentUserRole === 'admin') return true;
+    
+    // Manager can access operator data and their own
+    if (currentUserRole === 'manager') {
+        if (targetUserId == currentUserId) return true;
+        
+        // Check if target user is an operator
+        const targetUser = currentData.users.find(u => u.id == targetUserId);
+        return targetUser && targetUser.role === 'operator';
+    }
+    
+    // Operator can only access their own data
+    if (currentUserRole === 'operator') {
+        return targetUserId == currentUserId;
+    }
+    
+    return false;
+}
+
+// Check if user can view a specific session
+function canViewSession(sessionId) {
+    if (!currentUser) return false;
+    
+    const session = currentData.sessions.find(s => s.session_id === sessionId);
+    if (!session) return false;
+    
+    const currentUserRole = currentUser.role;
+    const currentUserId = currentUser.id;
+    
+    // Admin can view all sessions
+    if (currentUserRole === 'admin') return true;
+    
+    // Manager can view operator sessions and their own
+    if (currentUserRole === 'manager') {
+        if (session.user_id == currentUserId) return true;
+        
+        const sessionUser = currentData.users.find(u => u.id == session.user_id);
+        return sessionUser && sessionUser.role === 'operator';
+    }
+    
+    // Operator can only view their own sessions
+    if (currentUserRole === 'operator') {
+        return session.user_id == currentUserId;
+    }
+    
+    return false;
+}
+
+// Check if user can grade a session (different from viewing)
+function canGradeSession(sessionId) {
+    if (!currentUser) return false;
+    
+    const session = currentData.sessions.find(s => s.session_id === sessionId);
+    if (!session) return false;
+    
+    const currentUserRole = currentUser.role;
+    const currentUserId = currentUser.id;
+    
+    // Operators cannot grade any sessions (including their own)
+    if (currentUserRole === 'operator') return false;
+    
+    // Admin can grade all sessions
+    if (currentUserRole === 'admin') return true;
+    
+    // Manager can grade operator sessions but not their own
+    if (currentUserRole === 'manager') {
+        if (session.user_id == currentUserId) return false; // Can't grade own session
+        
+        const sessionUser = currentData.users.find(u => u.id == session.user_id);
+        return sessionUser && sessionUser.role === 'operator';
+    }
+    
+    return false;
+}
+
+// Check if user can delete a session
+function canDeleteSession(sessionId) {
+    if (!currentUser) return false;
+    
+    // Only admins can delete sessions
+    return currentUser.role === 'admin';
+}
+
+// Filter data based on user permissions
+function filterDataByPermissions(data, dataType) {
+    if (!currentUser) return [];
+    
+    const role = currentUser.role;
+    const userId = currentUser.id;
+    
+    switch (dataType) {
+        case 'users':
+            if (role === 'admin') return data;
+            if (role === 'manager') return data.filter(u => u.role === 'operator' || u.id == userId);
+            if (role === 'operator') return data.filter(u => u.id == userId); // Operator only sees themselves
+            break;
+            
+        case 'sessions':
+            if (role === 'admin') return data;
+            if (role === 'manager') {
+                // Managers see sessions from operators and their own
+                return data.filter(s => {
+                    const sessionUser = currentData.users.find(u => u.id == s.user_id);
+                    return sessionUser && (sessionUser.role === 'operator' || s.user_id == userId);
+                });
+            }
+            if (role === 'operator') return data.filter(s => s.user_id == userId);
+            break;
+            
+        case 'logs':
+            if (role === 'admin') return data;
+            // Only admins can see logs
+            return [];
+            
+        default:
+            return data;
+    }
+    
+    return [];
+}
+
+// Check if user can view a specific session
+function canViewSession(sessionId) {
+    if (!currentUser) return false;
+    
+    const session = currentData.sessions.find(s => s.session_id === sessionId);
+    if (!session) return false;
+    
+    const currentUserRole = currentUser.role;
+    const currentUserId = currentUser.id;
+    
+    // Admin can view all sessions
+    if (currentUserRole === 'admin') return true;
+    
+    // Manager can view operator sessions and their own
+    if (currentUserRole === 'manager') {
+        if (session.user_id == currentUserId) return true;
+        
+        const sessionUser = currentData.users.find(u => u.id == session.user_id);
+        return sessionUser && sessionUser.role === 'operator';
+    }
+    
+    // Operator can only view their own sessions
+    if (currentUserRole === 'operator') {
+        return session.user_id == currentUserId;
+    }
+    
+    return false;
+}
+
+// Check if user can grade a session (different from viewing)
+function canGradeSession(sessionId) {
+    if (!currentUser) return false;
+    
+    const session = currentData.sessions.find(s => s.session_id === sessionId);
+    if (!session) return false;
+    
+    const currentUserRole = currentUser.role;
+    const currentUserId = currentUser.id;
+    
+    // Operators cannot grade any sessions (including their own)
+    if (currentUserRole === 'operator') return false;
+    
+    // Admin can grade all sessions
+    if (currentUserRole === 'admin') return true;
+    
+    // Manager can grade operator sessions but not their own
+    if (currentUserRole === 'manager') {
+        if (session.user_id == currentUserId) return false; // Can't grade own session
+        
+        const sessionUser = currentData.users.find(u => u.id == session.user_id);
+        return sessionUser && sessionUser.role === 'operator';
+    }
+    
+    return false;
+}
+
+// Check if user can delete a session
+function canDeleteSession(sessionId) {
+    if (!currentUser) return false;
+    
+    // Only admins can delete sessions
+    return currentUser.role === 'admin';
+}
+
+function canAccessSession(session) {
+    if (!currentUser || !session) return false;
+    
+    const currentUserRole = currentUser.role;
+    const currentUserId = currentUser.id;
+    
+    // Admin can access all sessions
+    if (currentUserRole === 'admin') return true;
+    
+    // Manager can access operator sessions and their own
+    if (currentUserRole === 'manager') {
+        if (session.user_id == currentUserId) return true;
+        
+        const sessionUser = currentData.users.find(u => u.id == session.user_id);
+        return sessionUser && sessionUser.role === 'operator';
+    }
+    
+    // Operator can only access their own sessions
+    if (currentUserRole === 'operator') {
+        return session.user_id == currentUserId;
+    }
+    
+    return false;
+}
+
+async function loadUserProfileSessions() {
+    if (!currentUser) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}?action=user_sessions&user_id=${currentUser.id}`);
+        const data = await response.json();
+        
+        if (data.success && data.sessions.length > 0) {
+            const recentSessions = data.sessions.slice(0, 5); // Show last 5 sessions
+            
+            document.getElementById('profileSessions').innerHTML = recentSessions.map(session => `
+                <div class="profile-stat">
+                    <span class="profile-stat-label">${session.session_id}:</span>
+                    <span class="profile-stat-value">${formatDate(session.start_time)}</span>
+                </div>
+            `).join('');
+        } else {
+            document.getElementById('profileSessions').innerHTML = `
+                <div class="profile-stat">
+                    <span class="profile-stat-value" style="text-align: center; width: 100%; font-style: italic; opacity: 0.7;">No sessions found</span>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Load profile sessions error:', error);
+        document.getElementById('profileSessions').innerHTML = `
+            <div class="profile-stat">
+                <span class="profile-stat-value" style="text-align: center; width: 100%; color: var(--accent-red);">Error loading sessions</span>
+            </div>
+        `;
+    }
+}
+
+async function loadUserGrades() {
+    if (!currentUser) return;
+    
+    try {
+        // Get user's sessions with feedback
+        const response = await fetch(`${API_BASE}?action=user_grades&user_id=${currentUser.id}`);
+        const data = await response.json();
+        
+        if (data.success && data.grades && data.grades.length > 0) {
+            const totalGrades = data.grades.length;
+            const avgScore = Math.round(data.grades.reduce((sum, g) => sum + (g.overall_score || 0), 0) / totalGrades);
+            const avgRating = Math.round(data.grades.reduce((sum, g) => sum + (g.rating || 0), 0) / totalGrades * 10) / 10;
+            
+            document.getElementById('profileGrades').innerHTML = `
+                <div class="profile-stat">
+                    <span class="profile-stat-label">Total Graded Sessions:</span>
+                    <span class="profile-stat-value">${totalGrades}</span>
+                </div>
+                <div class="profile-stat">
+                    <span class="profile-stat-label">Average Score:</span>
+                    <span class="profile-stat-value">${avgScore}/100</span>
+                </div>
+                <div class="profile-stat">
+                    <span class="profile-stat-label">Average Rating:</span>
+                    <span class="profile-stat-value">${avgRating}/5 ★</span>
+                </div>
+                <div class="profile-stat">
+                    <span class="profile-stat-label">Latest Grade:</span>
+                    <span class="profile-stat-value">${data.grades[0].overall_score}/100</span>
+                </div>
+            `;
+        } else {
+            document.getElementById('profileGrades').innerHTML = `
+                <div class="profile-stat">
+                    <span class="profile-stat-value" style="text-align: center; width: 100%; font-style: italic; opacity: 0.7;">No grades available</span>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Load user grades error:', error);
+        document.getElementById('profileGrades').innerHTML = `
+            <div class="profile-stat">
+                <span class="profile-stat-value" style="text-align: center; width: 100%; color: var(--accent-red);">Error loading grades</span>
+            </div>
+        `;
+    }
+}
+
+async function testReportsData() {
+    try {
+        const response = await fetch(`${API_BASE}?action=reports&start_date=2024-01-01&end_date=2025-12-31`);
+        const data = await response.json();
+        console.log('Reports API response:', data);
+    } catch (error) {
+        console.error('Test error:', error);
+    }
 }

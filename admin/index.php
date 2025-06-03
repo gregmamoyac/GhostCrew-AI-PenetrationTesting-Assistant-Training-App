@@ -3,30 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GhostCrew Manage</title>
+    <title>GhostCrew Admin </title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link href="css/style.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="../css/style.css" rel="stylesheet">
 </head>
 <body>
     <!-- Login Screen -->
-    <div id="loginScreen" class="login-container">
-        <div class="logo" style="justify-content: center; margin-bottom: 30px;">
-            <span><img src="../img/clippy.png" height="32px" width="32px"></span> GhostCrew Manage
+    <div  id="loginScreen" class="container d-flex justify-content-center align-items-center min-vh-100">
+        <div class="login-container">
+            <div class="login-header">
+                <h1>GhostCrew</h1>
+                <p>Secure Admin Portal</p>
+            </div>
+
+            <div id="loginError" class="alert alert-danger" style="display: none;">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                <span class="error-text"></span>
+            </div>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username" class="form-label">
+                        <i class="fas fa-user me-2"></i>Username
+                    </label>
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="fas fa-user"></i>
+                        </span>
+                        <input type="text" 
+                            class="form-control" 
+                            id="username" 
+                            name="username" 
+                            placeholder="Enter your username"
+                            value="admin"
+                            required 
+                            autofocus>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="password" class="form-label">
+                        <i class="fas fa-lock me-2"></i>Password
+                    </label>
+                    <div class="input-group position-relative">
+                        <span class="input-group-text">
+                            <i class="fas fa-lock"></i>
+                        </span>
+                        <input type="password" 
+                            class="form-control" 
+                            id="password" 
+                            name="password" 
+                            placeholder="Enter your password"
+                            required>
+                        <button type="button" class="password-toggle" onclick="togglePassword()">
+                            <i class="fas fa-eye" id="passwordToggleIcon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-login" id="loginButton">
+                    <span class="button-text">
+                        <i class="fas fa-sign-in-alt me-2"></i>
+                        Sign In
+                    </span>
+                    <div class="loading-spinner"></div>
+                </button>
+            </form>
+
+            <div class="footer-text">
+                <small>
+                    <i class="fas fa-shield-alt me-1"></i>
+                    Authorized personnel only
+                </small>
+            </div>
         </div>
-        <form id="loginForm">
-            <div class="form-group">
-                <label class="form-label">Username</label>
-                <input type="text" id="username" class="form-input" required value="admin">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Password</label>
-                <input type="password" id="password" class="form-input" required>
-            </div>
-            <button type="submit" class="btn btn-primary" style="width: 100%;">Login</button>
-        </form>
-        <div id="loginError" class="alert alert-danger" style="display: none; margin-top: 20px;"></div>
     </div>
 
     <!-- Main Application -->
@@ -34,7 +88,7 @@
         <div class="container">
             <div class="header">
                 <div class="logo">
-                <img src="../img/clippy.png" height="50px" width="50px"></span> GhostCrew Manage
+                <img src="../img/clippy.png" height="50px" width="50px"></span> GhostCrew Admin
                 </div>
                 <div class="user-info">
                     <span id="currentUser">Welcome, User</span>
@@ -50,6 +104,7 @@
                 <button class="nav-tab" onclick="showSection('reports', this)">Reports</button>
                 <button class="nav-tab" id="logsTab" onclick="showSection('logs', this)">System Logs</button>
                 <button class="nav-tab" id="settingsTab" onclick="showSection('settings', this)">Settings</button>
+                <button class="nav-tab" id="profileTab" onclick="showSection('profile', this)">My Profile</button>
             </div>
 
             <!-- Dashboard Section -->
@@ -80,12 +135,16 @@
 
                 <div class="chart-container">
                     <h3>Session Activity Over Time</h3>
-                    <canvas id="activityChart" width="400" height="200"></canvas>
+                    <div style="position: relative; height: 280px; width: 100%;">
+                        <canvas id="activityChart"></canvas>
+                    </div>
                 </div>
 
                 <div class="chart-container">
                     <h3>Command Status Distribution</h3>
-                    <canvas id="statusChart" width="400" height="200"></canvas>
+                    <div style="position: relative; height: 280px; width: 100%;">
+                        <canvas id="statusChart"></canvas>
+                    </div>
                 </div>
             </div>
 
@@ -126,8 +185,9 @@
                                 <th onclick="sortTable('users', 2)">Full Name</th>
                                 <th onclick="sortTable('users', 3)">Email</th>
                                 <th onclick="sortTable('users', 4)">Role</th>
-                                <th onclick="sortTable('users', 5)">Status</th>
-                                <th onclick="sortTable('users', 6)">Last Login</th>
+                                <th onclick="sortTable('users', 5)">Manager</th>
+                                <th onclick="sortTable('users', 6)">Status</th>
+                                <th onclick="sortTable('users', 7)">Last Login</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -217,36 +277,297 @@
             <!-- Reports Section -->
             <div id="reports" class="content-section">
                 <div class="section-header">
-                    <h2 class="section-title">Reports & Analytics</h2>
+                    <h2 class="section-title">Reports & Analytics Dashboard</h2>
+                    <div class="report-filters">
+                        <input type="date" id="reportStartDate" class="form-input" style="width: 150px;">
+                        <input type="date" id="reportEndDate" class="form-input" style="width: 150px;">
+                        <select id="userRoleFilter" class="form-select" style="width: 150px;">
+                            <option value="">All Roles</option>
+                            <option value="operator">Operators</option>
+                            <option value="manager">Managers</option>
+                            <option value="admin">Admins</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="refreshReports()">Update Reports</button>
+                        <button class="btn btn-secondary" onclick="resetReportFilters()">Reset Filters</button>
+                    </div>
                 </div>
-
+                
+                <!-- Overview Statistics -->
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <div class="stat-number" id="reportTotalSessions">0</div>
+                        <div class="stat-number" id="totalUsers">0</div>
+                        <div class="stat-label">Active Users</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalSessions">0</div>
                         <div class="stat-label">Total Sessions</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-number" id="reportAvgDuration">0</div>
-                        <div class="stat-label">Avg Session Duration</div>
+                        <div class="stat-number" id="avgScore">0</div>
+                        <div class="stat-label">Average Grade</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-number" id="reportTopCommand">-</div>
-                        <div class="stat-label">Most Used Command</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" id="reportCompletionRate">0%</div>
-                        <div class="stat-label">Success Rate</div>
+                        <div class="stat-number" id="chatbotInteractions">0</div>
+                        <div class="stat-label">Chatbot Interactions</div>
                     </div>
                 </div>
-
-                <div class="chart-container">
-                    <h3>Command Usage Over Time</h3>
-                    <canvas id="commandUsageChart" width="400" height="200"></canvas>
+                
+                <!-- Detailed Statistics Tabs -->
+                <div class="nav-tabs" style="margin-top: 30px;">
+                    <button class="nav-tab active" onclick="showReportTab('overview', this)">📊 Overview</button>
+                    <button class="nav-tab" onclick="showReportTab('performance', this)">🏆 Performance</button>
+                    <button class="nav-tab" onclick="showReportTab('grading', this)">📝 Grading</button>
+                    <button class="nav-tab" onclick="showReportTab('chatbot', this)">🤖 Chatbot</button>
+                    <button class="nav-tab" onclick="showReportTab('activity', this)">📈 Activity</button>
                 </div>
-
-                <div class="chart-container">
-                    <h3>Session Duration Distribution</h3>
-                    <canvas id="durationChart" width="400" height="200"></canvas>
+                
+                <!-- Overview Tab -->
+                <div id="overviewReport" class="report-tab-content active">
+                    <div class="reports-grid">
+                        <!-- User Activity Chart -->
+                        <div class="report-card">
+                            <div class="report-header">
+                                <h3>📈 Daily Activity (Last 14 Days)</h3>
+                                <button class="btn btn-small btn-secondary" onclick="exportChart('activity')">Export</button>
+                            </div>
+                            <div class="report-content">
+                                <canvas id="activityChart" height="200"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- Command Usage Chart -->
+                        <div class="report-card">
+                            <div class="report-header">
+                                <h3>⚡ Top Commands</h3>
+                                <button class="btn btn-small btn-secondary" onclick="exportChart('commands')">Export</button>
+                            </div>
+                            <div class="report-content">
+                                <canvas id="commandChart" height="200"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- Grade Distribution -->
+                        <div class="report-card">
+                            <div class="report-header">
+                                <h3>📊 Grade Distribution</h3>
+                                <button class="btn btn-small btn-secondary" onclick="exportChart('grades')">Export</button>
+                            </div>
+                            <div class="report-content">
+                                <canvas id="gradeChart" height="200"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- Session Duration Trends -->
+                        <div class="report-card">
+                            <div class="report-header">
+                                <h3>⏱️ Session Duration Trends</h3>
+                                <button class="btn btn-small btn-secondary" onclick="exportChart('duration')">Export</button>
+                            </div>
+                            <div class="report-content">
+                                <canvas id="durationChart" height="200"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Performance Tab -->
+                <div id="performanceReport" class="report-tab-content">
+                    <div class="reports-grid">
+                        <div class="report-card full-width">
+                            <div class="report-header">
+                                <h3>👥 User Performance Analysis</h3>
+                                <div class="export-options">
+                                    <button class="btn btn-small btn-secondary" onclick="exportDetailedReport('user_performance', 'excel')">Export Excel</button>
+                                    <button class="btn btn-small btn-secondary" onclick="exportDetailedReport('user_performance', 'pdf')">Export PDF</button>
+                                </div>
+                            </div>
+                            <div class="report-content">
+                                <div id="userPerformanceTable"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="report-card">
+                            <div class="report-header">
+                                <h3>📊 Performance by Role</h3>
+                            </div>
+                            <div class="report-content">
+                                <canvas id="performanceByRoleChart" height="200"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Grading Tab -->
+                <div id="gradingReport" class="report-tab-content">
+                    <div class="reports-grid">
+                        <div class="report-card full-width">
+                            <div class="report-header">
+                                <h3>📝 Grading Analytics</h3>
+                                <div class="export-options">
+                                    <button class="btn btn-small btn-secondary" onclick="exportDetailedReport('grading_analytics', 'excel')">Export Excel</button>
+                                    <button class="btn btn-small btn-secondary" onclick="exportDetailedReport('grading_analytics', 'pdf')">Export PDF</button>
+                                </div>
+                            </div>
+                            <div class="report-content">
+                                <div id="gradingAnalyticsTable"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="report-card">
+                            <div class="report-header">
+                                <h3>📊 Grading Statistics</h3>
+                            </div>
+                            <div class="report-content">
+                                <div id="gradingStats" class="report-stats">
+                                    <div class="report-stat-item">
+                                        <div class="report-stat-value" id="totalGraded">0</div>
+                                        <div class="report-stat-label">Sessions Graded</div>
+                                    </div>
+                                    <div class="report-stat-item">
+                                        <div class="report-stat-value" id="avgGrade">0</div>
+                                        <div class="report-stat-label">Average Score</div>
+                                    </div>
+                                    <div class="report-stat-item">
+                                        <div class="report-stat-value" id="highPerformers">0</div>
+                                        <div class="report-stat-label">High Performers (80+)</div>
+                                    </div>
+                                    <div class="report-stat-item">
+                                        <div class="report-stat-value" id="lowPerformers">0</div>
+                                        <div class="report-stat-label">Need Improvement (<60)</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Chatbot Tab -->
+                <div id="chatbotReport" class="report-tab-content">
+                    <div class="reports-grid">
+                        <div class="report-card full-width">
+                            <div class="report-header">
+                                <h3>🤖 Chatbot Analytics</h3>
+                                <div class="export-options">
+                                    <button class="btn btn-small btn-secondary" onclick="exportDetailedReport('chatbot_analytics', 'excel')">Export Excel</button>
+                                    <button class="btn btn-small btn-secondary" onclick="exportDetailedReport('chatbot_analytics', 'pdf')">Export PDF</button>
+                                </div>
+                            </div>
+                            <div class="report-content">
+                                <div id="chatbotAnalyticsTable"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="report-card">
+                            <div class="report-header">
+                                <h3>📈 Chatbot Effectiveness</h3>
+                            </div>
+                            <div class="report-content">
+                                <canvas id="chatbotEffectivenessChart" height="200"></canvas>
+                            </div>
+                        </div>
+                        
+                        <div class="report-card">
+                            <div class="report-header">
+                                <h3>📊 Chatbot Statistics</h3>
+                            </div>
+                            <div class="report-content">
+                                <div id="chatbotStats" class="report-stats">
+                                    <div class="report-stat-item">
+                                        <div class="report-stat-value" id="totalMessages">0</div>
+                                        <div class="report-stat-label">Total Messages</div>
+                                    </div>
+                                    <div class="report-stat-item">
+                                        <div class="report-stat-value" id="suggestionsGiven">0</div>
+                                        <div class="report-stat-label">Suggestions Given</div>
+                                    </div>
+                                    <div class="report-stat-item">
+                                        <div class="report-stat-value" id="suggestionsExecuted">0</div>
+                                        <div class="report-stat-label">Suggestions Executed</div>
+                                    </div>
+                                    <div class="report-stat-item">
+                                        <div class="report-stat-value" id="suggestionRate">0%</div>
+                                        <div class="report-stat-label">Execution Rate</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Activity Tab -->
+                <div id="activityReport" class="report-tab-content">
+                    <div class="reports-grid">
+                        <div class="report-card full-width">
+                            <div class="report-header">
+                                <h3>📈 Comprehensive Activity Timeline</h3>
+                                <button class="btn btn-small btn-secondary" onclick="exportChart('comprehensive_activity')">Export</button>
+                            </div>
+                            <div class="report-content">
+                                <canvas id="comprehensiveActivityChart" height="300"></canvas>
+                            </div>
+                        </div>
+                        
+                        <div class="report-card">
+                            <div class="report-header">
+                                <h3>👤 User Login Activity</h3>
+                            </div>
+                            <div class="report-content">
+                                <div id="loginStats" class="report-stats">
+                                    <div class="report-stat-item">
+                                        <div class="report-stat-value" id="uniqueUsers">0</div>
+                                        <div class="report-stat-label">Unique Users</div>
+                                    </div>
+                                    <div class="report-stat-item">
+                                        <div class="report-stat-value" id="totalLogins">0</div>
+                                        <div class="report-stat-label">Total Logins</div>
+                                    </div>
+                                    <div class="report-stat-item">
+                                        <div class="report-stat-value" id="todayLogins">0</div>
+                                        <div class="report-stat-label">Today's Logins</div>
+                                    </div>
+                                    <div class="report-stat-item">
+                                        <div class="report-stat-value" id="avgSessionLength">0m</div>
+                                        <div class="report-stat-label">Avg Session Length</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="report-card">
+                            <div class="report-header">
+                                <h3>⚡ Command Success Rates</h3>
+                            </div>
+                            <div class="report-content">
+                                <canvas id="commandSuccessChart" height="200"></canvas>
+                            </div>
+                        </div>
+                        
+                        <div class="report-card">
+                            <div class="report-header">
+                                <h3>📊 System Usage Metrics</h3>
+                            </div>
+                            <div class="report-content">
+                                <div id="systemUsageStats" class="report-stats">
+                                    <div class="report-stat-item">
+                                        <div class="report-stat-value" id="totalCommandsExecuted">0</div>
+                                        <div class="report-stat-label">Commands Executed</div>
+                                    </div>
+                                    <div class="report-stat-item">
+                                        <div class="report-stat-value" id="avgExecutionTime">0s</div>
+                                        <div class="report-stat-label">Avg Execution Time</div>
+                                    </div>
+                                    <div class="report-stat-item">
+                                        <div class="report-stat-value" id="errorRate">0%</div>
+                                        <div class="report-stat-label">Error Rate</div>
+                                    </div>
+                                    <div class="report-stat-item">
+                                        <div class="report-stat-value" id="activeSessions">0</div>
+                                        <div class="report-stat-label">Active Sessions</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -318,6 +639,31 @@
                 </div>
             </div>
         </div>
+
+        <!-- Profile Section -->
+        <div id="profile" class="content-section">
+            <div class="section-header">
+                <h2 class="section-title">My Profile</h2>
+                <button class="btn btn-primary" onclick="showChangePasswordModal()">Change Password</button>
+            </div>
+            
+            <div class="profile-grid">
+                <div class="profile-info">
+                    <h3>User Information</h3>
+                    <div id="profileUserInfo"></div>
+                </div>
+                
+                <div class="profile-sessions">
+                    <h3>My Recent Sessions</h3>
+                    <div id="profileSessions"></div>
+                </div>
+                
+                <div class="profile-grades">
+                    <h3>My Grades</h3>
+                    <div id="profileGrades"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Session View Section -->
@@ -381,6 +727,12 @@
                         <option value="operator">Operator</option>
                         <option value="manager">Manager</option>
                         <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Manager</label>
+                    <select id="userManager" class="form-select">
+                        <option value="">No Manager</option>
                     </select>
                 </div>
                 <div class="form-group">
