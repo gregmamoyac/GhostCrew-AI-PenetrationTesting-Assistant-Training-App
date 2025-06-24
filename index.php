@@ -257,7 +257,7 @@ $setupCommand = "mshta \"" . APP_URL . "/local/autoconnect.hta?token=" . urlenco
             }
         }
 
-        // Auto-scroll terminal output test
+        // Auto-scroll terminal output
         function scrollToBottom(element) {
             element.scrollTop = element.scrollHeight;
         }
