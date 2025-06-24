@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GhostCrew Admin </title>
+    <title>GhostCrew Administrator - Secure Admin Portal</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -16,7 +16,7 @@
     <div  id="loginScreen" class="container d-flex justify-content-center align-items-center min-vh-100">
         <div class="login-container">
             <div class="login-header">
-                <h1>GhostCrew</h1>
+                <h1>GhostCrew Administrator</h1>
                 <p>Secure Admin Portal</p>
             </div>
 

@@ -27,7 +27,7 @@ $setupCommand = "mshta \"" . APP_URL . "/local/autoconnect.hta?token=" . urlenco
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GhostCrew - Secure Terminal</title>
+    <title>GhostCrew Operator - Secure Access Terminal</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome for icons -->
@@ -41,7 +41,7 @@ $setupCommand = "mshta \"" . APP_URL . "/local/autoconnect.hta?token=" . urlenco
 <body>
     <div class="container-fluid">
         <header>
-            <h1>GhostCrew</h1>
+            <h1>GhostCrew Operator</h1>
             <div class="user-info">
                 <div class="user-details">
                     <div class="user-name"><?php echo htmlspecialchars($user['full_name']); ?></div>
