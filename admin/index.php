@@ -9,7 +9,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
-    <link href="../css/style.css" rel="stylesheet">
+    <link href="../assets/css/style.css" rel="stylesheet">
 </head>
 <body>
     <!-- Login Screen -->
@@ -88,7 +88,7 @@
         <div class="container">
             <div class="header">
                 <div class="logo">
-                <img src="../img/clippy.png" height="50px" width="50px"></span> GhostCrew Admin
+                <img src="../assets/img/clippy.png" height="50px" width="50px"></span> GhostCrew Admin
                 </div>
                 <div class="user-info">
                     <span id="currentUser">Welcome, User</span>

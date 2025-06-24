@@ -1,25 +1,50 @@
+-- phpMyAdmin SQL Dump
+-- version 5.2.1
+-- https://www.phpmyadmin.net/
+--
+-- Host: 127.0.0.1
+-- Generation Time: Jun 24, 2025 at 03:20 AM
+-- Server version: 10.4.32-MariaDB
+-- PHP Version: 8.0.30
+
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+START TRANSACTION;
 SET time_zone = "+00:00";
+
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
 /*!40101 SET NAMES utf8mb4 */;
 
-CREATE DATABASE IF NOT EXISTS ghostcrew_admin DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE ghostcrew_admin;
+--
+-- Database: `ghostcrew_admin`
+--
+CREATE DATABASE IF NOT EXISTS `ghostcrew_admin` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `ghostcrew_admin`;
 
-CREATE TABLE audit_log (
-  id int(11) NOT NULL,
-  user_id int(11) DEFAULT NULL,
-  action_type enum('login','logout','command_execute','session_start','session_end','chat_message','system_access') NOT NULL,
-  action_details longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(action_details)),
-  ip_address varchar(45) DEFAULT NULL,
-  user_agent text DEFAULT NULL,
-  timestamp timestamp NOT NULL DEFAULT current_timestamp()
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `audit_log`
+--
+
+DROP TABLE IF EXISTS `audit_log`;
+CREATE TABLE `audit_log` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `action_type` enum('login','logout','command_execute','session_start','session_end','chat_message','system_access') NOT NULL,
+  `action_details` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`action_details`)),
+  `ip_address` varchar(45) DEFAULT NULL,
+  `user_agent` text DEFAULT NULL,
+  `timestamp` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO audit_log (id, user_id, action_type, action_details, ip_address, user_agent, timestamp) VALUES
+--
+-- Dumping data for table `audit_log`
+--
+
+INSERT INTO `audit_log` (`id`, `user_id`, `action_type`, `action_details`, `ip_address`, `user_agent`, `timestamp`) VALUES
 (1, 1, 'login', '{\"success\":true,\"username\":\"admin\",\"session_token\":\"b84c368e...\",\"instance_token\":\"inst_1_1...\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-05-29 18:58:21'),
 (2, 1, 'session_start', '{\"session_id\":\"sess_20250529_185834_fc10ae62fa62c329\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"hostname\":\"CALEB-\",\"ip_address\":\"127.0.0.1\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-05-29 18:58:34'),
 (3, 1, 'command_execute', '{\"session_id\":\"sess_20250529_185834_fc10ae62fa62c329\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"command\":\"whoami\",\"command_id\":1}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-05-29 18:58:37'),
@@ -200,7 +225,7 @@ INSERT INTO audit_log (id, user_id, action_type, action_details, ip_address, use
 (178, 2, 'system_access', '{\"action\":\"host_disconnected\",\"host_id\":\"host_1748314525735_tj8efkqc\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-05-29 22:14:04'),
 (179, 2, 'system_access', '{\"action\":\"host_disconnected\",\"host_id\":\"host_1748314525735_tj8efkqc\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-05-29 22:14:07'),
 (180, 2, 'system_access', '{\"action\":\"host_disconnected\",\"host_id\":\"host_1748314525735_tj8efkqc\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-05-29 22:14:10');
-INSERT INTO audit_log (id, user_id, action_type, action_details, ip_address, user_agent, timestamp) VALUES
+INSERT INTO `audit_log` (`id`, `user_id`, `action_type`, `action_details`, `ip_address`, `user_agent`, `timestamp`) VALUES
 (181, 2, 'system_access', '{\"action\":\"host_disconnected\",\"host_id\":\"host_1748314525735_tj8efkqc\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-05-29 22:14:13'),
 (182, 2, 'system_access', '{\"action\":\"host_disconnected\",\"host_id\":\"host_1748314525735_tj8efkqc\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-05-29 22:14:16'),
 (183, 2, 'system_access', '{\"action\":\"host_disconnected\",\"host_id\":\"host_1748314525735_tj8efkqc\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-05-29 22:14:19'),
@@ -388,7 +413,7 @@ INSERT INTO audit_log (id, user_id, action_type, action_details, ip_address, use
 (365, 2, 'system_access', '{\"action\":\"host_disconnected\",\"host_id\":\"host_1748314525735_tj8efkqc\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-05-29 22:23:25'),
 (366, 2, 'system_access', '{\"action\":\"host_disconnected\",\"host_id\":\"host_1748314525735_tj8efkqc\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-05-29 22:23:28'),
 (367, 2, 'system_access', '{\"action\":\"host_disconnected\",\"host_id\":\"host_1748314525735_tj8efkqc\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-05-29 22:23:31');
-INSERT INTO audit_log (id, user_id, action_type, action_details, ip_address, user_agent, timestamp) VALUES
+INSERT INTO `audit_log` (`id`, `user_id`, `action_type`, `action_details`, `ip_address`, `user_agent`, `timestamp`) VALUES
 (368, 2, 'system_access', '{\"action\":\"host_disconnected\",\"host_id\":\"host_1748314525735_tj8efkqc\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-05-29 22:23:34'),
 (369, 2, 'system_access', '{\"action\":\"host_disconnected\",\"host_id\":\"host_1748314525735_tj8efkqc\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-05-29 22:23:37'),
 (370, 2, 'system_access', '{\"action\":\"host_disconnected\",\"host_id\":\"host_1748314525735_tj8efkqc\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-05-29 22:23:40'),
@@ -569,7 +594,7 @@ INSERT INTO audit_log (id, user_id, action_type, action_details, ip_address, use
 (545, 1, 'system_access', '{\"action\":\"host_disconnected\",\"host_id\":\"host_1748314525735_tj8efkqc\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-01 18:48:25'),
 (546, 1, 'system_access', '{\"action\":\"host_disconnected\",\"host_id\":\"host_1748314525735_tj8efkqc\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-01 18:48:28'),
 (547, 1, 'system_access', '{\"action\":\"host_disconnected\",\"host_id\":\"host_1748314525735_tj8efkqc\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-01 18:48:31');
-INSERT INTO audit_log (id, user_id, action_type, action_details, ip_address, user_agent, timestamp) VALUES
+INSERT INTO `audit_log` (`id`, `user_id`, `action_type`, `action_details`, `ip_address`, `user_agent`, `timestamp`) VALUES
 (548, 1, 'system_access', '{\"action\":\"host_disconnected\",\"host_id\":\"host_1748314525735_tj8efkqc\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-01 18:48:34'),
 (549, 1, 'system_access', '{\"action\":\"host_disconnected\",\"host_id\":\"host_1748314525735_tj8efkqc\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-01 18:48:37'),
 (550, 1, 'system_access', '{\"action\":\"host_disconnected\",\"host_id\":\"host_1748314525735_tj8efkqc\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-01 18:48:40'),
@@ -607,28 +632,93 @@ INSERT INTO audit_log (id, user_id, action_type, action_details, ip_address, use
 (582, 1, 'session_end', '{\"session_id\":\"sess_20250603_010250_2c7dfea9c31711b8\",\"end_type\":\"manual\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-03 01:06:53'),
 (583, 1, 'session_start', '{\"session_id\":\"sess_20250603_010659_6f231f1b98aa55be\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"hostname\":\"CALEB-\",\"ip_address\":\"127.0.0.1\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-03 01:06:59'),
 (584, 1, 'session_end', '{\"session_id\":\"sess_20250603_010659_6f231f1b98aa55be\",\"end_type\":\"manual\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-03 01:07:26'),
-(585, 1, 'session_start', '{\"session_id\":\"sess_20250603_010741_832947560fdc7d9f\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"hostname\":\"CALEB-\",\"ip_address\":\"127.0.0.1\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-03 01:07:41');
+(585, 1, 'session_start', '{\"session_id\":\"sess_20250603_010741_832947560fdc7d9f\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"hostname\":\"CALEB-\",\"ip_address\":\"127.0.0.1\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-03 01:07:41'),
+(586, 1, 'logout', '{\"manual_logout\":true,\"session_duration\":2240}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-03 01:39:15'),
+(587, 1, 'logout', '{\"session_token\":\"c1826275...\",\"instance_token\":\"inst_1_1...\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-03 01:39:15'),
+(588, 1, 'login', '{\"success\":true,\"username\":\"admin\",\"session_token\":\"256256e6...\",\"instance_token\":\"inst_1_1...\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-03 01:40:13'),
+(589, 1, 'session_start', '{\"session_id\":\"sess_20250603_014101_68780f86a084b48d\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"hostname\":\"CALEB-\",\"ip_address\":\"127.0.0.1\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-03 01:41:01'),
+(590, 1, 'command_execute', '{\"session_id\":\"sess_20250603_014101_68780f86a084b48d\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"command\":\"whoami\",\"command_id\":50}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-03 01:41:16'),
+(591, 1, 'command_execute', '{\"session_id\":\"sess_20250603_014101_68780f86a084b48d\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"command\":\"help\",\"command_id\":51}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-03 01:42:38'),
+(592, 1, 'session_end', '{\"session_id\":\"sess_20250603_014101_68780f86a084b48d\",\"end_type\":\"manual\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-03 01:42:59'),
+(593, 1, 'session_start', '{\"session_id\":\"sess_20250603_014322_ff4e115f78cbdbdc\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"hostname\":\"CALEB-\",\"ip_address\":\"127.0.0.1\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-03 01:43:22'),
+(594, 1, 'login', '{\"success\":true,\"username\":\"admin\",\"session_token\":\"c485165d...\",\"instance_token\":\"inst_1_1...\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:16:02'),
+(595, 1, 'session_start', '{\"session_id\":\"sess_20250613_011630_e782ec15fda83ff8\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"hostname\":\"CALEB-\",\"ip_address\":\"127.0.0.1\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:16:30'),
+(596, 1, 'command_execute', '{\"session_id\":\"sess_20250613_011630_e782ec15fda83ff8\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"command\":\"whoami\",\"command_id\":52}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:16:33'),
+(597, 1, 'command_execute', '{\"session_id\":\"sess_20250613_011630_e782ec15fda83ff8\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"command\":\"ping google.com\",\"command_id\":53}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:17:04'),
+(598, 1, 'session_end', '{\"session_id\":\"sess_20250613_011630_e782ec15fda83ff8\",\"end_type\":\"manual\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:17:23'),
+(599, 1, 'logout', '{\"manual_logout\":true,\"session_duration\":166}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:18:48'),
+(600, 1, 'logout', '{\"session_token\":\"c485165d...\",\"instance_token\":\"inst_1_1...\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:18:48'),
+(601, 1, 'login', '{\"success\":true,\"username\":\"admin\",\"session_token\":\"ded97427...\",\"instance_token\":\"inst_1_1...\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:18:52'),
+(602, 1, 'session_start', '{\"session_id\":\"sess_20250613_012104_4a8e9914614eff67\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"hostname\":\"CALEB-\",\"ip_address\":\"127.0.0.1\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:21:04'),
+(603, 1, 'session_end', '{\"session_id\":\"sess_20250613_012104_4a8e9914614eff67\",\"end_type\":\"manual\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:21:06'),
+(604, 1, 'session_start', '{\"session_id\":\"sess_20250613_012108_1b8c90ae19478faa\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"hostname\":\"CALEB-\",\"ip_address\":\"127.0.0.1\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:21:08'),
+(605, 1, 'command_execute', '{\"session_id\":\"sess_20250613_012108_1b8c90ae19478faa\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"command\":\"whoai\",\"command_id\":54}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:21:11'),
+(606, 1, 'command_execute', '{\"session_id\":\"sess_20250613_012108_1b8c90ae19478faa\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"command\":\"whoami\",\"command_id\":55}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:21:13'),
+(607, 1, 'command_execute', '{\"session_id\":\"sess_20250613_012108_1b8c90ae19478faa\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"command\":\"mshta \\\"http:\\/\\/localhost\\/GhostCrew\\/local\\/autoconnect.hta?token=inst_1_1749777532_1247b5b344821975b0f27f62cb0536a2\\\"\",\"command_id\":56}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:21:13'),
+(608, 1, 'command_execute', '{\"session_id\":\"sess_20250613_012108_1b8c90ae19478faa\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"command\":\"mshta \\\"http:\\/\\/localhost\\/GhostCrew\\/local\\/autoconnect.hta?token=inst_1_1749777532_1247b5b344821975b0f27f62cb0536a2\\\"\",\"command_id\":57}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:21:14'),
+(609, 1, 'command_execute', '{\"session_id\":\"sess_20250613_012108_1b8c90ae19478faa\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"command\":\"mshta \\\"http:\\/\\/localhost\\/GhostCrew\\/local\\/autoconnect.hta?token=inst_1_1749777532_1247b5b344821975b0f27f62cb0536a2\\\"\",\"command_id\":58}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:21:14'),
+(610, 1, 'command_execute', '{\"session_id\":\"sess_20250613_012108_1b8c90ae19478faa\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"command\":\"mshta \\\"http:\\/\\/localhost\\/GhostCrew\\/local\\/autoconnect.hta?token=inst_1_1749777532_1247b5b344821975b0f27f62cb0536a2\\\"\",\"command_id\":59}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:21:14'),
+(611, 1, 'command_execute', '{\"session_id\":\"sess_20250613_012108_1b8c90ae19478faa\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"command\":\"mshta \\\"http:\\/\\/localhost\\/GhostCrew\\/local\\/autoconnect.hta?token=inst_1_1749777532_1247b5b344821975b0f27f62cb0536a2\\\"\",\"command_id\":60}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:21:15'),
+(612, 1, 'command_execute', '{\"session_id\":\"sess_20250613_012108_1b8c90ae19478faa\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"command\":\"mshta \\\"http:\\/\\/localhost\\/GhostCrew\\/local\\/autoconnect.hta?token=inst_1_1749777532_1247b5b344821975b0f27f62cb0536a2\\\"\",\"command_id\":61}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:21:15'),
+(613, 1, 'command_execute', '{\"session_id\":\"sess_20250613_012108_1b8c90ae19478faa\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"command\":\"whoami\",\"command_id\":62}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:21:51'),
+(614, 1, 'command_execute', '{\"session_id\":\"sess_20250613_012108_1b8c90ae19478faa\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"command\":\"help\",\"command_id\":63}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:22:05'),
+(615, 1, 'session_end', '{\"session_id\":\"sess_20250613_012108_1b8c90ae19478faa\",\"end_type\":\"manual\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:22:10'),
+(616, 1, 'session_start', '{\"session_id\":\"sess_20250613_012211_99566d12dc7d0465\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"hostname\":\"CALEB-\",\"ip_address\":\"127.0.0.1\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:22:11'),
+(617, 1, 'session_end', '{\"session_id\":\"sess_20250613_012211_99566d12dc7d0465\",\"end_type\":\"manual\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:22:13'),
+(618, 1, 'session_start', '{\"session_id\":\"sess_20250613_012327_d12493087c92adb3\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"hostname\":\"CALEB-\",\"ip_address\":\"127.0.0.1\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:23:27'),
+(619, 1, 'command_execute', '{\"session_id\":\"sess_20250613_012327_d12493087c92adb3\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"command\":\"whoami\",\"command_id\":64}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:23:31'),
+(620, 1, 'session_end', '{\"session_id\":\"sess_20250613_012327_d12493087c92adb3\",\"end_type\":\"manual\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:27:57'),
+(621, 1, 'system_access', '{\"action\":\"host_disconnected\",\"host_id\":\"host_1748314525735_tj8efkqc\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:27:57'),
+(622, 1, 'login', '{\"success\":true,\"username\":\"admin\",\"session_token\":\"cbf57cb3...\",\"instance_token\":\"inst_1_1...\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-17 02:33:20'),
+(623, 1, 'session_start', '{\"session_id\":\"sess_20250617_023557_01af01e05196c1e2\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"hostname\":\"CALEB-\",\"ip_address\":\"127.0.0.1\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-17 02:35:57'),
+(624, 1, 'command_execute', '{\"session_id\":\"sess_20250617_023557_01af01e05196c1e2\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"command\":\"whoami\",\"command_id\":65}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-17 02:36:15'),
+(625, 1, 'command_execute', '{\"session_id\":\"sess_20250617_023557_01af01e05196c1e2\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"command\":\"help\",\"command_id\":66}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-17 02:36:25'),
+(626, 1, 'command_execute', '{\"session_id\":\"sess_20250617_023557_01af01e05196c1e2\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"command\":\"systeminfo\",\"command_id\":67}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-17 02:36:47'),
+(627, 1, 'session_end', '{\"session_id\":\"sess_20250617_023557_01af01e05196c1e2\",\"end_type\":\"manual\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-17 02:39:48'),
+(628, 1, 'login', '{\"success\":true,\"username\":\"admin\",\"session_token\":\"a97d39c8...\",\"instance_token\":\"inst_1_1...\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-24 00:19:55'),
+(629, 1, 'login', '{\"success\":true,\"username\":\"admin\",\"session_token\":\"cf2bed6d...\",\"instance_token\":\"inst_1_1...\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-24 00:20:24'),
+(630, 1, 'session_start', '{\"session_id\":\"sess_20250624_002042_328e9368b038db00\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"hostname\":\"CALEB-\",\"ip_address\":\"127.0.0.1\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-24 00:20:42'),
+(631, 1, 'command_execute', '{\"session_id\":\"sess_20250624_002042_328e9368b038db00\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"command\":\"whoami\",\"command_id\":68}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-24 00:20:47'),
+(632, 1, 'session_end', '{\"session_id\":\"sess_20250624_002042_328e9368b038db00\",\"end_type\":\"manual\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-24 00:22:02'),
+(633, 1, 'session_start', '{\"session_id\":\"sess_20250624_002216_9343858a2ae34411\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"hostname\":\"CALEB-\",\"ip_address\":\"127.0.0.1\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-24 00:22:16'),
+(634, 1, 'command_execute', '{\"session_id\":\"sess_20250624_002216_9343858a2ae34411\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"command\":\"help\",\"command_id\":69}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-24 00:22:20'),
+(635, 1, 'command_execute', '{\"session_id\":\"sess_20250624_002216_9343858a2ae34411\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"command\":\"whoami\",\"command_id\":70}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-24 00:22:25'),
+(636, 1, 'session_end', '{\"session_id\":\"sess_20250624_002216_9343858a2ae34411\",\"end_type\":\"manual\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-24 00:23:06'),
+(637, 1, 'session_start', '{\"session_id\":\"sess_20250624_005452_40ca0d5f8686cb15\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"hostname\":\"CALEB-\",\"ip_address\":\"127.0.0.1\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-24 00:54:52'),
+(638, 1, 'command_execute', '{\"session_id\":\"sess_20250624_005452_40ca0d5f8686cb15\",\"host_id\":\"host_1748314525735_tj8efkqc\",\"command\":\"whoami\",\"command_id\":71}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-24 00:55:05'),
+(639, 1, 'session_end', '{\"session_id\":\"sess_20250624_005452_40ca0d5f8686cb15\",\"end_type\":\"manual\"}', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-24 00:55:25');
 
-CREATE TABLE chatbot_conversations (
-  id int(11) NOT NULL,
-  user_id int(11) NOT NULL,
-  session_id varchar(64) DEFAULT NULL,
-  conversation_id varchar(64) NOT NULL,
-  parent_message_id int(11) DEFAULT NULL,
-  message_type enum('user','bot') NOT NULL,
-  message text NOT NULL,
-  timestamp timestamp NOT NULL DEFAULT current_timestamp(),
-  context_data longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(context_data)),
-  response_time decimal(8,3) DEFAULT NULL,
-  message_tokens int(11) DEFAULT NULL,
-  model_used varchar(50) DEFAULT 'local',
-  suggested_command text DEFAULT NULL,
-  command_executed tinyint(1) DEFAULT 0,
-  rating tinyint(1) DEFAULT NULL,
-  flagged tinyint(1) DEFAULT 0
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `chatbot_conversations`
+--
+
+DROP TABLE IF EXISTS `chatbot_conversations`;
+CREATE TABLE `chatbot_conversations` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `session_id` varchar(64) DEFAULT NULL,
+  `conversation_id` varchar(64) NOT NULL,
+  `parent_message_id` int(11) DEFAULT NULL,
+  `message_type` enum('user','bot') NOT NULL,
+  `message` text NOT NULL,
+  `timestamp` timestamp NOT NULL DEFAULT current_timestamp(),
+  `context_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`context_data`)),
+  `response_time` decimal(8,3) DEFAULT NULL,
+  `message_tokens` int(11) DEFAULT NULL,
+  `model_used` varchar(50) DEFAULT 'local',
+  `suggested_command` text DEFAULT NULL,
+  `command_executed` tinyint(1) DEFAULT 0,
+  `rating` tinyint(1) DEFAULT NULL,
+  `flagged` tinyint(1) DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO chatbot_conversations (id, user_id, session_id, conversation_id, parent_message_id, message_type, message, timestamp, context_data, response_time, message_tokens, model_used, suggested_command, command_executed, rating, flagged) VALUES
+--
+-- Dumping data for table `chatbot_conversations`
+--
+
+INSERT INTO `chatbot_conversations` (`id`, `user_id`, `session_id`, `conversation_id`, `parent_message_id`, `message_type`, `message`, `timestamp`, `context_data`, `response_time`, `message_tokens`, `model_used`, `suggested_command`, `command_executed`, `rating`, `flagged`) VALUES
 (1, 1, 'sess_20250529_185834_fc10ae62fa62c329', 'conv_sess_20250529_185834_fc10ae62fa62c329_1748545150', NULL, 'user', 'make a new folder', '2025-05-29 18:59:10', '[]', NULL, NULL, 'local', NULL, 0, NULL, 0),
 (2, 1, 'sess_20250529_185834_fc10ae62fa62c329', 'conv_sess_20250529_185834_fc10ae62fa62c329_1748545150', NULL, 'bot', 'To create a new folder (directory) in Windows:\n\n**mkdir [folder_name]**\n\nFor example: `mkdir NewFolder`\n\nYou can also create multiple nested folders at once:\n`mkdir \"Parent Folder\\Child Folder\"`', '2025-05-29 18:59:10', '{\"knowledge_id\":2}', 0.058, NULL, 'local', 'mkdir NewFolder', 0, NULL, 0),
 (3, 1, 'sess_20250529_185834_fc10ae62fa62c329', 'conv_sess_20250529_185834_fc10ae62fa62c329_1748545150', NULL, 'user', 'make a file named hi.txt', '2025-05-29 18:59:49', '[]', NULL, NULL, 'local', NULL, 0, NULL, 0),
@@ -664,31 +754,61 @@ INSERT INTO chatbot_conversations (id, user_id, session_id, conversation_id, par
 (37, 1, 'sess_20250601_185502_32767389da512e21', 'conv_sess_20250601_185502_32767389da512e21_1748804130', NULL, 'user', 'make a folder', '2025-06-01 18:55:46', '[]', NULL, NULL, 'local', NULL, 0, NULL, 0),
 (38, 1, 'sess_20250601_185502_32767389da512e21', 'conv_sess_20250601_185502_32767389da512e21_1748804130', NULL, 'bot', 'To create a new folder (directory) in Windows:\n\n**mkdir [folder_name]**\n\nFor example: `mkdir NewFolder`\n\nYou can also create multiple nested folders at once:\n`mkdir \"Parent Folder\\Child Folder\"`', '2025-06-01 18:55:46', '{\"knowledge_id\":2}', 0.041, NULL, 'local', 'mkdir NewFolder', 0, NULL, 0),
 (39, 1, 'sess_20250601_185502_32767389da512e21', 'conv_sess_20250601_185502_32767389da512e21_1748804130', NULL, 'user', 'dir', '2025-06-01 18:56:21', '[]', NULL, NULL, 'local', NULL, 0, NULL, 0),
-(40, 1, 'sess_20250601_185502_32767389da512e21', 'conv_sess_20250601_185502_32767389da512e21_1748804130', NULL, 'bot', 'To list files and directories in Windows, you can use several commands:\n\n• **dir** - Basic directory listing\n• **dir /a** - Show all files including hidden\n• **dir /s** - Include subdirectories\n• **tree** - Show directory structure as a tree\n\nThe most common is simply **dir** to see what\'s in the current directory.', '2025-06-01 18:56:21', '{\"knowledge_id\":1}', 0.088, NULL, 'local', 'dir', 0, NULL, 0);
+(40, 1, 'sess_20250601_185502_32767389da512e21', 'conv_sess_20250601_185502_32767389da512e21_1748804130', NULL, 'bot', 'To list files and directories in Windows, you can use several commands:\n\n• **dir** - Basic directory listing\n• **dir /a** - Show all files including hidden\n• **dir /s** - Include subdirectories\n• **tree** - Show directory structure as a tree\n\nThe most common is simply **dir** to see what\'s in the current directory.', '2025-06-01 18:56:21', '{\"knowledge_id\":1}', 0.088, NULL, 'local', 'dir', 0, NULL, 0),
+(43, 1, 'sess_20250603_014101_68780f86a084b48d', 'conv_sess_20250603_014101_68780f86a084b48d_1748914944', NULL, 'user', 'Help with network commands', '2025-06-03 01:42:24', '[]', NULL, NULL, 'local', NULL, 0, NULL, 0),
+(44, 1, 'sess_20250603_014101_68780f86a084b48d', 'conv_sess_20250603_014101_68780f86a084b48d_1748914944', NULL, 'bot', 'Here are the main categories of Windows commands I can help with:\n\n• **File Operations** - dir, copy, move, del, mkdir\n• **System Information** - systeminfo, ver, hostname\n• **Network Commands** - ping, ipconfig, netstat\n• **Process Management** - tasklist, taskkill\n• **User Management** - whoami, net user\n• **Service Management** - sc query, net start/stop\n\nAsk me about any specific category or command!', '2025-06-03 01:42:24', '{\"knowledge_id\":7}', 0.058, NULL, 'local', 'help', 0, NULL, 0),
+(45, 1, 'sess_20250613_011630_e782ec15fda83ff8', 'conv_sess_20250613_011630_e782ec15fda83ff8_1749777409', NULL, 'user', 'help\\', '2025-06-13 01:16:49', '[]', NULL, NULL, 'local', NULL, 0, NULL, 0),
+(46, 1, 'sess_20250613_011630_e782ec15fda83ff8', 'conv_sess_20250613_011630_e782ec15fda83ff8_1749777409', NULL, 'bot', 'Here are the main categories of Windows commands I can help with:\n\n• **File Operations** - dir, copy, move, del, mkdir\n• **System Information** - systeminfo, ver, hostname\n• **Network Commands** - ping, ipconfig, netstat\n• **Process Management** - tasklist, taskkill\n• **User Management** - whoami, net user\n• **Service Management** - sc query, net start/stop\n\nAsk me about any specific category or command!', '2025-06-13 01:16:49', '{\"knowledge_id\":7}', 0.067, NULL, 'local', 'help', 0, NULL, 0),
+(47, 1, 'sess_20250613_011630_e782ec15fda83ff8', 'conv_sess_20250613_011630_e782ec15fda83ff8_1749777409', NULL, 'user', 'network', '2025-06-13 01:16:53', '[]', NULL, NULL, 'local', NULL, 0, NULL, 0),
+(48, 1, 'sess_20250613_011630_e782ec15fda83ff8', 'conv_sess_20250613_011630_e782ec15fda83ff8_1749777409', NULL, 'bot', 'To test network connectivity:\n\n• **ping [host]** - Test basic connectivity\n• **ping -t [host]** - Continuous ping\n• **tracert [host]** - Trace route to destination\n• **nslookup [domain]** - DNS lookup\n• **ipconfig** - Show network configuration\n\nStart with **ping google.com** to test internet connectivity.', '2025-06-13 01:16:53', '{\"knowledge_id\":5}', 0.050, NULL, 'local', 'ping google.com', 0, NULL, 0),
+(49, 1, 'sess_20250613_011630_e782ec15fda83ff8', 'conv_sess_20250613_011630_e782ec15fda83ff8_1749777409', NULL, 'user', 'nslookup', '2025-06-13 01:16:57', '[]', NULL, NULL, 'local', NULL, 0, NULL, 0),
+(50, 1, 'sess_20250613_011630_e782ec15fda83ff8', 'conv_sess_20250613_011630_e782ec15fda83ff8_1749777409', NULL, 'bot', 'To test network connectivity:\n\n• **ping [host]** - Test basic connectivity\n• **ping -t [host]** - Continuous ping\n• **tracert [host]** - Trace route to destination\n• **nslookup [domain]** - DNS lookup\n• **ipconfig** - Show network configuration\n\nStart with **ping google.com** to test internet connectivity.', '2025-06-13 01:16:57', '{\"knowledge_id\":5}', 0.074, NULL, 'local', 'ping google.com', 0, NULL, 0),
+(51, 1, 'sess_20250617_023557_01af01e05196c1e2', 'conv_sess_20250617_023557_01af01e05196c1e2_1750127771', NULL, 'user', 'help', '2025-06-17 02:36:11', '[]', NULL, NULL, 'local', NULL, 0, NULL, 0),
+(52, 1, 'sess_20250617_023557_01af01e05196c1e2', 'conv_sess_20250617_023557_01af01e05196c1e2_1750127771', NULL, 'bot', 'Here are the main categories of Windows commands I can help with:\n\n• **File Operations** - dir, copy, move, del, mkdir\n• **System Information** - systeminfo, ver, hostname\n• **Network Commands** - ping, ipconfig, netstat\n• **Process Management** - tasklist, taskkill\n• **User Management** - whoami, net user\n• **Service Management** - sc query, net start/stop\n\nAsk me about any specific category or command!', '2025-06-17 02:36:11', '{\"knowledge_id\":7}', 0.059, NULL, 'local', 'help', 0, NULL, 0),
+(53, 1, 'sess_20250617_023557_01af01e05196c1e2', 'conv_sess_20250617_023557_01af01e05196c1e2_1750127771', NULL, 'user', 'systeminfo', '2025-06-17 02:36:40', '[]', NULL, NULL, 'local', NULL, 0, NULL, 0),
+(54, 1, 'sess_20250617_023557_01af01e05196c1e2', 'conv_sess_20250617_023557_01af01e05196c1e2_1750127771', NULL, 'bot', 'To get system information in Windows:\n\n• **systeminfo** - Comprehensive system details\n• **wmic computersystem get model,name,manufacturer** - Hardware info\n• **ver** - Windows version\n• **hostname** - Computer name\n\nThe **systeminfo** command gives you the most complete overview.', '2025-06-17 02:36:40', '{\"knowledge_id\":4}', 0.042, NULL, 'local', 'systeminfo', 0, NULL, 0);
 
-CREATE TABLE chatbot_feedback (
-  id int(11) NOT NULL,
-  conversation_id varchar(64) NOT NULL,
-  message_id int(11) NOT NULL,
-  user_id int(11) NOT NULL,
-  feedback_type enum('helpful','not_helpful','incorrect','suggestion') NOT NULL,
-  feedback_text text DEFAULT NULL,
-  created_at timestamp NOT NULL DEFAULT current_timestamp()
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `chatbot_feedback`
+--
+
+DROP TABLE IF EXISTS `chatbot_feedback`;
+CREATE TABLE `chatbot_feedback` (
+  `id` int(11) NOT NULL,
+  `conversation_id` varchar(64) NOT NULL,
+  `message_id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `feedback_type` enum('helpful','not_helpful','incorrect','suggestion') NOT NULL,
+  `feedback_text` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE chatbot_knowledge_base (
-  id int(11) NOT NULL,
-  category varchar(100) NOT NULL,
-  question text NOT NULL,
-  answer text NOT NULL,
-  keywords text DEFAULT NULL,
-  command_example text DEFAULT NULL,
-  created_at timestamp NOT NULL DEFAULT current_timestamp(),
-  updated_at timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  is_active tinyint(1) DEFAULT 1
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `chatbot_knowledge_base`
+--
+
+DROP TABLE IF EXISTS `chatbot_knowledge_base`;
+CREATE TABLE `chatbot_knowledge_base` (
+  `id` int(11) NOT NULL,
+  `category` varchar(100) NOT NULL,
+  `question` text NOT NULL,
+  `answer` text NOT NULL,
+  `keywords` text DEFAULT NULL,
+  `command_example` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `is_active` tinyint(1) DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO chatbot_knowledge_base (id, category, question, answer, keywords, command_example, created_at, updated_at, is_active) VALUES
+--
+-- Dumping data for table `chatbot_knowledge_base`
+--
+
+INSERT INTO `chatbot_knowledge_base` (`id`, `category`, `question`, `answer`, `keywords`, `command_example`, `created_at`, `updated_at`, `is_active`) VALUES
 (1, 'file_operations', 'How do I list files and directories?', 'To list files and directories in Windows, you can use several commands:\n\n• **dir** - Basic directory listing\n• **dir /a** - Show all files including hidden\n• **dir /s** - Include subdirectories\n• **tree** - Show directory structure as a tree\n\nThe most common is simply **dir** to see what\'s in the current directory.', 'list files directories folder dir tree', 'dir', '2025-05-29 16:26:13', '2025-05-29 16:26:13', 1),
 (2, 'file_operations', 'How do I create a new folder?', 'To create a new folder (directory) in Windows:\n\n**mkdir [folder_name]**\n\nFor example: `mkdir NewFolder`\n\nYou can also create multiple nested folders at once:\n`mkdir \"Parent Folder\\Child Folder\"`', 'create folder directory mkdir', 'mkdir NewFolder', '2025-05-29 16:26:13', '2025-05-29 16:26:13', 1),
 (3, 'file_operations', 'How do I copy files?', 'To copy files in Windows, you have several options:\n\n• **copy [source] [destination]** - Copy single file\n• **xcopy [source] [dest] /s** - Copy folders and subfolders\n• **robocopy [source] [dest]** - Advanced copying with more options\n\nExample: `copy document.txt backup_document.txt`', 'copy files xcopy robocopy', 'copy document.txt backup_document.txt', '2025-05-29 16:26:13', '2025-05-29 16:26:13', 1),
@@ -767,20 +887,31 @@ INSERT INTO chatbot_knowledge_base (id, category, question, answer, keywords, co
 (76, 'processes', 'How do I see running processes?', 'To view and manage processes:\n\n• **tasklist** - Show all running processes\n• **tasklist /svc** - Show processes with services\n• **taskkill /pid [ID]** - Kill process by ID\n• **taskkill /im [name]** - Kill process by name\n\nExample: First run `tasklist` to see processes, then `taskkill /im notepad.exe` to close Notepad.', 'processes running tasks tasklist taskkill', 'tasklist', '2025-05-29 16:30:09', '2025-05-29 16:30:09', 1),
 (77, 'help', 'What commands are available?', 'Here are the main categories of Windows commands I can help with:\n\n• **File Operations** - dir, copy, move, del, mkdir\n• **System Information** - systeminfo, ver, hostname\n• **Network Commands** - ping, ipconfig, netstat\n• **Process Management** - tasklist, taskkill\n• **User Management** - whoami, net user\n• **Service Management** - sc query, net start/stop\n\nAsk me about any specific category or command!', 'help commands available categories', 'help', '2025-05-29 16:30:09', '2025-05-29 16:30:09', 1);
 
-CREATE TABLE command_log (
-  id int(11) NOT NULL,
-  session_id varchar(64) NOT NULL,
-  user_id int(11) NOT NULL,
-  command text NOT NULL,
-  output longtext DEFAULT NULL,
-  execution_time decimal(10,6) DEFAULT NULL,
-  status enum('pending','completed','failed','timeout') DEFAULT 'pending',
-  timestamp timestamp NOT NULL DEFAULT current_timestamp(),
-  response_timestamp timestamp NULL DEFAULT NULL,
-  error_message text DEFAULT NULL
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `command_log`
+--
+
+DROP TABLE IF EXISTS `command_log`;
+CREATE TABLE `command_log` (
+  `id` int(11) NOT NULL,
+  `session_id` varchar(64) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `command` text NOT NULL,
+  `output` longtext DEFAULT NULL,
+  `execution_time` decimal(10,6) DEFAULT NULL,
+  `status` enum('pending','completed','failed','timeout') DEFAULT 'pending',
+  `timestamp` timestamp NOT NULL DEFAULT current_timestamp(),
+  `response_timestamp` timestamp NULL DEFAULT NULL,
+  `error_message` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO command_log (id, session_id, user_id, command, output, execution_time, status, timestamp, response_timestamp, error_message) VALUES
+--
+-- Dumping data for table `command_log`
+--
+
+INSERT INTO `command_log` (`id`, `session_id`, `user_id`, `command`, `output`, `execution_time`, `status`, `timestamp`, `response_timestamp`, `error_message`) VALUES
 (1, 'sess_20250529_185834_fc10ae62fa62c329', 1, 'whoami', 'caleb-\\caleb', 1.505000, 'completed', '2025-05-29 18:58:37', '2025-05-29 18:58:40', NULL),
 (2, 'sess_20250529_185834_fc10ae62fa62c329', 1, 'cd C:\\', 'C:\\', 0.003000, 'completed', '2025-05-29 18:58:47', '2025-05-29 18:58:47', NULL),
 (3, 'sess_20250529_185834_fc10ae62fa62c329', 1, 'dir', 'Volume in drive C is Windows\r\n Volume Serial Number is E88F-9F2D\r\n\r\n Directory of C:\\NewFolder\r\n\r\n05/29/2025  01:59 PM    <DIR>          .\r\n               0 File(s)              0 bytes\r\n               1 Dir(s)  717,596,352,512 bytes free', 1.518000, 'completed', '2025-05-29 18:58:54', '2025-05-29 18:59:41', NULL),
@@ -807,7 +938,7 @@ INSERT INTO command_log (id, session_id, user_id, command, output, execution_tim
 (26, 'sess_20250601_180819_21f07b1c0c7296f3', 1, 'whoami', 'caleb-\\caleb', 1.923000, 'completed', '2025-06-01 18:08:22', '2025-06-01 18:08:26', NULL),
 (27, 'sess_20250601_180819_21f07b1c0c7296f3', 1, 'help', 'For more information on a specific command, type HELP command-name\r\nASSOC          Displays or modifies file extension associations.\r\nATTRIB         Displays or changes file attributes.\r\nBREAK          Sets or clears extended CTRL+C checking.\r\nBCDEDIT        Sets properties in boot database to control boot loading.\r\nCACLS          Displays or modifies access control lists (ACLs) of files.\r\nCALL           Calls one batch program from another.\r\nCD             Displays the name of or changes the current directory.\r\nCHCP           Displays or sets the active code page number.\r\nCHDIR          Displays the name of or changes the current directory.\r\nCHKDSK         Checks a disk and displays a status report.\r\nCHKNTFS        Displays or modifies the checking of disk at boot time.\r\nCLS            Clears the screen.\r\nCMD            Starts a new instance of the Windows command interpreter.\r\nCOLOR          Sets the default console foreground and background colors.\r\nCOMP           Compares the contents of two files or sets of files.\r\nCOMPACT        Displays or alters the compression of files on NTFS partitions.\r\nCONVERT        Converts FAT volumes to NTFS.  You cannot convert the\r\n               current drive.\r\nCOPY           Copies one or more files to another location.\r\nDATE           Displays or sets the date.\r\nDEL            Deletes one or more files.\r\nDIR            Displays a list of files and subdirectories in a directory.\r\nDISKPART       Displays or configures Disk Partition properties.\r\nDOSKEY         Edits command lines, recalls Windows commands, and \r\n               creates macros.\r\nDRIVERQUERY    Displays current device driver status and properties.\r\nECHO           Displays messages, or turns command echoing on or off.\r\nENDLOCAL       Ends localization of environment changes in a batch file.\r\nERASE          Deletes one or more files.\r\nEXIT           Quits the CMD.EXE program (command interpreter).\r\nFC             Compares two files or sets of files, and displays the \r\n               differences between them.\r\nFIND           Searches for a text string in a file or files.\r\nFINDSTR        Searches for strings in files.\r\nFOR            Runs a specified command for each file in a set of files.\r\nFORMAT         Formats a disk for use with Windows.\r\nFSUTIL         Displays or configures the file system properties.\r\nFTYPE          Displays or modifies file types used in file extension \r\n               associations.\r\nGOTO           Directs the Windows command interpreter to a labeled line in \r\n               a batch program.\r\nGPRESULT       Displays Group Policy information for machine or user.\r\nHELP           Provides Help information for Windows commands.\r\nICACLS         Display, modify, backup, or restore ACLs for files and \r\n               directories.\r\nIF             Performs conditional processing in batch programs.\r\nLABEL          Creates, changes, or deletes the volume label of a disk.\r\nMD             Creates a directory.\r\nMKDIR          Creates a directory.\r\nMKLINK         Creates Symbolic Links and Hard Links\r\nMODE           Configures a system device.\r\nMORE           Displays output one screen at a time.\r\nMOVE           Moves one or more files from one directory to another \r\n               directory.\r\nOPENFILES      Displays files opened by remote users for a file share.\r\nPATH           Displays or sets a search path for executable files.\r\nPAUSE          Suspends processing of a batch file and displays a message.\r\nPOPD           Restores the previous value of the current directory saved by \r\n               PUSHD.\r\nPRINT          Prints a text file.\r\nPROMPT         Changes the Windows command prompt.\r\nPUSHD          Saves the current directory then changes it.\r\nRD             Removes a directory.\r\nRECOVER        Recovers readable information from a bad or defective disk.\r\nREM            Records comments (remarks) in batch files or CONFIG.SYS.\r\nREN            Renames a file or files.\r\nRENAME         Renames a file or files.\r\nREPLACE        Replaces files.\r\nRMDIR          Removes a directory.\r\nROBOCOPY       Advanced utility to copy files and directory trees\r\nSET            Displays, sets, or removes Windows environment variables.\r\nSETLOCAL       Begins localization of environment changes in a batch file.\r\nSC             Displays or configures services (background processes).\r\nSCHTASKS       Schedules commands and programs to run on a computer.\r\nSHIFT          Shifts the position of replaceable parameters in batch files.\r\nSHUTDOWN       Allows proper local or remote shutdown of machine.\r\nSORT           Sorts input.\r\nSTART          Starts a separate window to run a specified program or command.\r\nSUBST          Associates a path with a drive letter.\r\nSYSTEMINFO     Displays machine specific properties and configuration.\r\nTASKLIST       Displays all currently running tasks including services.\r\nTASKKILL       Kill or stop a running process or application.\r\nTIME           Displays or sets the system time.\r\nTITLE          Sets the window title for a CMD.EXE session.\r\nTREE           Graphically displays the directory structure of a drive or \r\n               path.\r\nTYPE           Displays the contents of a text file.\r\nVER            Displays the Windows version.\r\nVERIFY         Tells Windows whether to verify that your files are written\r\n               correctly to a disk.\r\nVOL            Displays a disk volume label and serial number.\r\nXCOPY          Copies files and directory trees.\r\nWMIC           Displays WMI information inside interactive command shell.\r\n\r\nFor more information on tools see the command-line reference in the online help.', 1.516000, 'completed', '2025-06-01 18:08:43', '2025-06-01 18:08:45', NULL),
 (28, 'sess_20250601_180819_21f07b1c0c7296f3', 1, 'ping google.com', 'Pinging google.com [108.177.122.101] with 32 bytes of data:\r\nReply from 108.177.122.101: bytes=32 time=31ms TTL=104\r\nReply from 108.177.122.101: bytes=32 time=31ms TTL=104\r\nReply from 108.177.122.101: bytes=32 time=31ms TTL=104\r\nReply from 108.177.122.101: bytes=32 time=35ms TTL=104\r\n\r\nPing statistics for 108.177.122.101:\r\n    Packets: Sent = 4, Received = 4, Lost = 0 (0% loss),\r\nApproximate round trip times in milli-seconds:\r\n    Minimum = 31ms, Maximum = 35ms, Average = 32ms', 4.750000, 'completed', '2025-06-01 18:09:06', '2025-06-01 18:09:11', NULL);
-INSERT INTO command_log (id, session_id, user_id, command, output, execution_time, status, timestamp, response_timestamp, error_message) VALUES
+INSERT INTO `command_log` (`id`, `session_id`, `user_id`, `command`, `output`, `execution_time`, `status`, `timestamp`, `response_timestamp`, `error_message`) VALUES
 (29, 'sess_20250601_180819_21f07b1c0c7296f3', 1, 'ipconfig', 'Windows IP Configuration\r\n\r\n\r\nUnknown adapter Local Area Connection:\r\n\r\n   Media State . . . . . . . . . . . : Media disconnected\r\n   Connection-specific DNS Suffix  . : \r\n\r\nUnknown adapter OpenVPN Wintun:\r\n\r\n   Media State . . . . . . . . . . . : Media disconnected\r\n   Connection-specific DNS Suffix  . : \r\n\r\nUnknown adapter OpenVPN TAP-Windows6:\r\n\r\n   Media State . . . . . . . . . . . : Media disconnected\r\n   Connection-specific DNS Suffix  . : \r\n\r\nEthernet adapter Ethernet 5:\r\n\r\n   Connection-specific DNS Suffix  . : \r\n   Link-local IPv6 Address . . . . . : fe80::4f17:2b8d:7d5e:d7b8%9\r\n   IPv4 Address. . . . . . . . . . . : 192.168.56.1\r\n   Subnet Mask . . . . . . . . . . . : 255.255.255.0\r\n   Default Gateway . . . . . . . . . : \r\n\r\nUnknown adapter OpenVPN Data Channel Offload:\r\n\r\n   Media State . . . . . . . . . . . : Media disconnected\r\n   Connection-specific DNS Suffix  . : \r\n\r\nWireless LAN adapter Local Area Connection* 1:\r\n\r\n   Media State . . . . . . . . . . . : Media disconnected\r\n   Connection-specific DNS Suffix  . : \r\n\r\nWireless LAN adapter Local Area Connection* 2:\r\n\r\n   Media State . . . . . . . . . . . : Media disconnected\r\n   Connection-specific DNS Suffix  . : \r\n\r\nWireless LAN adapter Wi-Fi:\r\n\r\n   Connection-specific DNS Suffix  . : \r\n   Link-local IPv6 Address . . . . . : fe80::1793:6c98:8cd:ad7d%14\r\n   IPv4 Address. . . . . . . . . . . : 192.168.68.68\r\n   Subnet Mask . . . . . . . . . . . : 255.255.252.0\r\n   Default Gateway . . . . . . . . . : 192.168.68.1\r\n\r\nEthernet adapter Bluetooth Network Connection:\r\n\r\n   Media State . . . . . . . . . . . : Media disconnected\r\n   Connection-specific DNS Suffix  . :', 1.609000, 'completed', '2025-06-01 18:09:26', '2025-06-01 18:09:29', NULL),
 (30, 'sess_20250601_180819_21f07b1c0c7296f3', 1, 'exit', 'Command completed successfully (no output).', 1.622000, 'completed', '2025-06-01 18:09:41', '2025-06-01 18:09:44', NULL),
 (31, 'sess_20250601_181922_ac6f506aeb052d5a', 1, 'whoami', 'caleb-\\caleb', 2.328000, 'completed', '2025-06-01 18:19:28', '2025-06-01 18:19:32', NULL),
@@ -828,37 +959,78 @@ INSERT INTO command_log (id, session_id, user_id, command, output, execution_tim
 (46, 'sess_20250601_185502_32767389da512e21', 1, 'cd netfolder3', 'The system cannot find the path specified: C:\\Users\\caleb\\netfolder3', 0.002000, 'completed', '2025-06-01 18:56:41', '2025-06-01 18:56:42', NULL),
 (47, 'sess_20250601_185502_32767389da512e21', 1, 'cd newfolder3', 'C:\\Users\\caleb\\newfolder3\\', 0.009000, 'completed', '2025-06-01 18:56:52', '2025-06-01 18:56:52', NULL),
 (48, 'sess_20250601_185749_1b0142651678b11d', 1, 'whoami', 'caleb-\\caleb', 2.051000, 'completed', '2025-06-01 18:57:56', '2025-06-01 18:57:59', NULL),
-(49, 'sess_20250603_010250_2c7dfea9c31711b8', 1, 'dir', 'Volume in drive C is Windows\r\n Volume Serial Number is E88F-9F2D\r\n\r\n Directory of C:\\Users\\caleb\r\n\r\n06/01/2025  01:56 PM    <DIR>          .\r\n11/01/2024  05:08 AM    <DIR>          ..\r\n12/21/2023  10:13 PM    <DIR>          .anaconda\r\n03/03/2025  11:03 PM    <DIR>          .android\r\n11/06/2024  09:41 PM    <DIR>          .cache\r\n05/20/2024  02:06 AM    <DIR>          .conda\r\n12/21/2023  10:14 PM                25 .condarc\r\n11/06/2024  09:41 PM    <DIR>          .config\r\n12/21/2023  10:13 PM    <DIR>          .continuum\r\n01/20/2025  01:46 AM    <DIR>          .docker\r\n03/03/2025  10:58 PM                16 .emulator_console_auth_token\r\n03/03/2025  10:59 PM    <DIR>          .gradle\r\n04/04/2025  10:08 PM    <DIR>          .icesoft\r\n12/22/2023  07:17 PM    <DIR>          .ipython\r\n02/26/2024  09:54 PM    <DIR>          .jupyter\r\n12/22/2023  07:28 PM    <DIR>          .matplotlib\r\n10/13/2024  01:33 AM    <DIR>          .mitmproxy\r\n06/17/2024  06:49 PM    <DIR>          .ms-ad\r\n04/04/2025  10:03 PM    <DIR>          .openjfx\r\n04/05/2025  12:20 AM            43,746 .pdfbox.cache\r\n11/06/2024  08:04 PM    <DIR>          .ssh\r\n04/09/2025  05:26 AM    <DIR>          .VirtualBox\r\n01/15/2024  01:04 PM    <DIR>          .vscode\r\n01/19/2025  05:06 PM    <DIR>          .webgoat-2023.8\r\n12/21/2023  10:16 PM    <DIR>          anaconda3\r\n03/03/2025  10:55 PM    <DIR>          AndroidStudioProjects\r\n11/01/2024  05:16 AM    <DIR>          Contacts\r\n11/25/2024  09:56 PM    <DIR>          Documents\r\n06/01/2025  09:45 PM    <DIR>          Downloads\r\n11/01/2024  05:16 AM    <DIR>          Favorites\r\n09/12/2024  09:32 PM             1,230 images.zip\r\n11/01/2024  05:16 AM    <DIR>          Links\r\n11/01/2024  05:16 AM    <DIR>          Music\r\n01/12/2025  09:39 PM                 0 New Bitmap image.bmp\r\n05/29/2025  12:25 PM    <DIR>          NewFolder\r\n06/01/2025  01:33 PM    <DIR>          NewFolder2\r\n06/01/2025  01:56 PM    <DIR>          NewFolder3\r\n05/18/2025  03:59 PM    <DIR>          OneDrive\r\n05/04/2025  04:06 PM    <DIR>          OpenVPN\r\n11/01/2024  05:16 AM    <DIR>          Saved Games\r\n11/01/2024  05:16 AM    <DIR>          Searches\r\n03/27/2024  04:07 PM         2,445,257 test.csv\r\n06/01/2025  01:29 PM    <DIR>          Videos\r\n04/08/2025  09:05 PM    <DIR>          VirtualBox VMs\r\n04/08/2025  09:04 PM    <DIR>          VM\r\n01/06/2025  07:33 PM    <DIR>          ZAP\r\n               6 File(s)      2,490,274 bytes\r\n              40 Dir(s)  715,431,366,656 bytes free', 2.969000, 'completed', '2025-06-03 01:03:00', '2025-06-03 01:03:04', NULL);
+(49, 'sess_20250603_010250_2c7dfea9c31711b8', 1, 'dir', 'Volume in drive C is Windows\r\n Volume Serial Number is E88F-9F2D\r\n\r\n Directory of C:\\Users\\caleb\r\n\r\n06/01/2025  01:56 PM    <DIR>          .\r\n11/01/2024  05:08 AM    <DIR>          ..\r\n12/21/2023  10:13 PM    <DIR>          .anaconda\r\n03/03/2025  11:03 PM    <DIR>          .android\r\n11/06/2024  09:41 PM    <DIR>          .cache\r\n05/20/2024  02:06 AM    <DIR>          .conda\r\n12/21/2023  10:14 PM                25 .condarc\r\n11/06/2024  09:41 PM    <DIR>          .config\r\n12/21/2023  10:13 PM    <DIR>          .continuum\r\n01/20/2025  01:46 AM    <DIR>          .docker\r\n03/03/2025  10:58 PM                16 .emulator_console_auth_token\r\n03/03/2025  10:59 PM    <DIR>          .gradle\r\n04/04/2025  10:08 PM    <DIR>          .icesoft\r\n12/22/2023  07:17 PM    <DIR>          .ipython\r\n02/26/2024  09:54 PM    <DIR>          .jupyter\r\n12/22/2023  07:28 PM    <DIR>          .matplotlib\r\n10/13/2024  01:33 AM    <DIR>          .mitmproxy\r\n06/17/2024  06:49 PM    <DIR>          .ms-ad\r\n04/04/2025  10:03 PM    <DIR>          .openjfx\r\n04/05/2025  12:20 AM            43,746 .pdfbox.cache\r\n11/06/2024  08:04 PM    <DIR>          .ssh\r\n04/09/2025  05:26 AM    <DIR>          .VirtualBox\r\n01/15/2024  01:04 PM    <DIR>          .vscode\r\n01/19/2025  05:06 PM    <DIR>          .webgoat-2023.8\r\n12/21/2023  10:16 PM    <DIR>          anaconda3\r\n03/03/2025  10:55 PM    <DIR>          AndroidStudioProjects\r\n11/01/2024  05:16 AM    <DIR>          Contacts\r\n11/25/2024  09:56 PM    <DIR>          Documents\r\n06/01/2025  09:45 PM    <DIR>          Downloads\r\n11/01/2024  05:16 AM    <DIR>          Favorites\r\n09/12/2024  09:32 PM             1,230 images.zip\r\n11/01/2024  05:16 AM    <DIR>          Links\r\n11/01/2024  05:16 AM    <DIR>          Music\r\n01/12/2025  09:39 PM                 0 New Bitmap image.bmp\r\n05/29/2025  12:25 PM    <DIR>          NewFolder\r\n06/01/2025  01:33 PM    <DIR>          NewFolder2\r\n06/01/2025  01:56 PM    <DIR>          NewFolder3\r\n05/18/2025  03:59 PM    <DIR>          OneDrive\r\n05/04/2025  04:06 PM    <DIR>          OpenVPN\r\n11/01/2024  05:16 AM    <DIR>          Saved Games\r\n11/01/2024  05:16 AM    <DIR>          Searches\r\n03/27/2024  04:07 PM         2,445,257 test.csv\r\n06/01/2025  01:29 PM    <DIR>          Videos\r\n04/08/2025  09:05 PM    <DIR>          VirtualBox VMs\r\n04/08/2025  09:04 PM    <DIR>          VM\r\n01/06/2025  07:33 PM    <DIR>          ZAP\r\n               6 File(s)      2,490,274 bytes\r\n              40 Dir(s)  715,431,366,656 bytes free', 2.969000, 'completed', '2025-06-03 01:03:00', '2025-06-03 01:03:04', NULL),
+(50, 'sess_20250603_014101_68780f86a084b48d', 1, 'whoami', 'caleb-\\caleb', 2.433000, 'completed', '2025-06-03 01:41:16', '2025-06-03 01:41:19', NULL),
+(51, 'sess_20250603_014101_68780f86a084b48d', 1, 'help', 'For more information on a specific command, type HELP command-name\r\nASSOC          Displays or modifies file extension associations.\r\nATTRIB         Displays or changes file attributes.\r\nBREAK          Sets or clears extended CTRL+C checking.\r\nBCDEDIT        Sets properties in boot database to control boot loading.\r\nCACLS          Displays or modifies access control lists (ACLs) of files.\r\nCALL           Calls one batch program from another.\r\nCD             Displays the name of or changes the current directory.\r\nCHCP           Displays or sets the active code page number.\r\nCHDIR          Displays the name of or changes the current directory.\r\nCHKDSK         Checks a disk and displays a status report.\r\nCHKNTFS        Displays or modifies the checking of disk at boot time.\r\nCLS            Clears the screen.\r\nCMD            Starts a new instance of the Windows command interpreter.\r\nCOLOR          Sets the default console foreground and background colors.\r\nCOMP           Compares the contents of two files or sets of files.\r\nCOMPACT        Displays or alters the compression of files on NTFS partitions.\r\nCONVERT        Converts FAT volumes to NTFS.  You cannot convert the\r\n               current drive.\r\nCOPY           Copies one or more files to another location.\r\nDATE           Displays or sets the date.\r\nDEL            Deletes one or more files.\r\nDIR            Displays a list of files and subdirectories in a directory.\r\nDISKPART       Displays or configures Disk Partition properties.\r\nDOSKEY         Edits command lines, recalls Windows commands, and \r\n               creates macros.\r\nDRIVERQUERY    Displays current device driver status and properties.\r\nECHO           Displays messages, or turns command echoing on or off.\r\nENDLOCAL       Ends localization of environment changes in a batch file.\r\nERASE          Deletes one or more files.\r\nEXIT           Quits the CMD.EXE program (command interpreter).\r\nFC             Compares two files or sets of files, and displays the \r\n               differences between them.\r\nFIND           Searches for a text string in a file or files.\r\nFINDSTR        Searches for strings in files.\r\nFOR            Runs a specified command for each file in a set of files.\r\nFORMAT         Formats a disk for use with Windows.\r\nFSUTIL         Displays or configures the file system properties.\r\nFTYPE          Displays or modifies file types used in file extension \r\n               associations.\r\nGOTO           Directs the Windows command interpreter to a labeled line in \r\n               a batch program.\r\nGPRESULT       Displays Group Policy information for machine or user.\r\nHELP           Provides Help information for Windows commands.\r\nICACLS         Display, modify, backup, or restore ACLs for files and \r\n               directories.\r\nIF             Performs conditional processing in batch programs.\r\nLABEL          Creates, changes, or deletes the volume label of a disk.\r\nMD             Creates a directory.\r\nMKDIR          Creates a directory.\r\nMKLINK         Creates Symbolic Links and Hard Links\r\nMODE           Configures a system device.\r\nMORE           Displays output one screen at a time.\r\nMOVE           Moves one or more files from one directory to another \r\n               directory.\r\nOPENFILES      Displays files opened by remote users for a file share.\r\nPATH           Displays or sets a search path for executable files.\r\nPAUSE          Suspends processing of a batch file and displays a message.\r\nPOPD           Restores the previous value of the current directory saved by \r\n               PUSHD.\r\nPRINT          Prints a text file.\r\nPROMPT         Changes the Windows command prompt.\r\nPUSHD          Saves the current directory then changes it.\r\nRD             Removes a directory.\r\nRECOVER        Recovers readable information from a bad or defective disk.\r\nREM            Records comments (remarks) in batch files or CONFIG.SYS.\r\nREN            Renames a file or files.\r\nRENAME         Renames a file or files.\r\nREPLACE        Replaces files.\r\nRMDIR          Removes a directory.\r\nROBOCOPY       Advanced utility to copy files and directory trees\r\nSET            Displays, sets, or removes Windows environment variables.\r\nSETLOCAL       Begins localization of environment changes in a batch file.\r\nSC             Displays or configures services (background processes).\r\nSCHTASKS       Schedules commands and programs to run on a computer.\r\nSHIFT          Shifts the position of replaceable parameters in batch files.\r\nSHUTDOWN       Allows proper local or remote shutdown of machine.\r\nSORT           Sorts input.\r\nSTART          Starts a separate window to run a specified program or command.\r\nSUBST          Associates a path with a drive letter.\r\nSYSTEMINFO     Displays machine specific properties and configuration.\r\nTASKLIST       Displays all currently running tasks including services.\r\nTASKKILL       Kill or stop a running process or application.\r\nTIME           Displays or sets the system time.\r\nTITLE          Sets the window title for a CMD.EXE session.\r\nTREE           Graphically displays the directory structure of a drive or \r\n               path.\r\nTYPE           Displays the contents of a text file.\r\nVER            Displays the Windows version.\r\nVERIFY         Tells Windows whether to verify that your files are written\r\n               correctly to a disk.\r\nVOL            Displays a disk volume label and serial number.\r\nXCOPY          Copies files and directory trees.\r\nWMIC           Displays WMI information inside interactive command shell.\r\n\r\nFor more information on tools see the command-line reference in the online help.', 3.102000, 'completed', '2025-06-03 01:42:38', '2025-06-03 01:42:42', NULL),
+(52, 'sess_20250613_011630_e782ec15fda83ff8', 1, 'whoami', 'caleb-\\caleb', 5.330000, 'completed', '2025-06-13 01:16:33', '2025-06-13 01:16:39', NULL),
+(53, 'sess_20250613_011630_e782ec15fda83ff8', 1, 'ping google.com', 'Pinging google.com [64.233.176.139] with 32 bytes of data:\r\nReply from 64.233.176.139: bytes=32 time=31ms TTL=105\r\nReply from 64.233.176.139: bytes=32 time=33ms TTL=105\r\nReply from 64.233.176.139: bytes=32 time=31ms TTL=105\r\nReply from 64.233.176.139: bytes=32 time=29ms TTL=105\r\n\r\nPing statistics for 64.233.176.139:\r\n    Packets: Sent = 4, Received = 4, Lost = 0 (0% loss),\r\nApproximate round trip times in milli-seconds:\r\n    Minimum = 29ms, Maximum = 33ms, Average = 31ms', 5.384000, 'completed', '2025-06-13 01:17:04', '2025-06-13 01:17:10', NULL),
+(54, 'sess_20250613_012108_1b8c90ae19478faa', 1, 'whoai', '\'whoai\' is not recognized as an internal or external command,\r\noperable program or batch file.', 1.790000, 'completed', '2025-06-13 01:21:11', '2025-06-13 01:21:13', NULL),
+(55, 'sess_20250613_012108_1b8c90ae19478faa', 1, 'whoami', 'caleb-\\caleb', 1.687000, 'completed', '2025-06-13 01:21:13', '2025-06-13 01:21:54', NULL),
+(56, 'sess_20250613_012108_1b8c90ae19478faa', 1, 'mshta \"http://localhost/GhostCrew/local/autoconnect.hta?token=inst_1_1749777532_1247b5b344821975b0f27f62cb0536a2\"', 'Command completed successfully (no output).', 5.630000, 'completed', '2025-06-13 01:21:13', '2025-06-13 01:21:41', NULL),
+(57, 'sess_20250613_012108_1b8c90ae19478faa', 1, 'mshta \"http://localhost/GhostCrew/local/autoconnect.hta?token=inst_1_1749777532_1247b5b344821975b0f27f62cb0536a2\"', 'Command completed successfully (no output).', 5.630000, 'completed', '2025-06-13 01:21:14', '2025-06-13 01:21:41', NULL),
+(58, 'sess_20250613_012108_1b8c90ae19478faa', 1, 'mshta \"http://localhost/GhostCrew/local/autoconnect.hta?token=inst_1_1749777532_1247b5b344821975b0f27f62cb0536a2\"', 'Command completed successfully (no output).', 5.630000, 'completed', '2025-06-13 01:21:14', '2025-06-13 01:21:41', NULL),
+(59, 'sess_20250613_012108_1b8c90ae19478faa', 1, 'mshta \"http://localhost/GhostCrew/local/autoconnect.hta?token=inst_1_1749777532_1247b5b344821975b0f27f62cb0536a2\"', 'Command completed successfully (no output).', 5.630000, 'completed', '2025-06-13 01:21:14', '2025-06-13 01:21:41', NULL),
+(60, 'sess_20250613_012108_1b8c90ae19478faa', 1, 'mshta \"http://localhost/GhostCrew/local/autoconnect.hta?token=inst_1_1749777532_1247b5b344821975b0f27f62cb0536a2\"', 'Command completed successfully (no output).', 5.630000, 'completed', '2025-06-13 01:21:15', '2025-06-13 01:21:41', NULL),
+(61, 'sess_20250613_012108_1b8c90ae19478faa', 1, 'mshta \"http://localhost/GhostCrew/local/autoconnect.hta?token=inst_1_1749777532_1247b5b344821975b0f27f62cb0536a2\"', 'Command completed successfully (no output).', 5.630000, 'completed', '2025-06-13 01:21:15', '2025-06-13 01:21:41', NULL),
+(62, 'sess_20250613_012108_1b8c90ae19478faa', 1, 'whoami', 'caleb-\\caleb', 1.687000, 'completed', '2025-06-13 01:21:51', '2025-06-13 01:21:54', NULL),
+(63, 'sess_20250613_012108_1b8c90ae19478faa', 1, 'help', 'For more information on a specific command, type HELP command-name\r\nASSOC          Displays or modifies file extension associations.\r\nATTRIB         Displays or changes file attributes.\r\nBREAK          Sets or clears extended CTRL+C checking.\r\nBCDEDIT        Sets properties in boot database to control boot loading.\r\nCACLS          Displays or modifies access control lists (ACLs) of files.\r\nCALL           Calls one batch program from another.\r\nCD             Displays the name of or changes the current directory.\r\nCHCP           Displays or sets the active code page number.\r\nCHDIR          Displays the name of or changes the current directory.\r\nCHKDSK         Checks a disk and displays a status report.\r\nCHKNTFS        Displays or modifies the checking of disk at boot time.\r\nCLS            Clears the screen.\r\nCMD            Starts a new instance of the Windows command interpreter.\r\nCOLOR          Sets the default console foreground and background colors.\r\nCOMP           Compares the contents of two files or sets of files.\r\nCOMPACT        Displays or alters the compression of files on NTFS partitions.\r\nCONVERT        Converts FAT volumes to NTFS.  You cannot convert the\r\n               current drive.\r\nCOPY           Copies one or more files to another location.\r\nDATE           Displays or sets the date.\r\nDEL            Deletes one or more files.\r\nDIR            Displays a list of files and subdirectories in a directory.\r\nDISKPART       Displays or configures Disk Partition properties.\r\nDOSKEY         Edits command lines, recalls Windows commands, and \r\n               creates macros.\r\nDRIVERQUERY    Displays current device driver status and properties.\r\nECHO           Displays messages, or turns command echoing on or off.\r\nENDLOCAL       Ends localization of environment changes in a batch file.\r\nERASE          Deletes one or more files.\r\nEXIT           Quits the CMD.EXE program (command interpreter).\r\nFC             Compares two files or sets of files, and displays the \r\n               differences between them.\r\nFIND           Searches for a text string in a file or files.\r\nFINDSTR        Searches for strings in files.\r\nFOR            Runs a specified command for each file in a set of files.\r\nFORMAT         Formats a disk for use with Windows.\r\nFSUTIL         Displays or configures the file system properties.\r\nFTYPE          Displays or modifies file types used in file extension \r\n               associations.\r\nGOTO           Directs the Windows command interpreter to a labeled line in \r\n               a batch program.\r\nGPRESULT       Displays Group Policy information for machine or user.\r\nHELP           Provides Help information for Windows commands.\r\nICACLS         Display, modify, backup, or restore ACLs for files and \r\n               directories.\r\nIF             Performs conditional processing in batch programs.\r\nLABEL          Creates, changes, or deletes the volume label of a disk.\r\nMD             Creates a directory.\r\nMKDIR          Creates a directory.\r\nMKLINK         Creates Symbolic Links and Hard Links\r\nMODE           Configures a system device.\r\nMORE           Displays output one screen at a time.\r\nMOVE           Moves one or more files from one directory to another \r\n               directory.\r\nOPENFILES      Displays files opened by remote users for a file share.\r\nPATH           Displays or sets a search path for executable files.\r\nPAUSE          Suspends processing of a batch file and displays a message.\r\nPOPD           Restores the previous value of the current directory saved by \r\n               PUSHD.\r\nPRINT          Prints a text file.\r\nPROMPT         Changes the Windows command prompt.\r\nPUSHD          Saves the current directory then changes it.\r\nRD             Removes a directory.\r\nRECOVER        Recovers readable information from a bad or defective disk.\r\nREM            Records comments (remarks) in batch files or CONFIG.SYS.\r\nREN            Renames a file or files.\r\nRENAME         Renames a file or files.\r\nREPLACE        Replaces files.\r\nRMDIR          Removes a directory.\r\nROBOCOPY       Advanced utility to copy files and directory trees\r\nSET            Displays, sets, or removes Windows environment variables.\r\nSETLOCAL       Begins localization of environment changes in a batch file.\r\nSC             Displays or configures services (background processes).\r\nSCHTASKS       Schedules commands and programs to run on a computer.\r\nSHIFT          Shifts the position of replaceable parameters in batch files.\r\nSHUTDOWN       Allows proper local or remote shutdown of machine.\r\nSORT           Sorts input.\r\nSTART          Starts a separate window to run a specified program or command.\r\nSUBST          Associates a path with a drive letter.\r\nSYSTEMINFO     Displays machine specific properties and configuration.\r\nTASKLIST       Displays all currently running tasks including services.\r\nTASKKILL       Kill or stop a running process or application.\r\nTIME           Displays or sets the system time.\r\nTITLE          Sets the window title for a CMD.EXE session.\r\nTREE           Graphically displays the directory structure of a drive or \r\n               path.\r\nTYPE           Displays the contents of a text file.\r\nVER            Displays the Windows version.\r\nVERIFY         Tells Windows whether to verify that your files are written\r\n               correctly to a disk.\r\nVOL            Displays a disk volume label and serial number.\r\nXCOPY          Copies files and directory trees.\r\nWMIC           Displays WMI information inside interactive command shell.\r\n\r\nFor more information on tools see the command-line reference in the online help.', 1.714000, 'completed', '2025-06-13 01:22:05', '2025-06-13 01:22:08', NULL),
+(64, 'sess_20250613_012327_d12493087c92adb3', 1, 'whoami', 'caleb-\\caleb', 1.677000, 'completed', '2025-06-13 01:23:31', '2025-06-17 02:33:42', NULL),
+(65, 'sess_20250617_023557_01af01e05196c1e2', 1, 'whoami', 'caleb-\\caleb', 1.657000, 'completed', '2025-06-17 02:36:15', '2025-06-17 02:36:17', NULL),
+(66, 'sess_20250617_023557_01af01e05196c1e2', 1, 'help', 'For more information on a specific command, type HELP command-name\r\nASSOC          Displays or modifies file extension associations.\r\nATTRIB         Displays or changes file attributes.\r\nBREAK          Sets or clears extended CTRL+C checking.\r\nBCDEDIT        Sets properties in boot database to control boot loading.\r\nCACLS          Displays or modifies access control lists (ACLs) of files.\r\nCALL           Calls one batch program from another.\r\nCD             Displays the name of or changes the current directory.\r\nCHCP           Displays or sets the active code page number.\r\nCHDIR          Displays the name of or changes the current directory.\r\nCHKDSK         Checks a disk and displays a status report.\r\nCHKNTFS        Displays or modifies the checking of disk at boot time.\r\nCLS            Clears the screen.\r\nCMD            Starts a new instance of the Windows command interpreter.\r\nCOLOR          Sets the default console foreground and background colors.\r\nCOMP           Compares the contents of two files or sets of files.\r\nCOMPACT        Displays or alters the compression of files on NTFS partitions.\r\nCONVERT        Converts FAT volumes to NTFS.  You cannot convert the\r\n               current drive.\r\nCOPY           Copies one or more files to another location.\r\nDATE           Displays or sets the date.\r\nDEL            Deletes one or more files.\r\nDIR            Displays a list of files and subdirectories in a directory.\r\nDISKPART       Displays or configures Disk Partition properties.\r\nDOSKEY         Edits command lines, recalls Windows commands, and \r\n               creates macros.\r\nDRIVERQUERY    Displays current device driver status and properties.\r\nECHO           Displays messages, or turns command echoing on or off.\r\nENDLOCAL       Ends localization of environment changes in a batch file.\r\nERASE          Deletes one or more files.\r\nEXIT           Quits the CMD.EXE program (command interpreter).\r\nFC             Compares two files or sets of files, and displays the \r\n               differences between them.\r\nFIND           Searches for a text string in a file or files.\r\nFINDSTR        Searches for strings in files.\r\nFOR            Runs a specified command for each file in a set of files.\r\nFORMAT         Formats a disk for use with Windows.\r\nFSUTIL         Displays or configures the file system properties.\r\nFTYPE          Displays or modifies file types used in file extension \r\n               associations.\r\nGOTO           Directs the Windows command interpreter to a labeled line in \r\n               a batch program.\r\nGPRESULT       Displays Group Policy information for machine or user.\r\nHELP           Provides Help information for Windows commands.\r\nICACLS         Display, modify, backup, or restore ACLs for files and \r\n               directories.\r\nIF             Performs conditional processing in batch programs.\r\nLABEL          Creates, changes, or deletes the volume label of a disk.\r\nMD             Creates a directory.\r\nMKDIR          Creates a directory.\r\nMKLINK         Creates Symbolic Links and Hard Links\r\nMODE           Configures a system device.\r\nMORE           Displays output one screen at a time.\r\nMOVE           Moves one or more files from one directory to another \r\n               directory.\r\nOPENFILES      Displays files opened by remote users for a file share.\r\nPATH           Displays or sets a search path for executable files.\r\nPAUSE          Suspends processing of a batch file and displays a message.\r\nPOPD           Restores the previous value of the current directory saved by \r\n               PUSHD.\r\nPRINT          Prints a text file.\r\nPROMPT         Changes the Windows command prompt.\r\nPUSHD          Saves the current directory then changes it.\r\nRD             Removes a directory.\r\nRECOVER        Recovers readable information from a bad or defective disk.\r\nREM            Records comments (remarks) in batch files or CONFIG.SYS.\r\nREN            Renames a file or files.\r\nRENAME         Renames a file or files.\r\nREPLACE        Replaces files.\r\nRMDIR          Removes a directory.\r\nROBOCOPY       Advanced utility to copy files and directory trees\r\nSET            Displays, sets, or removes Windows environment variables.\r\nSETLOCAL       Begins localization of environment changes in a batch file.\r\nSC             Displays or configures services (background processes).\r\nSCHTASKS       Schedules commands and programs to run on a computer.\r\nSHIFT          Shifts the position of replaceable parameters in batch files.\r\nSHUTDOWN       Allows proper local or remote shutdown of machine.\r\nSORT           Sorts input.\r\nSTART          Starts a separate window to run a specified program or command.\r\nSUBST          Associates a path with a drive letter.\r\nSYSTEMINFO     Displays machine specific properties and configuration.\r\nTASKLIST       Displays all currently running tasks including services.\r\nTASKKILL       Kill or stop a running process or application.\r\nTIME           Displays or sets the system time.\r\nTITLE          Sets the window title for a CMD.EXE session.\r\nTREE           Graphically displays the directory structure of a drive or \r\n               path.\r\nTYPE           Displays the contents of a text file.\r\nVER            Displays the Windows version.\r\nVERIFY         Tells Windows whether to verify that your files are written\r\n               correctly to a disk.\r\nVOL            Displays a disk volume label and serial number.\r\nXCOPY          Copies files and directory trees.\r\nWMIC           Displays WMI information inside interactive command shell.\r\n\r\nFor more information on tools see the command-line reference in the online help.', 1.597000, 'completed', '2025-06-17 02:36:25', '2025-06-17 02:36:26', NULL),
+(67, 'sess_20250617_023557_01af01e05196c1e2', 1, 'systeminfo', 'Host Name:                     CALEB-\r\nOS Name:                       Microsoft Windows 11 Home\r\nOS Version:                    10.0.26100 N/A Build 26100\r\nOS Manufacturer:               Microsoft Corporation\r\nOS Configuration:              Standalone Workstation\r\nOS Build Type:                 Multiprocessor Free\r\nRegistered Owner:              calebiinfinger@gmail.com\r\nRegistered Organization:       HP\r\nProduct ID:                    00342-22172-19006-AAOEM\r\nOriginal Install Date:         11/1/2024, 5:16:19 AM\r\nSystem Boot Time:              6/12/2025, 4:30:35 AM\r\nSystem Manufacturer:           HP\r\nSystem Model:                  HP Envy x360 2-in-1 Laptop 14-es0xxx\r\nSystem Type:                   x64-based PC\r\nProcessor(s):                  1 Processor(s) Installed.\r\n                               [01]: Intel64 Family 6 Model 186 Stepping 3 GenuineIntel ~1457 Mhz\r\nBIOS Version:                  Insyde F.09, 4/19/2024\r\nWindows Directory:             C:\\WINDOWS\r\nSystem Directory:              C:\\WINDOWS\\system32\r\nBoot Device:                   \\Device\\HarddiskVolume1\r\nSystem Locale:                 en-us;English (United States)\r\nInput Locale:                  en-us;English (United States)\r\nTime Zone:                     (UTC-06:00) Central Time (US & Canada)\r\nTotal Physical Memory:         16,095 MB\r\nAvailable Physical Memory:     2,691 MB\r\nVirtual Memory: Max Size:      55,007 MB\r\nVirtual Memory: Available:     32,618 MB\r\nVirtual Memory: In Use:        22,389 MB\r\nPage File Location(s):         C:\\pagefile.sys\r\nDomain:                        WORKGROUP\r\nLogon Server:                  \\\\CALEB-\r\nHotfix(s):                     3 Hotfix(s) Installed.\r\n                               [01]: KB5056579\r\n                               [02]: KB5063060\r\n                               [03]: KB5059502\r\nNetwork Card(s):               7 NIC(s) Installed.\r\n                               [01]: ExpressVPN TUN Driver\r\n                                     Connection Name: Local Area Connection\r\n                                     Status:          Media disconnected\r\n                               [02]: Realtek 8852CE WiFi 6E PCI-E NIC\r\n                                     Connection Name: Wi-Fi\r\n                                     DHCP Enabled:    Yes\r\n                                     DHCP Server:     192.168.68.1\r\n                                     IP address(es)\r\n                                     [01]: 192.168.68.50\r\n                                     [02]: fe80::1793:6c98:8cd:ad7d\r\n                               [03]: Wintun Userspace Tunnel\r\n                                     Connection Name: OpenVPN Wintun\r\n                                     Status:          Media disconnected\r\n                               [04]: TAP-Windows Adapter V9\r\n                                     Connection Name: OpenVPN TAP-Windows6\r\n                                     Status:          Media disconnected\r\n                               [05]: OpenVPN Data Channel Offload\r\n                                     Connection Name: OpenVPN Data Channel Offload\r\n                                     Status:          Media disconnected\r\n                               [06]: Bluetooth Device (Personal Area Network)\r\n                                     Connection Name: Bluetooth Network Connection\r\n                                     Status:          Media disconnected\r\n                               [07]: VirtualBox Host-Only Ethernet Adapter\r\n                                     Connection Name: Ethernet 5\r\n                                     DHCP Enabled:    No\r\n                                     IP address(es)\r\n                                     [01]: 192.168.56.1\r\n                                     [02]: fe80::4f17:2b8d:7d5e:d7b8\r\nVirtualization-based security: Status: Running\r\n                               Required Security Properties:\r\n                               Available Security Properties:\r\n                                     Base Virtualization Support\r\n                                     Secure Boot\r\n                                     DMA Protection\r\n                                     UEFI Code Readonly\r\n                                     SMM Security Mitigations 1.0\r\n                                     Mode Based Execution Control\r\n                                     APIC Virtualization\r\n                               Services Configured:\r\n                                     Hypervisor enforced Code Integrity\r\n                               Services Running:\r\n                                     Hypervisor enforced Code Integrity\r\n                               App Control for Business policy: Enforced\r\n                               App Control for Business user mode policy: Off\r\n                               Security Features Enabled:\r\nHyper-V Requirements:          A hypervisor has been detected. Features required for Hyper-V will not be displayed.', 8.834000, 'completed', '2025-06-17 02:36:47', '2025-06-17 02:36:57', NULL),
+(68, 'sess_20250624_002042_328e9368b038db00', 1, 'whoami', 'caleb-\\caleb', 2.683000, 'completed', '2025-06-24 00:20:47', '2025-06-24 00:20:50', NULL);
+INSERT INTO `command_log` (`id`, `session_id`, `user_id`, `command`, `output`, `execution_time`, `status`, `timestamp`, `response_timestamp`, `error_message`) VALUES
+(69, 'sess_20250624_002216_9343858a2ae34411', 1, 'help', 'For more information on a specific command, type HELP command-name\r\nASSOC          Displays or modifies file extension associations.\r\nATTRIB         Displays or changes file attributes.\r\nBREAK          Sets or clears extended CTRL+C checking.\r\nBCDEDIT        Sets properties in boot database to control boot loading.\r\nCACLS          Displays or modifies access control lists (ACLs) of files.\r\nCALL           Calls one batch program from another.\r\nCD             Displays the name of or changes the current directory.\r\nCHCP           Displays or sets the active code page number.\r\nCHDIR          Displays the name of or changes the current directory.\r\nCHKDSK         Checks a disk and displays a status report.\r\nCHKNTFS        Displays or modifies the checking of disk at boot time.\r\nCLS            Clears the screen.\r\nCMD            Starts a new instance of the Windows command interpreter.\r\nCOLOR          Sets the default console foreground and background colors.\r\nCOMP           Compares the contents of two files or sets of files.\r\nCOMPACT        Displays or alters the compression of files on NTFS partitions.\r\nCONVERT        Converts FAT volumes to NTFS.  You cannot convert the\r\n               current drive.\r\nCOPY           Copies one or more files to another location.\r\nDATE           Displays or sets the date.\r\nDEL            Deletes one or more files.\r\nDIR            Displays a list of files and subdirectories in a directory.\r\nDISKPART       Displays or configures Disk Partition properties.\r\nDOSKEY         Edits command lines, recalls Windows commands, and \r\n               creates macros.\r\nDRIVERQUERY    Displays current device driver status and properties.\r\nECHO           Displays messages, or turns command echoing on or off.\r\nENDLOCAL       Ends localization of environment changes in a batch file.\r\nERASE          Deletes one or more files.\r\nEXIT           Quits the CMD.EXE program (command interpreter).\r\nFC             Compares two files or sets of files, and displays the \r\n               differences between them.\r\nFIND           Searches for a text string in a file or files.\r\nFINDSTR        Searches for strings in files.\r\nFOR            Runs a specified command for each file in a set of files.\r\nFORMAT         Formats a disk for use with Windows.\r\nFSUTIL         Displays or configures the file system properties.\r\nFTYPE          Displays or modifies file types used in file extension \r\n               associations.\r\nGOTO           Directs the Windows command interpreter to a labeled line in \r\n               a batch program.\r\nGPRESULT       Displays Group Policy information for machine or user.\r\nHELP           Provides Help information for Windows commands.\r\nICACLS         Display, modify, backup, or restore ACLs for files and \r\n               directories.\r\nIF             Performs conditional processing in batch programs.\r\nLABEL          Creates, changes, or deletes the volume label of a disk.\r\nMD             Creates a directory.\r\nMKDIR          Creates a directory.\r\nMKLINK         Creates Symbolic Links and Hard Links\r\nMODE           Configures a system device.\r\nMORE           Displays output one screen at a time.\r\nMOVE           Moves one or more files from one directory to another \r\n               directory.\r\nOPENFILES      Displays files opened by remote users for a file share.\r\nPATH           Displays or sets a search path for executable files.\r\nPAUSE          Suspends processing of a batch file and displays a message.\r\nPOPD           Restores the previous value of the current directory saved by \r\n               PUSHD.\r\nPRINT          Prints a text file.\r\nPROMPT         Changes the Windows command prompt.\r\nPUSHD          Saves the current directory then changes it.\r\nRD             Removes a directory.\r\nRECOVER        Recovers readable information from a bad or defective disk.\r\nREM            Records comments (remarks) in batch files or CONFIG.SYS.\r\nREN            Renames a file or files.\r\nRENAME         Renames a file or files.\r\nREPLACE        Replaces files.\r\nRMDIR          Removes a directory.\r\nROBOCOPY       Advanced utility to copy files and directory trees\r\nSET            Displays, sets, or removes Windows environment variables.\r\nSETLOCAL       Begins localization of environment changes in a batch file.\r\nSC             Displays or configures services (background processes).\r\nSCHTASKS       Schedules commands and programs to run on a computer.\r\nSHIFT          Shifts the position of replaceable parameters in batch files.\r\nSHUTDOWN       Allows proper local or remote shutdown of machine.\r\nSORT           Sorts input.\r\nSTART          Starts a separate window to run a specified program or command.\r\nSUBST          Associates a path with a drive letter.\r\nSYSTEMINFO     Displays machine specific properties and configuration.\r\nTASKLIST       Displays all currently running tasks including services.\r\nTASKKILL       Kill or stop a running process or application.\r\nTIME           Displays or sets the system time.\r\nTITLE          Sets the window title for a CMD.EXE session.\r\nTREE           Graphically displays the directory structure of a drive or \r\n               path.\r\nTYPE           Displays the contents of a text file.\r\nVER            Displays the Windows version.\r\nVERIFY         Tells Windows whether to verify that your files are written\r\n               correctly to a disk.\r\nVOL            Displays a disk volume label and serial number.\r\nXCOPY          Copies files and directory trees.\r\nWMIC           Displays WMI information inside interactive command shell.\r\n\r\nFor more information on tools see the command-line reference in the online help.', 2.197000, 'completed', '2025-06-24 00:22:20', '2025-06-24 00:22:22', NULL),
+(70, 'sess_20250624_002216_9343858a2ae34411', 1, 'whoami', 'caleb-\\caleb', 2.368000, 'completed', '2025-06-24 00:22:25', '2025-06-24 00:22:29', NULL),
+(71, 'sess_20250624_005452_40ca0d5f8686cb15', 1, 'whoami', 'caleb-\\caleb', 3.263000, 'completed', '2025-06-24 00:55:05', '2025-06-24 00:55:10', NULL);
 
-CREATE TABLE command_patterns (
-  id int(11) NOT NULL,
-  pattern varchar(255) NOT NULL,
-  category varchar(50) NOT NULL,
-  description text NOT NULL,
-  suggested_commands text NOT NULL,
-  response_template text NOT NULL,
-  match_type enum('exact','contains','regex') DEFAULT 'contains',
-  priority tinyint(1) DEFAULT 5,
-  is_active tinyint(1) DEFAULT 1,
-  created_at timestamp NOT NULL DEFAULT current_timestamp(),
-  updated_at timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `command_patterns`
+--
+
+DROP TABLE IF EXISTS `command_patterns`;
+CREATE TABLE `command_patterns` (
+  `id` int(11) NOT NULL,
+  `pattern` varchar(255) NOT NULL,
+  `category` varchar(50) NOT NULL,
+  `description` text NOT NULL,
+  `suggested_commands` text NOT NULL,
+  `response_template` text NOT NULL,
+  `match_type` enum('exact','contains','regex') DEFAULT 'contains',
+  `priority` tinyint(1) DEFAULT 5,
+  `is_active` tinyint(1) DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE command_suggestions (
-  id int(11) NOT NULL,
-  conversation_id varchar(64) NOT NULL,
-  user_id int(11) NOT NULL,
-  suggested_command text NOT NULL,
-  command_description text DEFAULT NULL,
-  priority tinyint(1) DEFAULT 5,
-  category varchar(50) DEFAULT 'general',
-  suggestion_context text DEFAULT NULL,
-  executed tinyint(1) DEFAULT 0,
-  executed_at timestamp NULL DEFAULT NULL,
-  created_at timestamp NOT NULL DEFAULT current_timestamp()
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `command_suggestions`
+--
+
+DROP TABLE IF EXISTS `command_suggestions`;
+CREATE TABLE `command_suggestions` (
+  `id` int(11) NOT NULL,
+  `conversation_id` varchar(64) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `suggested_command` text NOT NULL,
+  `command_description` text DEFAULT NULL,
+  `priority` tinyint(1) DEFAULT 5,
+  `category` varchar(50) DEFAULT 'general',
+  `suggestion_context` text DEFAULT NULL,
+  `executed` tinyint(1) DEFAULT 0,
+  `executed_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO command_suggestions (id, conversation_id, user_id, suggested_command, command_description, priority, category, suggestion_context, executed, executed_at, created_at) VALUES
+--
+-- Dumping data for table `command_suggestions`
+--
+
+INSERT INTO `command_suggestions` (`id`, `conversation_id`, `user_id`, `suggested_command`, `command_description`, `priority`, `category`, `suggestion_context`, `executed`, `executed_at`, `created_at`) VALUES
 (1, 'conv_sess_20250529_185834_fc10ae62fa62c329_1748545150', 1, 'mkdir NewFolder', 'Example for: How do I create a new folder?', 8, 'file_operations', '', 0, NULL, '2025-05-29 18:59:10'),
 (2, 'conv_sess_20250529_185834_fc10ae62fa62c329_1748545150', 1, 'copy document.txt backup_document.txt', 'Example for: How do I copy files?', 8, 'file_operations', '', 0, NULL, '2025-05-29 18:59:49'),
 (3, 'conv_sess_20250529_185834_fc10ae62fa62c329_1748545150', 1, 'copy document.txt backup_document.txt', 'Example for: How do I copy files?', 8, 'file_operations', '', 0, NULL, '2025-05-29 18:59:55'),
@@ -879,42 +1051,70 @@ INSERT INTO command_suggestions (id, conversation_id, user_id, suggested_command
 (18, 'conv_sess_20250601_185502_32767389da512e21_1748804130', 1, 'help', 'Example for: What commands are available?', 8, 'help', '', 0, NULL, '2025-06-01 18:55:30'),
 (19, 'conv_sess_20250601_185502_32767389da512e21_1748804130', 1, 'mkdir NewFolder', 'Example for: How do I create a new folder?', 8, 'file_operations', '', 0, NULL, '2025-06-01 18:55:46'),
 (20, 'conv_sess_20250601_185502_32767389da512e21_1748804130', 1, 'dir', 'Example for: How do I list files and directories?', 8, 'file_operations', '', 0, NULL, '2025-06-01 18:56:21'),
-(21, 'conv_welcome_1748912534', 1, 'dir', 'Example for: How do I list files and directories?', 8, 'file_operations', '', 0, NULL, '2025-06-03 01:02:14');
+(21, 'conv_welcome_1748912534', 1, 'dir', 'Example for: How do I list files and directories?', 8, 'file_operations', '', 0, NULL, '2025-06-03 01:02:14'),
+(22, 'conv_sess_20250603_014101_68780f86a084b48d_1748914944', 1, 'help', 'Example for: What commands are available?', 8, 'help', '', 0, NULL, '2025-06-03 01:42:24'),
+(23, 'conv_sess_20250613_011630_e782ec15fda83ff8_1749777409', 1, 'help', 'Example for: What commands are available?', 8, 'help', '', 0, NULL, '2025-06-13 01:16:49'),
+(24, 'conv_sess_20250613_011630_e782ec15fda83ff8_1749777409', 1, 'ping google.com', 'Example for: How do I test network connectivity?', 8, 'network', '', 0, NULL, '2025-06-13 01:16:53'),
+(25, 'conv_sess_20250613_011630_e782ec15fda83ff8_1749777409', 1, 'ping google.com', 'Example for: How do I test network connectivity?', 8, 'network', '', 0, NULL, '2025-06-13 01:16:57'),
+(26, 'conv_sess_20250617_023557_01af01e05196c1e2_1750127771', 1, 'help', 'Example for: What commands are available?', 8, 'help', '', 0, NULL, '2025-06-17 02:36:11'),
+(27, 'conv_sess_20250617_023557_01af01e05196c1e2_1750127771', 1, 'systeminfo', 'Example for: How do I check system information?', 8, 'system_info', '', 0, NULL, '2025-06-17 02:36:40');
 
-CREATE TABLE hosts_info (
-  id int(11) NOT NULL,
-  host_id varchar(50) NOT NULL,
-  hostname varchar(255) NOT NULL,
-  ip_address varchar(45) NOT NULL,
-  os_info text DEFAULT NULL,
-  first_seen timestamp NOT NULL DEFAULT current_timestamp(),
-  last_seen timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  total_sessions int(11) DEFAULT 0,
-  total_commands int(11) DEFAULT 0,
-  is_active tinyint(1) DEFAULT 1,
-  notes text DEFAULT NULL
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `hosts_info`
+--
+
+DROP TABLE IF EXISTS `hosts_info`;
+CREATE TABLE `hosts_info` (
+  `id` int(11) NOT NULL,
+  `host_id` varchar(50) NOT NULL,
+  `hostname` varchar(255) NOT NULL,
+  `ip_address` varchar(45) NOT NULL,
+  `os_info` text DEFAULT NULL,
+  `first_seen` timestamp NOT NULL DEFAULT current_timestamp(),
+  `last_seen` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `total_sessions` int(11) DEFAULT 0,
+  `total_commands` int(11) DEFAULT 0,
+  `is_active` tinyint(1) DEFAULT 1,
+  `notes` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO hosts_info (id, host_id, hostname, ip_address, os_info, first_seen, last_seen, total_sessions, total_commands, is_active, notes) VALUES
-(1, 'host_1748314525735_tj8efkqc', 'CALEB-', '127.0.0.1', 'Microsoft Windows 11 Home 10.0.26100 (64-bit)', '2025-05-29 18:58:30', '2025-06-03 01:30:07', 0, 0, 1, NULL);
+--
+-- Dumping data for table `hosts_info`
+--
 
-CREATE TABLE remote_sessions (
-  id int(11) NOT NULL,
-  session_id varchar(64) NOT NULL,
-  user_id int(11) NOT NULL,
-  host_id varchar(50) NOT NULL,
-  hostname varchar(255) NOT NULL,
-  ip_address varchar(45) NOT NULL,
-  os_info text DEFAULT NULL,
-  start_time timestamp NOT NULL DEFAULT current_timestamp(),
-  end_time timestamp NULL DEFAULT NULL,
-  status enum('active','disconnected','terminated') DEFAULT 'active',
-  last_activity timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  total_commands int(11) DEFAULT 0,
-  session_notes text DEFAULT NULL
+INSERT INTO `hosts_info` (`id`, `host_id`, `hostname`, `ip_address`, `os_info`, `first_seen`, `last_seen`, `total_sessions`, `total_commands`, `is_active`, `notes`) VALUES
+(1, 'host_1748314525735_tj8efkqc', 'CALEB-', '127.0.0.1', 'Microsoft Windows 11 Home 10.0.26100 (64-bit)', '2025-05-29 18:58:30', '2025-06-24 01:01:39', 0, 0, 1, NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `remote_sessions`
+--
+
+DROP TABLE IF EXISTS `remote_sessions`;
+CREATE TABLE `remote_sessions` (
+  `id` int(11) NOT NULL,
+  `session_id` varchar(64) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `host_id` varchar(50) NOT NULL,
+  `hostname` varchar(255) NOT NULL,
+  `ip_address` varchar(45) NOT NULL,
+  `os_info` text DEFAULT NULL,
+  `start_time` timestamp NOT NULL DEFAULT current_timestamp(),
+  `end_time` timestamp NULL DEFAULT NULL,
+  `status` enum('active','disconnected','terminated') DEFAULT 'active',
+  `last_activity` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `total_commands` int(11) DEFAULT 0,
+  `session_notes` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO remote_sessions (id, session_id, user_id, host_id, hostname, ip_address, os_info, start_time, end_time, status, last_activity, total_commands, session_notes) VALUES
+--
+-- Dumping data for table `remote_sessions`
+--
+
+INSERT INTO `remote_sessions` (`id`, `session_id`, `user_id`, `host_id`, `hostname`, `ip_address`, `os_info`, `start_time`, `end_time`, `status`, `last_activity`, `total_commands`, `session_notes`) VALUES
 (1, 'sess_20250529_185834_fc10ae62fa62c329', 1, 'host_1748314525735_tj8efkqc', 'CALEB-', '127.0.0.1', 'Microsoft Windows 11 Home 10.0.26100 (64-bit)', '2025-05-29 18:58:34', '2025-05-29 19:01:58', 'terminated', '2025-05-29 19:01:58', 13, NULL),
 (3, 'sess_20250529_191330_45dead32be3f9478', 1, 'host_1748314525735_tj8efkqc', 'CALEB-', '127.0.0.1', 'Microsoft Windows 11 Home 10.0.26100 (64-bit)', '2025-05-29 19:13:30', '2025-05-29 19:15:29', 'terminated', '2025-05-29 19:15:29', 1, NULL),
 (4, 'sess_20250529_191554_42258c33108d2467', 1, 'host_1748314525735_tj8efkqc', 'CALEB-', '127.0.0.1', 'Microsoft Windows 11 Home 10.0.26100 (64-bit)', '2025-05-29 19:15:54', '2025-05-29 19:17:14', 'terminated', '2025-05-29 19:17:14', 1, NULL),
@@ -930,18 +1130,40 @@ INSERT INTO remote_sessions (id, session_id, user_id, host_id, hostname, ip_addr
 (17, 'sess_20250601_185749_1b0142651678b11d', 1, 'host_1748314525735_tj8efkqc', 'CALEB-', '127.0.0.1', 'Microsoft Windows 11 Home 10.0.26100 (64-bit)', '2025-06-01 18:57:49', '2025-06-01 18:58:02', 'terminated', '2025-06-01 18:58:02', 1, NULL),
 (18, 'sess_20250603_010250_2c7dfea9c31711b8', 1, 'host_1748314525735_tj8efkqc', 'CALEB-', '127.0.0.1', 'Microsoft Windows 11 Home 10.0.26100 (64-bit)', '2025-06-03 01:02:50', '2025-06-03 01:06:53', 'terminated', '2025-06-03 01:06:53', 1, NULL),
 (19, 'sess_20250603_010659_6f231f1b98aa55be', 1, 'host_1748314525735_tj8efkqc', 'CALEB-', '127.0.0.1', 'Microsoft Windows 11 Home 10.0.26100 (64-bit)', '2025-06-03 01:06:59', '2025-06-03 01:07:26', 'terminated', '2025-06-03 01:07:26', 0, NULL),
-(20, 'sess_20250603_010741_832947560fdc7d9f', 1, 'host_1748314525735_tj8efkqc', 'CALEB-', '127.0.0.1', 'Microsoft Windows 11 Home 10.0.26100 (64-bit)', '2025-06-03 01:07:41', NULL, 'active', '2025-06-03 01:07:41', 0, NULL);
+(20, 'sess_20250603_010741_832947560fdc7d9f', 1, 'host_1748314525735_tj8efkqc', 'CALEB-', '127.0.0.1', 'Microsoft Windows 11 Home 10.0.26100 (64-bit)', '2025-06-03 01:07:41', NULL, 'active', '2025-06-03 01:07:41', 0, NULL),
+(21, 'sess_20250603_014101_68780f86a084b48d', 1, 'host_1748314525735_tj8efkqc', 'CALEB-', '127.0.0.1', 'Microsoft Windows 11 Home 10.0.26100 (64-bit)', '2025-06-03 01:41:01', '2025-06-03 01:42:59', 'terminated', '2025-06-03 01:42:59', 2, NULL),
+(22, 'sess_20250603_014322_ff4e115f78cbdbdc', 1, 'host_1748314525735_tj8efkqc', 'CALEB-', '127.0.0.1', 'Microsoft Windows 11 Home 10.0.26100 (64-bit)', '2025-06-03 01:43:22', NULL, 'active', '2025-06-03 01:43:22', 0, NULL),
+(23, 'sess_20250613_011630_e782ec15fda83ff8', 1, 'host_1748314525735_tj8efkqc', 'CALEB-', '127.0.0.1', 'Microsoft Windows 11 Home 10.0.26100 (64-bit)', '2025-06-13 01:16:30', '2025-06-13 01:17:23', 'terminated', '2025-06-13 01:17:23', 2, NULL),
+(24, 'sess_20250613_012104_4a8e9914614eff67', 1, 'host_1748314525735_tj8efkqc', 'CALEB-', '127.0.0.1', 'Microsoft Windows 11 Home 10.0.26100 (64-bit)', '2025-06-13 01:21:04', '2025-06-13 01:21:06', 'terminated', '2025-06-13 01:21:06', 0, NULL),
+(25, 'sess_20250613_012108_1b8c90ae19478faa', 1, 'host_1748314525735_tj8efkqc', 'CALEB-', '127.0.0.1', 'Microsoft Windows 11 Home 10.0.26100 (64-bit)', '2025-06-13 01:21:08', '2025-06-13 01:22:10', 'terminated', '2025-06-13 01:22:10', 10, NULL),
+(26, 'sess_20250613_012211_99566d12dc7d0465', 1, 'host_1748314525735_tj8efkqc', 'CALEB-', '127.0.0.1', 'Microsoft Windows 11 Home 10.0.26100 (64-bit)', '2025-06-13 01:22:11', '2025-06-13 01:22:13', 'terminated', '2025-06-13 01:22:13', 0, NULL),
+(27, 'sess_20250613_012327_d12493087c92adb3', 1, 'host_1748314525735_tj8efkqc', 'CALEB-', '127.0.0.1', 'Microsoft Windows 11 Home 10.0.26100 (64-bit)', '2025-06-13 01:23:27', '2025-06-13 01:27:57', 'terminated', '2025-06-13 01:27:57', 1, NULL),
+(28, 'sess_20250617_023557_01af01e05196c1e2', 1, 'host_1748314525735_tj8efkqc', 'CALEB-', '127.0.0.1', 'Microsoft Windows 11 Home 10.0.26100 (64-bit)', '2025-06-17 02:35:57', '2025-06-17 02:39:48', 'terminated', '2025-06-17 02:39:48', 3, NULL),
+(29, 'sess_20250624_002042_328e9368b038db00', 1, 'host_1748314525735_tj8efkqc', 'CALEB-', '127.0.0.1', 'Microsoft Windows 11 Home 10.0.26100 (64-bit)', '2025-06-24 00:20:42', '2025-06-24 00:22:02', 'terminated', '2025-06-24 00:22:02', 1, NULL),
+(30, 'sess_20250624_002216_9343858a2ae34411', 1, 'host_1748314525735_tj8efkqc', 'CALEB-', '127.0.0.1', 'Microsoft Windows 11 Home 10.0.26100 (64-bit)', '2025-06-24 00:22:16', '2025-06-24 00:23:06', 'terminated', '2025-06-24 00:23:06', 2, NULL),
+(31, 'sess_20250624_005452_40ca0d5f8686cb15', 1, 'host_1748314525735_tj8efkqc', 'CALEB-', '127.0.0.1', 'Microsoft Windows 11 Home 10.0.26100 (64-bit)', '2025-06-24 00:54:52', '2025-06-24 00:55:25', 'terminated', '2025-06-24 00:55:25', 1, NULL);
 
-CREATE TABLE session_contexts (
-  id int(11) NOT NULL,
-  session_id varchar(64) NOT NULL,
-  conversation_id varchar(64) NOT NULL,
-  context_type enum('command_history','system_info','working_directory') NOT NULL,
-  context_data longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(context_data)),
-  updated_at timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `session_contexts`
+--
+
+DROP TABLE IF EXISTS `session_contexts`;
+CREATE TABLE `session_contexts` (
+  `id` int(11) NOT NULL,
+  `session_id` varchar(64) NOT NULL,
+  `conversation_id` varchar(64) NOT NULL,
+  `context_type` enum('command_history','system_info','working_directory') NOT NULL,
+  `context_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`context_data`)),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO session_contexts (id, session_id, conversation_id, context_type, context_data, updated_at) VALUES
+--
+-- Dumping data for table `session_contexts`
+--
+
+INSERT INTO `session_contexts` (`id`, `session_id`, `conversation_id`, `context_type`, `context_data`, `updated_at`) VALUES
 (1, 'sess_20250529_185834_fc10ae62fa62c329', 'conv_sess_20250529_185834_fc10ae62fa62c329_1748545117', 'command_history', '{\"command\":\"whoami\",\"timestamp\":\"2025-05-29 18:58:37\",\"status\":\"pending\"}', '2025-05-29 18:58:37'),
 (2, 'sess_20250529_185834_fc10ae62fa62c329', 'conv_sess_20250529_185834_fc10ae62fa62c329_1748545127', 'command_history', '{\"command\":\"cd C:\\\\\",\"timestamp\":\"2025-05-29 18:58:47\",\"status\":\"pending\"}', '2025-05-29 18:58:47'),
 (3, 'sess_20250529_185834_fc10ae62fa62c329', 'conv_sess_20250529_185834_fc10ae62fa62c329_1748545134', 'command_history', '{\"command\":\"dir\",\"timestamp\":\"2025-05-29 18:58:54\",\"status\":\"pending\"}', '2025-05-29 18:58:54'),
@@ -964,96 +1186,169 @@ INSERT INTO session_contexts (id, session_id, conversation_id, context_type, con
 (43, 'sess_20250601_185502_32767389da512e21', 'conv_sess_20250601_185502_32767389da512e21_1748804108', 'command_history', '{\"command\":\"whoami\",\"timestamp\":\"2025-06-01 18:55:08\",\"status\":\"pending\"}', '2025-06-01 18:55:08'),
 (44, 'sess_20250601_185502_32767389da512e21', 'conv_sess_20250601_185502_32767389da512e21_1748804130', 'command_history', '{\"command\":\"cd newfolder3\",\"timestamp\":\"2025-06-01 18:56:52\",\"status\":\"pending\"}', '2025-06-01 18:56:52'),
 (48, 'sess_20250601_185749_1b0142651678b11d', 'conv_sess_20250601_185749_1b0142651678b11d_1748804276', 'command_history', '{\"command\":\"whoami\",\"timestamp\":\"2025-06-01 18:57:56\",\"status\":\"pending\"}', '2025-06-01 18:57:56'),
-(49, 'sess_20250603_010250_2c7dfea9c31711b8', 'conv_sess_20250603_010250_2c7dfea9c31711b8_1748912580', 'command_history', '{\"command\":\"dir\",\"timestamp\":\"2025-06-03 01:03:00\",\"status\":\"pending\"}', '2025-06-03 01:03:00');
+(49, 'sess_20250603_010250_2c7dfea9c31711b8', 'conv_sess_20250603_010250_2c7dfea9c31711b8_1748912580', 'command_history', '{\"command\":\"dir\",\"timestamp\":\"2025-06-03 01:03:00\",\"status\":\"pending\"}', '2025-06-03 01:03:00'),
+(50, 'sess_20250603_014101_68780f86a084b48d', 'conv_sess_20250603_014101_68780f86a084b48d_1748914876', 'command_history', '{\"command\":\"whoami\",\"timestamp\":\"2025-06-03 01:41:16\",\"status\":\"pending\"}', '2025-06-03 01:41:16'),
+(51, 'sess_20250603_014101_68780f86a084b48d', 'conv_sess_20250603_014101_68780f86a084b48d_1748914944', 'command_history', '{\"command\":\"help\",\"timestamp\":\"2025-06-03 01:42:38\",\"status\":\"pending\"}', '2025-06-03 01:42:38'),
+(52, 'sess_20250613_011630_e782ec15fda83ff8', 'conv_sess_20250613_011630_e782ec15fda83ff8_1749777393', 'command_history', '{\"command\":\"whoami\",\"timestamp\":\"2025-06-13 01:16:33\",\"status\":\"pending\"}', '2025-06-13 01:16:33'),
+(53, 'sess_20250613_011630_e782ec15fda83ff8', 'conv_sess_20250613_011630_e782ec15fda83ff8_1749777409', 'command_history', '{\"command\":\"ping google.com\",\"timestamp\":\"2025-06-13 01:17:04\",\"status\":\"pending\"}', '2025-06-13 01:17:04'),
+(54, 'sess_20250613_012108_1b8c90ae19478faa', 'conv_sess_20250613_012108_1b8c90ae19478faa_1749777671', 'command_history', '{\"command\":\"whoai\",\"timestamp\":\"2025-06-13 01:21:11\",\"status\":\"pending\"}', '2025-06-13 01:21:11'),
+(55, 'sess_20250613_012108_1b8c90ae19478faa', 'conv_sess_20250613_012108_1b8c90ae19478faa_1749777673', 'command_history', '{\"command\":\"mshta \\\"http:\\/\\/localhost\\/GhostCrew\\/local\\/autoconnect.hta?token=inst_1_1749777532_1247b5b344821975b0f27f62cb0536a2\\\"\",\"timestamp\":\"2025-06-13 01:21:13\",\"status\":\"pending\"}', '2025-06-13 01:21:13'),
+(57, 'sess_20250613_012108_1b8c90ae19478faa', 'conv_sess_20250613_012108_1b8c90ae19478faa_1749777674', 'command_history', '{\"command\":\"mshta \\\"http:\\/\\/localhost\\/GhostCrew\\/local\\/autoconnect.hta?token=inst_1_1749777532_1247b5b344821975b0f27f62cb0536a2\\\"\",\"timestamp\":\"2025-06-13 01:21:14\",\"status\":\"pending\"}', '2025-06-13 01:21:14'),
+(60, 'sess_20250613_012108_1b8c90ae19478faa', 'conv_sess_20250613_012108_1b8c90ae19478faa_1749777675', 'command_history', '{\"command\":\"mshta \\\"http:\\/\\/localhost\\/GhostCrew\\/local\\/autoconnect.hta?token=inst_1_1749777532_1247b5b344821975b0f27f62cb0536a2\\\"\",\"timestamp\":\"2025-06-13 01:21:15\",\"status\":\"pending\"}', '2025-06-13 01:21:15'),
+(62, 'sess_20250613_012108_1b8c90ae19478faa', 'conv_sess_20250613_012108_1b8c90ae19478faa_1749777711', 'command_history', '{\"command\":\"whoami\",\"timestamp\":\"2025-06-13 01:21:51\",\"status\":\"pending\"}', '2025-06-13 01:21:51'),
+(63, 'sess_20250613_012108_1b8c90ae19478faa', 'conv_sess_20250613_012108_1b8c90ae19478faa_1749777725', 'command_history', '{\"command\":\"help\",\"timestamp\":\"2025-06-13 01:22:05\",\"status\":\"pending\"}', '2025-06-13 01:22:05'),
+(64, 'sess_20250613_012327_d12493087c92adb3', 'conv_sess_20250613_012327_d12493087c92adb3_1749777811', 'command_history', '{\"command\":\"whoami\",\"timestamp\":\"2025-06-13 01:23:31\",\"status\":\"pending\"}', '2025-06-13 01:23:31'),
+(65, 'sess_20250617_023557_01af01e05196c1e2', 'conv_sess_20250617_023557_01af01e05196c1e2_1750127771', 'command_history', '{\"command\":\"systeminfo\",\"timestamp\":\"2025-06-17 02:36:47\",\"status\":\"pending\"}', '2025-06-17 02:36:47'),
+(68, 'sess_20250624_002042_328e9368b038db00', 'conv_sess_20250624_002042_328e9368b038db00_1750724447', 'command_history', '{\"command\":\"whoami\",\"timestamp\":\"2025-06-24 00:20:47\",\"status\":\"pending\"}', '2025-06-24 00:20:47'),
+(69, 'sess_20250624_002216_9343858a2ae34411', 'conv_sess_20250624_002216_9343858a2ae34411_1750724540', 'command_history', '{\"command\":\"help\",\"timestamp\":\"2025-06-24 00:22:20\",\"status\":\"pending\"}', '2025-06-24 00:22:20'),
+(70, 'sess_20250624_002216_9343858a2ae34411', 'conv_sess_20250624_002216_9343858a2ae34411_1750724545', 'command_history', '{\"command\":\"whoami\",\"timestamp\":\"2025-06-24 00:22:25\",\"status\":\"pending\"}', '2025-06-24 00:22:25'),
+(71, 'sess_20250624_005452_40ca0d5f8686cb15', 'conv_sess_20250624_005452_40ca0d5f8686cb15_1750726505', 'command_history', '{\"command\":\"whoami\",\"timestamp\":\"2025-06-24 00:55:05\",\"status\":\"pending\"}', '2025-06-24 00:55:05');
 
-CREATE TABLE session_feedback (
-  id int(11) NOT NULL,
-  session_id varchar(64) NOT NULL,
-  user_id int(11) NOT NULL,
-  overall_score int(11) DEFAULT NULL,
-  instructor_feedback text DEFAULT NULL,
-  command_feedback longtext DEFAULT NULL,
-  rating tinyint(4) DEFAULT NULL,
-  graded_by int(11) DEFAULT NULL,
-  graded_at timestamp NOT NULL DEFAULT current_timestamp(),
-  created_at timestamp NOT NULL DEFAULT current_timestamp()
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `session_feedback`
+--
+
+DROP TABLE IF EXISTS `session_feedback`;
+CREATE TABLE `session_feedback` (
+  `id` int(11) NOT NULL,
+  `session_id` varchar(64) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `overall_score` int(11) DEFAULT NULL,
+  `instructor_feedback` text DEFAULT NULL,
+  `command_feedback` longtext DEFAULT NULL,
+  `rating` tinyint(4) DEFAULT NULL,
+  `graded_by` int(11) DEFAULT NULL,
+  `graded_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO session_feedback (id, session_id, user_id, overall_score, instructor_feedback, command_feedback, rating, graded_by, graded_at, created_at) VALUES
+--
+-- Dumping data for table `session_feedback`
+--
+
+INSERT INTO `session_feedback` (`id`, `session_id`, `user_id`, `overall_score`, `instructor_feedback`, `command_feedback`, `rating`, `graded_by`, `graded_at`, `created_at`) VALUES
 (1, 'sess_20250529_185834_fc10ae62fa62c329', 1, 100, 'great', '{\"whoami\":\"good\",\"cd C:\\\\\":\"good\",\"dir\":\"good\",\"mkdir NewFolder\":\"good\",\"cd NewFolder\":\"good\",\"systeminfo\":\"good\",\"ver\":\"good\",\"ipconfig \\/all\":\"good\",\"netstat\":\"good\",\"net user\":\"good\",\"net localgroup administrators\":\"good\"}', 5, 1, '2025-05-29 22:55:42', '2025-05-29 22:55:42'),
 (2, 'sess_20250529_220009_cbd8db6f452d0934', 2, NULL, '', '{\"whoami\":\"trash\"}', 0, 1, '2025-05-30 03:48:04', '2025-05-30 03:48:04');
-INSERT INTO session_feedback (id, session_id, user_id, overall_score, instructor_feedback, command_feedback, rating, graded_by, graded_at, created_at) VALUES
+INSERT INTO `session_feedback` (`id`, `session_id`, `user_id`, `overall_score`, `instructor_feedback`, `command_feedback`, `rating`, `graded_by`, `graded_at`, `created_at`) VALUES
 (5, 'sess_20250529_191330_45dead32be3f9478', 1, 50, 'test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test ', '{\"whoami\":\"test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test test \"}', 4, 1, '2025-05-30 03:51:49', '2025-05-30 03:51:49');
-INSERT INTO session_feedback (id, session_id, user_id, overall_score, instructor_feedback, command_feedback, rating, graded_by, graded_at, created_at) VALUES
+INSERT INTO `session_feedback` (`id`, `session_id`, `user_id`, `overall_score`, `instructor_feedback`, `command_feedback`, `rating`, `graded_by`, `graded_at`, `created_at`) VALUES
 (6, 'sess_20250529_191554_42258c33108d2467', 1, 2, 'sess_20250529_191554_42258c33108d2467', '{\"whoami\":\"sess_20250529_191554_42258c33108d2467\"}', 5, 1, '2025-05-30 03:54:17', '2025-05-30 03:54:17'),
 (7, 'sess_20250530_040753_7a8884d9dbaa0f95', 2, NULL, '', '[]', 0, 1, '2025-05-30 04:10:02', '2025-05-30 04:10:02'),
 (8, 'sess_20250530_134230_d72ff91a4da0d786', 1, NULL, '', '[]', 0, 1, '2025-05-30 13:44:29', '2025-05-30 13:44:29'),
 (9, 'sess_20250601_180819_21f07b1c0c7296f3', 1, 100, '', '[]', 3, 1, '2025-06-01 18:11:09', '2025-06-01 18:11:09'),
 (10, 'sess_20250601_181922_ac6f506aeb052d5a', 1, 100, '', '[]', 4, 1, '2025-06-01 18:23:54', '2025-06-01 18:23:54'),
-(11, 'sess_20250601_183209_c1b342b23932bebe', 1, 100, 'Nice!', '{\"whoami\":\"good\"}', 4, 1, '2025-06-01 18:37:14', '2025-06-01 18:37:14');
+(11, 'sess_20250601_183209_c1b342b23932bebe', 1, 100, 'Nice!', '{\"whoami\":\"good\"}', 4, 1, '2025-06-01 18:37:14', '2025-06-01 18:37:14'),
+(12, 'sess_20250603_014101_68780f86a084b48d', 1, 100, 'Nice!', '{\"whoami\":\"good \"}', 5, 1, '2025-06-03 01:45:40', '2025-06-03 01:45:40');
 
-CREATE TABLE system_config (
-  id int(11) NOT NULL,
-  config_key varchar(100) NOT NULL,
-  config_value text DEFAULT NULL,
-  description text DEFAULT NULL,
-  updated_by int(11) DEFAULT NULL,
-  updated_at timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `system_config`
+--
+
+DROP TABLE IF EXISTS `system_config`;
+CREATE TABLE `system_config` (
+  `id` int(11) NOT NULL,
+  `config_key` varchar(100) NOT NULL,
+  `config_value` text DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `updated_by` int(11) DEFAULT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO system_config (id, config_key, config_value, description, updated_by, updated_at) VALUES
+--
+-- Dumping data for table `system_config`
+--
+
+INSERT INTO `system_config` (`id`, `config_key`, `config_value`, `description`, `updated_by`, `updated_at`) VALUES
 (1, 'session_timeout', '3600', 'User session timeout in seconds', NULL, '2025-06-01 18:25:18'),
 (2, 'max_command_history', '100000', 'Maximum commands to keep in history per session', NULL, '2025-06-01 18:25:18'),
 (3, 'chatbot_enabled', '1', 'Enable/disable chatbot functionality', NULL, '2025-05-26 22:03:43'),
 (4, 'audit_retention_days', '999999', 'Days to retain audit logs', NULL, '2025-06-01 18:25:18'),
 (5, 'max_concurrent_sessions', '10', 'Maximum concurrent sessions per user', NULL, '2025-05-26 22:03:43');
 
-CREATE TABLE users (
-  id int(11) NOT NULL,
-  username varchar(50) NOT NULL,
-  password_hash varchar(255) NOT NULL,
-  full_name varchar(100) NOT NULL,
-  email varchar(100) NOT NULL,
-  role enum('admin','manager','operator') DEFAULT 'operator',
-  is_active tinyint(1) DEFAULT 1,
-  last_login timestamp NULL DEFAULT NULL,
-  created_at timestamp NOT NULL DEFAULT current_timestamp(),
-  updated_at timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  created_by int(11) DEFAULT NULL,
-  manager_id int(11) DEFAULT NULL
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `users`
+--
+
+DROP TABLE IF EXISTS `users`;
+CREATE TABLE `users` (
+  `id` int(11) NOT NULL,
+  `username` varchar(50) NOT NULL,
+  `password_hash` varchar(255) NOT NULL,
+  `full_name` varchar(100) NOT NULL,
+  `email` varchar(100) NOT NULL,
+  `role` enum('admin','manager','operator') DEFAULT 'operator',
+  `is_active` tinyint(1) DEFAULT 1,
+  `last_login` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `created_by` int(11) DEFAULT NULL,
+  `manager_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO users (id, username, password_hash, full_name, email, role, is_active, last_login, created_at, updated_at, created_by, manager_id) VALUES
-(1, 'admin', '$2y$10$CbcUnO1/A58cRKiGXOJLo.dV3WHYBdvbUOkGT.GBf/3SO/2KGr9Fu', 'System Administrator', 'admin@ghostcrew.local', 'admin', 1, '2025-06-03 01:01:55', '2025-05-26 22:03:43', '2025-06-03 01:01:55', NULL, NULL),
+--
+-- Dumping data for table `users`
+--
+
+INSERT INTO `users` (`id`, `username`, `password_hash`, `full_name`, `email`, `role`, `is_active`, `last_login`, `created_at`, `updated_at`, `created_by`, `manager_id`) VALUES
+(1, 'admin', '$2y$10$CbcUnO1/A58cRKiGXOJLo.dV3WHYBdvbUOkGT.GBf/3SO/2KGr9Fu', 'System Administrator', 'admin@ghostcrew.local', 'admin', 1, '2025-06-24 00:20:24', '2025-05-26 22:03:43', '2025-06-24 00:20:24', NULL, NULL),
 (2, 'Caleb', '$2y$10$EqFBhSLpCOkcdOe7Bh9pX.I.klE4L0L1H0aMt3412lkxr8jXsD9He', 'Caleb Infinger', 'caleb.infinger@berkeley.edu', 'operator', 1, '2025-06-02 05:04:21', '2025-05-29 21:58:51', '2025-06-02 05:18:36', NULL, 4),
 (3, 'TestOne', '$2y$10$mmFNlrCivzxeG6wIhcfuzugRbmHUYNkjgusfPWdFs7AWx/e9zFkeu', 'Testy Tester', 'Testy.Tester@ghostcrew.local', 'operator', 1, NULL, '2025-05-30 02:40:15', '2025-06-02 05:18:51', NULL, 1),
 (4, 'TestTwo', '$2y$10$afLXGU0ZRzx/4ijW7DQx.O8Zwsr0hrdZpDqdYLcTauNliWzFbaodK', 'Testier Testy Tester', 'Testier.Testy.Tester@GhostCrew.local', 'manager', 1, '2025-06-02 05:19:32', '2025-05-30 02:40:55', '2025-06-02 05:19:32', NULL, 1);
 
-CREATE TABLE user_instance_tokens (
-  id int(11) NOT NULL,
-  user_id int(11) NOT NULL,
-  instance_token varchar(128) NOT NULL,
-  created_at timestamp NOT NULL DEFAULT current_timestamp(),
-  expires_at timestamp NOT NULL DEFAULT current_timestamp(),
-  is_active tinyint(1) DEFAULT 1
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `user_instance_tokens`
+--
+
+DROP TABLE IF EXISTS `user_instance_tokens`;
+CREATE TABLE `user_instance_tokens` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `instance_token` varchar(128) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `expires_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `is_active` tinyint(1) DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO user_instance_tokens (id, user_id, instance_token, created_at, expires_at, is_active) VALUES
-(16, 1, 'inst_1_1748912515_c826df4b02c021f671abe3fd8922e5b4', '2025-06-03 01:01:55', '2025-06-03 09:01:55', 1);
+--
+-- Dumping data for table `user_instance_tokens`
+--
 
-CREATE TABLE user_sessions (
-  id int(11) NOT NULL,
-  user_id int(11) NOT NULL,
-  session_token varchar(128) NOT NULL,
-  ip_address varchar(45) NOT NULL,
-  user_agent text DEFAULT NULL,
-  login_time timestamp NOT NULL DEFAULT current_timestamp(),
-  last_activity timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  logout_time timestamp NULL DEFAULT NULL,
-  is_active tinyint(1) DEFAULT 1
+INSERT INTO `user_instance_tokens` (`id`, `user_id`, `instance_token`, `created_at`, `expires_at`, `is_active`) VALUES
+(21, 1, 'inst_1_1750724395_76a656fd39c4d3047a96126910c6faea', '2025-06-24 00:19:55', '2025-06-24 08:19:55', 0),
+(22, 1, 'inst_1_1750724424_33be991fc15adb4c95021de12375549b', '2025-06-24 00:20:24', '2025-06-24 08:20:24', 1);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `user_sessions`
+--
+
+DROP TABLE IF EXISTS `user_sessions`;
+CREATE TABLE `user_sessions` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `session_token` varchar(128) NOT NULL,
+  `ip_address` varchar(45) NOT NULL,
+  `user_agent` text DEFAULT NULL,
+  `login_time` timestamp NOT NULL DEFAULT current_timestamp(),
+  `last_activity` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `logout_time` timestamp NULL DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO user_sessions (id, user_id, session_token, ip_address, user_agent, login_time, last_activity, logout_time, is_active) VALUES
+--
+-- Dumping data for table `user_sessions`
+--
+
+INSERT INTO `user_sessions` (`id`, `user_id`, `session_token`, `ip_address`, `user_agent`, `login_time`, `last_activity`, `logout_time`, `is_active`) VALUES
 (1, 1, 'b84c368e5538a4d6615e07602c1a0243ac09bd3fff333136eb8172e6537375d8', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-05-29 18:58:21', '2025-05-29 20:24:37', NULL, 1),
 (2, 2, '64dfa2602cc5b826e71ccabbd0125a13028d64cfc7760a2c5806199001e18d0e', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-05-29 21:59:09', '2025-05-30 03:10:36', NULL, 1),
 (3, 2, 'ab6a5cef43d104decfd5d2d70ea63d338c943e4f9cc7c438f71defa69b5ac074', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-05-29 22:54:16', '2025-05-29 22:54:32', '2025-05-29 22:54:32', 0),
@@ -1112,187 +1407,332 @@ INSERT INTO user_sessions (id, user_id, session_token, ip_address, user_agent, l
 (56, 1, '489d87e406ccb01071a78ec8748d59e75a0044e767c94deb3c0c32c3245390fe', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-02 22:47:03', '2025-06-02 22:47:03', NULL, 1),
 (57, 1, '997ea75092b81ceaf03a779862736c1b24b020eb2430c94b3a1c3b958bffcab5', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-02 22:59:47', '2025-06-02 22:59:47', NULL, 1),
 (58, 1, '9bb0ca1d00317c720ca3e0382eb7a812e1c6f9101d4aa8ee1c657b272857fb36', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-02 23:10:47', '2025-06-02 23:10:47', NULL, 1),
-(59, 1, 'c18262757b94b9ee19c337471509cd40ac29839613b5437555335ef405bf2d99', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-03 01:01:55', '2025-06-03 01:30:05', NULL, 1);
+(59, 1, 'c18262757b94b9ee19c337471509cd40ac29839613b5437555335ef405bf2d99', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-03 01:01:55', '2025-06-03 01:39:15', '2025-06-03 01:39:15', 0),
+(60, 1, '256256e6ecb49ae6dbce5881d8c68d7618d76f532d497132f41492a36967ad14', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-03 01:40:13', '2025-06-03 07:14:30', NULL, 1),
+(61, 1, 'de4292e24b522d212828309bfdcce7ea53d93cf6b23fb2adb5e4062618129241', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-03 01:44:24', '2025-06-03 01:44:24', NULL, 1),
+(62, 1, 'e43ac1fd6cf6cb1ecae9a7153d5e30f3b94f29ae2ab022f81aada9f4f64181ce', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0', '2025-06-03 22:03:39', '2025-06-03 22:03:39', NULL, 1),
+(63, 1, 'c485165d7ef11b90336ecca15093a5a6da5baa2abf2def546dee159cc7adbcc2', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:16:02', '2025-06-13 01:18:48', '2025-06-13 01:18:48', 0),
+(64, 1, 'ded9742703aab4f48cdaf3eb2f113913e7615ff630f26f916d58d57f01372994', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-13 01:18:52', '2025-06-13 04:32:34', NULL, 1),
+(65, 1, 'cbf57cb346a7d7a970006c78512e2e9694b9eaeff3cf25996e52cac3b526c7b4', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-17 02:33:20', '2025-06-17 02:40:41', NULL, 1),
+(66, 1, 'fd5c4f343b88a6d49a45989181564584cf2e536311acec8fdf080060e7080e8c', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-17 02:41:24', '2025-06-17 02:41:24', NULL, 1),
+(67, 1, 'a97d39c85d5cf12b041c358bedf2019b9bb89a4d5a003ba9029cccf6e46bdf2c', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-24 00:19:55', '2025-06-24 00:19:55', NULL, 1),
+(68, 1, 'cf2bed6dde5369be3f854f2fcdae2a73daad0f92adf159bc579e17299251f64a', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0', '2025-06-24 00:20:24', '2025-06-24 01:20:11', NULL, 1);
 
+--
+-- Indexes for dumped tables
+--
 
-ALTER TABLE audit_log
-  ADD PRIMARY KEY (id),
-  ADD KEY idx_user_audit (user_id,timestamp),
-  ADD KEY idx_action_time (action_type,timestamp);
+--
+-- Indexes for table `audit_log`
+--
+ALTER TABLE `audit_log`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_user_audit` (`user_id`,`timestamp`),
+  ADD KEY `idx_action_time` (`action_type`,`timestamp`);
 
-ALTER TABLE chatbot_conversations
-  ADD PRIMARY KEY (id),
-  ADD KEY idx_user_conversation (user_id,conversation_id,timestamp),
-  ADD KEY idx_session_chat (session_id,timestamp),
-  ADD KEY idx_flagged_review (flagged,timestamp),
-  ADD KEY idx_parent_message (parent_message_id),
-  ADD KEY idx_conversation_thread (conversation_id,timestamp),
-  ADD KEY idx_conversation_messages (conversation_id,timestamp),
-  ADD KEY idx_user_conversations (user_id,timestamp),
-  ADD KEY idx_message_search (message_type,timestamp);
+--
+-- Indexes for table `chatbot_conversations`
+--
+ALTER TABLE `chatbot_conversations`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_user_conversation` (`user_id`,`conversation_id`,`timestamp`),
+  ADD KEY `idx_session_chat` (`session_id`,`timestamp`),
+  ADD KEY `idx_flagged_review` (`flagged`,`timestamp`),
+  ADD KEY `idx_parent_message` (`parent_message_id`),
+  ADD KEY `idx_conversation_thread` (`conversation_id`,`timestamp`),
+  ADD KEY `idx_conversation_messages` (`conversation_id`,`timestamp`),
+  ADD KEY `idx_user_conversations` (`user_id`,`timestamp`),
+  ADD KEY `idx_message_search` (`message_type`,`timestamp`);
 
-ALTER TABLE chatbot_feedback
-  ADD PRIMARY KEY (id),
-  ADD KEY idx_conversation_feedback (conversation_id,created_at),
-  ADD KEY idx_message_feedback (message_id),
-  ADD KEY user_id (user_id);
+--
+-- Indexes for table `chatbot_feedback`
+--
+ALTER TABLE `chatbot_feedback`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_conversation_feedback` (`conversation_id`,`created_at`),
+  ADD KEY `idx_message_feedback` (`message_id`),
+  ADD KEY `user_id` (`user_id`);
 
-ALTER TABLE chatbot_knowledge_base
-  ADD PRIMARY KEY (id),
-  ADD KEY idx_category (category,is_active),
-  ADD KEY idx_keywords (keywords(255));
-ALTER TABLE chatbot_knowledge_base ADD FULLTEXT KEY idx_question_answer (question,answer,keywords);
+--
+-- Indexes for table `chatbot_knowledge_base`
+--
+ALTER TABLE `chatbot_knowledge_base`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_category` (`category`,`is_active`),
+  ADD KEY `idx_keywords` (`keywords`(255));
+ALTER TABLE `chatbot_knowledge_base` ADD FULLTEXT KEY `idx_question_answer` (`question`,`answer`,`keywords`);
 
-ALTER TABLE command_log
-  ADD PRIMARY KEY (id),
-  ADD KEY idx_session_time (session_id,timestamp),
-  ADD KEY idx_user_commands (user_id,timestamp);
+--
+-- Indexes for table `command_log`
+--
+ALTER TABLE `command_log`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_session_time` (`session_id`,`timestamp`),
+  ADD KEY `idx_user_commands` (`user_id`,`timestamp`);
 
-ALTER TABLE command_patterns
-  ADD PRIMARY KEY (id),
-  ADD KEY idx_pattern_category (category,is_active,priority),
-  ADD KEY idx_pattern_active (is_active,priority);
+--
+-- Indexes for table `command_patterns`
+--
+ALTER TABLE `command_patterns`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_pattern_category` (`category`,`is_active`,`priority`),
+  ADD KEY `idx_pattern_active` (`is_active`,`priority`);
 
-ALTER TABLE command_suggestions
-  ADD PRIMARY KEY (id),
-  ADD KEY idx_conversation_suggestions (conversation_id,created_at),
-  ADD KEY user_id (user_id),
-  ADD KEY idx_executed_suggestions (executed,created_at),
-  ADD KEY idx_user_suggestions (user_id,executed,created_at),
-  ADD KEY idx_priority_category (category,priority,created_at);
+--
+-- Indexes for table `command_suggestions`
+--
+ALTER TABLE `command_suggestions`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_conversation_suggestions` (`conversation_id`,`created_at`),
+  ADD KEY `user_id` (`user_id`),
+  ADD KEY `idx_executed_suggestions` (`executed`,`created_at`),
+  ADD KEY `idx_user_suggestions` (`user_id`,`executed`,`created_at`),
+  ADD KEY `idx_priority_category` (`category`,`priority`,`created_at`);
 
-ALTER TABLE hosts_info
-  ADD PRIMARY KEY (id),
-  ADD UNIQUE KEY host_id (host_id),
-  ADD KEY idx_host_activity (is_active,last_seen);
+--
+-- Indexes for table `hosts_info`
+--
+ALTER TABLE `hosts_info`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `host_id` (`host_id`),
+  ADD KEY `idx_host_activity` (`is_active`,`last_seen`);
 
-ALTER TABLE remote_sessions
-  ADD PRIMARY KEY (id),
-  ADD UNIQUE KEY session_id (session_id),
-  ADD KEY idx_user_host (user_id,host_id),
-  ADD KEY idx_session_status (status,start_time);
+--
+-- Indexes for table `remote_sessions`
+--
+ALTER TABLE `remote_sessions`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `session_id` (`session_id`),
+  ADD KEY `idx_user_host` (`user_id`,`host_id`),
+  ADD KEY `idx_session_status` (`status`,`start_time`);
 
-ALTER TABLE session_contexts
-  ADD PRIMARY KEY (id),
-  ADD UNIQUE KEY unique_session_context (session_id,conversation_id,context_type),
-  ADD KEY idx_session_context (session_id,context_type),
-  ADD KEY idx_context_lookup (session_id,context_type,updated_at);
+--
+-- Indexes for table `session_contexts`
+--
+ALTER TABLE `session_contexts`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `unique_session_context` (`session_id`,`conversation_id`,`context_type`),
+  ADD KEY `idx_session_context` (`session_id`,`context_type`),
+  ADD KEY `idx_context_lookup` (`session_id`,`context_type`,`updated_at`);
 
-ALTER TABLE session_feedback
-  ADD PRIMARY KEY (id),
-  ADD KEY user_id (user_id),
-  ADD KEY graded_by (graded_by),
-  ADD KEY session_id (session_id);
+--
+-- Indexes for table `session_feedback`
+--
+ALTER TABLE `session_feedback`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `user_id` (`user_id`),
+  ADD KEY `graded_by` (`graded_by`),
+  ADD KEY `session_id` (`session_id`);
 
-ALTER TABLE system_config
-  ADD PRIMARY KEY (id),
-  ADD UNIQUE KEY config_key (config_key),
-  ADD KEY updated_by (updated_by);
+--
+-- Indexes for table `system_config`
+--
+ALTER TABLE `system_config`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `config_key` (`config_key`),
+  ADD KEY `updated_by` (`updated_by`);
 
-ALTER TABLE users
-  ADD PRIMARY KEY (id),
-  ADD UNIQUE KEY username (username),
-  ADD KEY created_by (created_by),
-  ADD KEY idx_manager_id (manager_id);
+--
+-- Indexes for table `users`
+--
+ALTER TABLE `users`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `username` (`username`),
+  ADD KEY `created_by` (`created_by`),
+  ADD KEY `idx_manager_id` (`manager_id`);
 
-ALTER TABLE user_instance_tokens
-  ADD PRIMARY KEY (id),
-  ADD UNIQUE KEY instance_token (instance_token),
-  ADD KEY user_id (user_id);
+--
+-- Indexes for table `user_instance_tokens`
+--
+ALTER TABLE `user_instance_tokens`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `instance_token` (`instance_token`),
+  ADD KEY `user_id` (`user_id`);
 
-ALTER TABLE user_sessions
-  ADD PRIMARY KEY (id),
-  ADD UNIQUE KEY session_token (session_token),
-  ADD KEY user_id (user_id);
+--
+-- Indexes for table `user_sessions`
+--
+ALTER TABLE `user_sessions`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `session_token` (`session_token`),
+  ADD KEY `user_id` (`user_id`);
 
+--
+-- AUTO_INCREMENT for dumped tables
+--
 
-ALTER TABLE audit_log
-  MODIFY id int(11) NOT NULL AUTO_INCREMENT;
+--
+-- AUTO_INCREMENT for table `audit_log`
+--
+ALTER TABLE `audit_log`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=640;
 
-ALTER TABLE chatbot_conversations
-  MODIFY id int(11) NOT NULL AUTO_INCREMENT;
+--
+-- AUTO_INCREMENT for table `chatbot_conversations`
+--
+ALTER TABLE `chatbot_conversations`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=55;
 
-ALTER TABLE chatbot_feedback
-  MODIFY id int(11) NOT NULL AUTO_INCREMENT;
+--
+-- AUTO_INCREMENT for table `chatbot_feedback`
+--
+ALTER TABLE `chatbot_feedback`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
-ALTER TABLE chatbot_knowledge_base
-  MODIFY id int(11) NOT NULL AUTO_INCREMENT;
+--
+-- AUTO_INCREMENT for table `chatbot_knowledge_base`
+--
+ALTER TABLE `chatbot_knowledge_base`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=78;
 
-ALTER TABLE command_log
-  MODIFY id int(11) NOT NULL AUTO_INCREMENT;
+--
+-- AUTO_INCREMENT for table `command_log`
+--
+ALTER TABLE `command_log`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=72;
 
-ALTER TABLE command_patterns
-  MODIFY id int(11) NOT NULL AUTO_INCREMENT;
+--
+-- AUTO_INCREMENT for table `command_patterns`
+--
+ALTER TABLE `command_patterns`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
-ALTER TABLE command_suggestions
-  MODIFY id int(11) NOT NULL AUTO_INCREMENT;
+--
+-- AUTO_INCREMENT for table `command_suggestions`
+--
+ALTER TABLE `command_suggestions`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28;
 
-ALTER TABLE hosts_info
-  MODIFY id int(11) NOT NULL AUTO_INCREMENT;
+--
+-- AUTO_INCREMENT for table `hosts_info`
+--
+ALTER TABLE `hosts_info`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=23;
 
-ALTER TABLE remote_sessions
-  MODIFY id int(11) NOT NULL AUTO_INCREMENT;
+--
+-- AUTO_INCREMENT for table `remote_sessions`
+--
+ALTER TABLE `remote_sessions`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=32;
 
-ALTER TABLE session_contexts
-  MODIFY id int(11) NOT NULL AUTO_INCREMENT;
+--
+-- AUTO_INCREMENT for table `session_contexts`
+--
+ALTER TABLE `session_contexts`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=72;
 
-ALTER TABLE session_feedback
-  MODIFY id int(11) NOT NULL AUTO_INCREMENT;
+--
+-- AUTO_INCREMENT for table `session_feedback`
+--
+ALTER TABLE `session_feedback`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
 
-ALTER TABLE system_config
-  MODIFY id int(11) NOT NULL AUTO_INCREMENT;
+--
+-- AUTO_INCREMENT for table `system_config`
+--
+ALTER TABLE `system_config`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 
-ALTER TABLE users
-  MODIFY id int(11) NOT NULL AUTO_INCREMENT;
+--
+-- AUTO_INCREMENT for table `users`
+--
+ALTER TABLE `users`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
-ALTER TABLE user_instance_tokens
-  MODIFY id int(11) NOT NULL AUTO_INCREMENT;
+--
+-- AUTO_INCREMENT for table `user_instance_tokens`
+--
+ALTER TABLE `user_instance_tokens`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=23;
 
-ALTER TABLE user_sessions
-  MODIFY id int(11) NOT NULL AUTO_INCREMENT;
+--
+-- AUTO_INCREMENT for table `user_sessions`
+--
+ALTER TABLE `user_sessions`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=69;
 
+--
+-- Constraints for dumped tables
+--
 
-ALTER TABLE audit_log
-  ADD CONSTRAINT audit_log_ibfk_1 FOREIGN KEY (user_id) REFERENCES `users` (id) ON DELETE SET NULL;
+--
+-- Constraints for table `audit_log`
+--
+ALTER TABLE `audit_log`
+  ADD CONSTRAINT `audit_log_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
 
-ALTER TABLE chatbot_conversations
-  ADD CONSTRAINT chatbot_conversations_ibfk_1 FOREIGN KEY (user_id) REFERENCES `users` (id) ON DELETE CASCADE,
-  ADD CONSTRAINT chatbot_conversations_ibfk_2 FOREIGN KEY (session_id) REFERENCES remote_sessions (session_id) ON DELETE SET NULL;
+--
+-- Constraints for table `chatbot_conversations`
+--
+ALTER TABLE `chatbot_conversations`
+  ADD CONSTRAINT `chatbot_conversations_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `chatbot_conversations_ibfk_2` FOREIGN KEY (`session_id`) REFERENCES `remote_sessions` (`session_id`) ON DELETE SET NULL;
 
-ALTER TABLE chatbot_feedback
-  ADD CONSTRAINT chatbot_feedback_ibfk_1 FOREIGN KEY (user_id) REFERENCES `users` (id) ON DELETE CASCADE,
-  ADD CONSTRAINT chatbot_feedback_ibfk_2 FOREIGN KEY (message_id) REFERENCES chatbot_conversations (id) ON DELETE CASCADE;
+--
+-- Constraints for table `chatbot_feedback`
+--
+ALTER TABLE `chatbot_feedback`
+  ADD CONSTRAINT `chatbot_feedback_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `chatbot_feedback_ibfk_2` FOREIGN KEY (`message_id`) REFERENCES `chatbot_conversations` (`id`) ON DELETE CASCADE;
 
-ALTER TABLE command_log
-  ADD CONSTRAINT command_log_ibfk_1 FOREIGN KEY (session_id) REFERENCES remote_sessions (session_id) ON DELETE CASCADE,
-  ADD CONSTRAINT command_log_ibfk_2 FOREIGN KEY (user_id) REFERENCES `users` (id) ON DELETE CASCADE;
+--
+-- Constraints for table `command_log`
+--
+ALTER TABLE `command_log`
+  ADD CONSTRAINT `command_log_ibfk_1` FOREIGN KEY (`session_id`) REFERENCES `remote_sessions` (`session_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `command_log_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
-ALTER TABLE command_suggestions
-  ADD CONSTRAINT command_suggestions_ibfk_1 FOREIGN KEY (user_id) REFERENCES `users` (id) ON DELETE CASCADE;
+--
+-- Constraints for table `command_suggestions`
+--
+ALTER TABLE `command_suggestions`
+  ADD CONSTRAINT `command_suggestions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
-ALTER TABLE remote_sessions
-  ADD CONSTRAINT remote_sessions_ibfk_1 FOREIGN KEY (user_id) REFERENCES `users` (id) ON DELETE CASCADE;
+--
+-- Constraints for table `remote_sessions`
+--
+ALTER TABLE `remote_sessions`
+  ADD CONSTRAINT `remote_sessions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
-ALTER TABLE session_contexts
-  ADD CONSTRAINT session_contexts_ibfk_1 FOREIGN KEY (session_id) REFERENCES remote_sessions (session_id) ON DELETE CASCADE;
+--
+-- Constraints for table `session_contexts`
+--
+ALTER TABLE `session_contexts`
+  ADD CONSTRAINT `session_contexts_ibfk_1` FOREIGN KEY (`session_id`) REFERENCES `remote_sessions` (`session_id`) ON DELETE CASCADE;
 
-ALTER TABLE session_feedback
-  ADD CONSTRAINT session_feedback_ibfk_1 FOREIGN KEY (user_id) REFERENCES `users` (id) ON DELETE CASCADE,
-  ADD CONSTRAINT session_feedback_ibfk_2 FOREIGN KEY (graded_by) REFERENCES `users` (id) ON DELETE SET NULL,
-  ADD CONSTRAINT session_feedback_ibfk_3 FOREIGN KEY (session_id) REFERENCES remote_sessions (session_id) ON DELETE CASCADE;
+--
+-- Constraints for table `session_feedback`
+--
+ALTER TABLE `session_feedback`
+  ADD CONSTRAINT `session_feedback_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `session_feedback_ibfk_2` FOREIGN KEY (`graded_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `session_feedback_ibfk_3` FOREIGN KEY (`session_id`) REFERENCES `remote_sessions` (`session_id`) ON DELETE CASCADE;
 
-ALTER TABLE system_config
-  ADD CONSTRAINT system_config_ibfk_1 FOREIGN KEY (updated_by) REFERENCES `users` (id) ON DELETE SET NULL;
+--
+-- Constraints for table `system_config`
+--
+ALTER TABLE `system_config`
+  ADD CONSTRAINT `system_config_ibfk_1` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL;
 
-ALTER TABLE users
-  ADD CONSTRAINT users_ibfk_1 FOREIGN KEY (created_by) REFERENCES `users` (id) ON DELETE SET NULL,
-  ADD CONSTRAINT users_manager_fk FOREIGN KEY (manager_id) REFERENCES `users` (id) ON DELETE SET NULL;
+--
+-- Constraints for table `users`
+--
+ALTER TABLE `users`
+  ADD CONSTRAINT `users_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `users_manager_fk` FOREIGN KEY (`manager_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
 
-ALTER TABLE user_instance_tokens
-  ADD CONSTRAINT user_instance_tokens_ibfk_1 FOREIGN KEY (user_id) REFERENCES `users` (id) ON DELETE CASCADE;
+--
+-- Constraints for table `user_instance_tokens`
+--
+ALTER TABLE `user_instance_tokens`
+  ADD CONSTRAINT `user_instance_tokens_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
-ALTER TABLE user_sessions
-  ADD CONSTRAINT user_sessions_ibfk_1 FOREIGN KEY (user_id) REFERENCES `users` (id) ON DELETE CASCADE;
+--
+-- Constraints for table `user_sessions`
+--
+ALTER TABLE `user_sessions`
+  ADD CONSTRAINT `user_sessions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;

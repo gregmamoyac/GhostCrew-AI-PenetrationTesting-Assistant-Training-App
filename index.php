@@ -34,7 +34,7 @@ $setupCommand = "mshta \"" . APP_URL . "/local/autoconnect.hta?token=" . urlenco
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="css/style.css" rel="stylesheet">
+    <link href="assets/css/style.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
 </head>
@@ -270,6 +270,6 @@ $setupCommand = "mshta \"" . APP_URL . "/local/autoconnect.hta?token=" . urlenco
     </script>
     <div class="clippy"></div>
     <!-- Enhanced terminal.js will be loaded -->
-    <script src="js/enhanced_terminal.js"></script>
+    <script src="assets/js/enhanced_terminal.js"></script>
 </body>
 </html>

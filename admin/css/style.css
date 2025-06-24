@@ -52,7 +52,7 @@ body {
     position: absolute;
     right: 10px;
     top: 10vh;
-    background-image: url("../../img/clippy.png");
+    background-image: url("../../assets/img/clippy.png");
     background-size: 100% 100%;
     z-index: -1;
 }

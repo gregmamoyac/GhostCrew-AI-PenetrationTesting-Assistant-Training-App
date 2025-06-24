@@ -1,0 +1,27 @@
+[03-Jun-2025 03:45:45 Europe/Berlin] handleEnhancedReports called with params: {"action":"reports","start_date":"2025-05-04","end_date":"2025-06-03","user_role":""}
+[03-Jun-2025 03:45:45 Europe/Berlin] Query date range: 2025-05-20 to 2025-06-03
+[03-Jun-2025 03:45:45 Europe/Berlin] Total sessions in DB: 18, Latest: 2025-06-02 20:43:22
+[03-Jun-2025 03:45:45 Europe/Berlin] Activity data: [{"date":"2025-05-29","active_users":2,"sessions":5,"commands":20},{"date":"2025-05-30","active_users":1,"sessions":1,"commands":3},{"date":"2025-06-01","active_users":1,"sessions":7,"commands":23},{"date":"2025-06-02","active_users":1,"sessions":5,"commands":3}]
+[04-Jun-2025 00:03:41 Europe/Berlin] handleEnhancedReports called with params: {"action":"reports","start_date":"2025-05-04","end_date":"2025-06-03","user_role":""}
+[04-Jun-2025 00:03:41 Europe/Berlin] Query date range: 2025-05-20 to 2025-06-03
+[04-Jun-2025 00:03:41 Europe/Berlin] Total sessions in DB: 18, Latest: 2025-06-02 20:43:22
+[04-Jun-2025 00:03:41 Europe/Berlin] Activity data: [{"date":"2025-05-29","active_users":2,"sessions":5,"commands":20},{"date":"2025-05-30","active_users":1,"sessions":1,"commands":3},{"date":"2025-06-01","active_users":1,"sessions":7,"commands":23},{"date":"2025-06-02","active_users":1,"sessions":5,"commands":3}]
+[13-Jun-2025 02:48:53 Europe/Berlin] PHP Warning:  Uncaught PDOException: PDO::__construct(): Error while reading greeting packet. PID=23320 in C:\xampp\htdocs\GhostCrew\admin\api.php:25
+Stack trace:
+#0 C:\xampp\htdocs\GhostCrew\admin\api.php(25): PDO->__construct('mysql:host=loca...', 'svc_ghostcrew_a...', 'SecureP@ssw0rd2...')
+#1 {main}
+
+Next PDOException: SQLSTATE[HY000] [2006] MySQL server has gone away in C:\xampp\htdocs\GhostCrew\admin\api.php:25
+Stack trace:
+#0 C:\xampp\htdocs\GhostCrew\admin\api.php(25): PDO->__construct('mysql:host=loca...', 'svc_ghostcrew_a...', 'SecureP@ssw0rd2...')
+#1 {main}
+  thrown in C:\xampp\htdocs\GhostCrew\admin\api.php on line 25
+[13-Jun-2025 02:48:54 Europe/Berlin] PHP Fatal error:  Maximum execution time of 120 seconds exceeded in C:\xampp\htdocs\GhostCrew\admin\api.php on line 27
+[17-Jun-2025 04:49:02 Europe/Berlin] handleEnhancedReports called with params: {"action":"reports","start_date":"2025-05-18","end_date":"2025-06-17","user_role":""}
+[17-Jun-2025 04:49:02 Europe/Berlin] Query date range: 2025-06-03 to 2025-06-17
+[17-Jun-2025 04:49:02 Europe/Berlin] Total sessions in DB: 24, Latest: 2025-06-16 21:35:57
+[17-Jun-2025 04:49:02 Europe/Berlin] Activity data: [{"date":"2025-06-12","active_users":1,"sessions":5,"commands":13},{"date":"2025-06-16","active_users":1,"sessions":1,"commands":3}]
+[17-Jun-2025 04:49:31 Europe/Berlin] handleEnhancedReports called with params: {"action":"reports","start_date":"2025-05-18","end_date":"2025-06-17","user_role":""}
+[17-Jun-2025 04:49:31 Europe/Berlin] Query date range: 2025-06-03 to 2025-06-17
+[17-Jun-2025 04:49:31 Europe/Berlin] Total sessions in DB: 24, Latest: 2025-06-16 21:35:57
+[17-Jun-2025 04:49:31 Europe/Berlin] Activity data: [{"date":"2025-06-12","active_users":1,"sessions":5,"commands":13},{"date":"2025-06-16","active_users":1,"sessions":1,"commands":3}]
