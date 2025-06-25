@@ -270,6 +270,9 @@ $(document).ready(function() {
             if (activeHostId && currentRemoteSessionId) {
                 handleHostGracefulDisconnection(activeHostId);
             }
+
+            // Update page title with zero hosts
+            updatePageTitle(0);
             
             return;
         }
@@ -304,6 +307,14 @@ $(document).ready(function() {
                 $('#send-command').prop('disabled', false);
             }
         }
+        // Update page title with current host count
+        updatePageTitle(connectedHosts.length);
+    }
+
+    function updatePageTitle(hostCount) {
+        const user = USERNAME || 'User';
+        const activeSessions = $('.tab:not([data-session="welcome"])').length;
+        document.title = `GhostCrew - ${user} | Hosts: ${hostCount} | Sessions: ${activeSessions}`;
     }
     
     // Function to update historical sessions list
@@ -467,11 +478,17 @@ $(document).ready(function() {
                 </div>
             </div>`;
         $('.terminal-container').append(terminalHtml);
-        
-        // Add event listener for the close button
+
+        // Add close event
         $(`.tab-close[data-session="${hostId}"]`).on('click', function(e) {
             e.stopPropagation();
             closeSession(hostId);
+            
+            if ($('.tab').length === 1) {
+                $('.tab[data-session="welcome"]').addClass('active');
+                $('#welcome-terminal').addClass('active');
+                updateTerminalPrompt();
+            }
         });
         
         // Enable terminal input
@@ -487,6 +504,7 @@ $(document).ready(function() {
         
         // Load any existing command history for this session
         loadCommandHistory(sessionId);
+        updatePageTitle(connectedHosts.length);
     }
     
     // Function to initialize chat for a session
@@ -611,19 +629,18 @@ $(document).ready(function() {
         
         // Reset active session if this was active
         if (sessionId === activeSessionId) {
-            const $remainingTabs = $('#session-tabs .tab:not([data-session="welcome"])');
-            if ($remainingTabs.length > 0) {
-                const newSessionId = $($remainingTabs[0]).data('session');
-                switchToSession(newSessionId);
-            } else {
-                // Always switch to welcome if no other sessions
-                switchToSession('welcome');
-                $('.tab[data-session="welcome"]').addClass('active');
-                $('#welcome-terminal').addClass('active');
-                activeSessionId = 'welcome';
-                activeHostId = null;
-                currentRemoteSessionId = null;
-            }
+            // Always switch to welcome tab when closing active session
+            switchToSession('welcome');
+            $('.tab[data-session="welcome"]').addClass('active');
+            $('#welcome-terminal').addClass('active');
+            activeSessionId = 'welcome';
+            activeHostId = null;
+            currentRemoteSessionId = null;
+            
+            // Reset terminal state
+            $('#terminal-input').prop('disabled', true);
+            $('#send-command').prop('disabled', true);
+            updateTerminalPrompt();
         }
     }
     
