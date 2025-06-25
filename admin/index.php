@@ -644,7 +644,7 @@
         <div id="profile" class="content-section">
             <div class="section-header">
                 <h2 class="section-title">My Profile</h2>
-                <button class="btn btn-primary" onclick="showChangePasswordModal()">Change Password</button>
+                <button class="btn btn-primary" onclick="showEditProfileModal()">Edit Profile</button>
             </div>
             
             <div class="profile-grid">

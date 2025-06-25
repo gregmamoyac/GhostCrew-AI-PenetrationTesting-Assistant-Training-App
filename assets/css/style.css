@@ -515,7 +515,6 @@ header h1::before {
 #host-list li:hover {
     background: var(--hover-bg);
     box-shadow: 0 4px 16px rgba(88, 166, 255, 0.2);
-    transform: translateY(-2px);
 }
 
 #host-list li:hover::before {
@@ -698,7 +697,6 @@ header h1::before {
 
 #historical-list li:hover {
     background: rgba(63, 185, 80, 0.2);
-    transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(63, 185, 80, 0.3);
 }
 
@@ -2701,6 +2699,7 @@ header h1::before {
 .btn-small {
     padding: 8px 16px;
     font-size: 12px;
+    margin: 2px;
 }
 
 /* Alert styles */
@@ -3887,7 +3886,7 @@ header h1::before {
     font-weight: 500;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     color: var(--text-secondary);
-    white-space: nowrap;
+    /* white-space: nowrap; */
     position: relative;
     overflow: hidden;
     font-size: 0.9rem;
@@ -4127,3 +4126,4 @@ header h1::before {
 #dashboard .chart-container canvas {
     max-height: 280px !important;
 }
+

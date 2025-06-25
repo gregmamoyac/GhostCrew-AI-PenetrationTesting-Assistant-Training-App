@@ -12,7 +12,7 @@ header('Access-Control-Allow-Headers: Content-Type');
 
 define('ADMIN_DB_HOST', 'localhost');
 define('ADMIN_DB_USER', 'svc_ghostcrew_admin');
-define('ADMIN_DB_PASS', 'SecureP@ssw0rd2024!');
+define('ADMIN_DB_PASS', '!Password123!');
 define('ADMIN_DB_NAME', 'ghostcrew_admin');
 
 // Database configuration
@@ -105,6 +105,9 @@ try {
             break;
         case 'managers_list':
             handleManagersList($pdo);
+            break;
+        case 'update_profile':
+            handleUpdateProfile($pdo, $input);
             break;
         default:
             http_response_code(400);
@@ -1087,74 +1090,68 @@ function handleEnhancedReports($pdo, $params = []) {
         
         // ============ CHART DATA ============
         
-        // User activity over time (last 14 days) - Simplified
+        // User activity over time (last 14 days) - Fixed
         $actualStartDate = date('Y-m-d', strtotime($endDate . ' -14 days'));
+        error_log("Activity query date range: " . $actualStartDate . " to " . $endDate);
+
         $stmt = $pdo->prepare("
-        SELECT 
-            DATE(start_time) as date,
-            COUNT(DISTINCT user_id) as active_users,
-            COUNT(*) as sessions
-        FROM remote_sessions 
-        WHERE DATE(start_time) >= ?
-        GROUP BY DATE(start_time)
-        ORDER BY date
+            SELECT 
+                DATE(start_time) as date,
+                COUNT(DISTINCT user_id) as active_users,
+                COUNT(*) as sessions
+            FROM remote_sessions 
+            WHERE DATE(start_time) BETWEEN ? AND ?
+            GROUP BY DATE(start_time)
+            ORDER BY date
         ");
-        $stmt->execute([$actualStartDate]);
+        $stmt->execute([$actualStartDate, $endDate]);
         $sessionActivityData = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Get command counts separately 
+        // Get command counts for the same period
         $stmt = $pdo->prepare("
-        SELECT 
-            DATE(cl.timestamp) as date,
-            COUNT(*) as commands
-        FROM command_log cl
-        JOIN remote_sessions rs ON cl.session_id = rs.session_id
-        WHERE DATE(cl.timestamp) >= ?
-        GROUP BY DATE(cl.timestamp)
-        ORDER BY date
+            SELECT 
+                DATE(cl.timestamp) as date,
+                COUNT(*) as commands
+            FROM command_log cl
+            WHERE DATE(cl.timestamp) BETWEEN ? AND ?
+            GROUP BY DATE(cl.timestamp)
+            ORDER BY date
         ");
-        $stmt->execute([$actualStartDate]);
+        $stmt->execute([$actualStartDate, $endDate]);
         $commandActivityData = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Combine the data
+        // Create complete dataset for all 14 days
         $activityData = [];
-        $dateIndex = [];
-
-        // Process session data
-        foreach ($sessionActivityData as $row) {
-        $date = $row['date'];
-        $activityData[$date] = [
-            'date' => $date,
-            'active_users' => (int)$row['active_users'],
-            'sessions' => (int)$row['sessions'],
-            'commands' => 0
-        ];
-        $dateIndex[$date] = true;
-        }
-
-        // Add command data
-        foreach ($commandActivityData as $row) {
-        $date = $row['date'];
-        if (isset($activityData[$date])) {
-            $activityData[$date]['commands'] = (int)$row['commands'];
-        } else {
+        for ($i = 13; $i >= 0; $i--) {
+            $date = date('Y-m-d', strtotime($endDate . " -$i days"));
             $activityData[$date] = [
                 'date' => $date,
                 'active_users' => 0,
                 'sessions' => 0,
-                'commands' => (int)$row['commands']
+                'commands' => 0
             ];
         }
+
+        // Fill in session data
+        foreach ($sessionActivityData as $row) {
+            $date = $row['date'];
+            if (isset($activityData[$date])) {
+                $activityData[$date]['active_users'] = (int)$row['active_users'];
+                $activityData[$date]['sessions'] = (int)$row['sessions'];
+            }
+        }
+
+        // Fill in command data
+        foreach ($commandActivityData as $row) {
+            $date = $row['date'];
+            if (isset($activityData[$date])) {
+                $activityData[$date]['commands'] = (int)$row['commands'];
+            }
         }
 
         // Convert to indexed array and sort
         $activityData = array_values($activityData);
-        usort($activityData, function($a, $b) {
-        return strtotime($a['date']) - strtotime($b['date']);
-        });
-
-        // Debug: Log the activity data
-        error_log("Activity data: " . json_encode($activityData));
+        error_log("Final activity data: " . json_encode($activityData));
         
         // Grade distribution
         $stmt = $pdo->prepare("
@@ -1457,6 +1454,49 @@ function handleDetailedReport($pdo, $type, $params = []) {
         
         $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode(['success' => true, 'data' => $data, 'type' => $type]);
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
+function handleUpdateProfile($pdo, $input) {
+    $userId = $input['user_id'];
+    $fullName = $input['full_name'];
+    $email = $input['email'];
+    $currentPassword = $input['current_password'];
+    $newPassword = $input['new_password'] ?? null;
+    
+    try {
+        // Verify current password
+        $stmt = $pdo->prepare("SELECT password_hash FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$user || !password_verify($currentPassword, $user['password_hash'])) {
+            echo json_encode(['success' => false, 'message' => 'Current password is incorrect']);
+            return;
+        }
+        
+        // Update profile
+        if ($newPassword) {
+            $passwordHash = password_hash($newPassword, PASSWORD_DEFAULT);
+            $stmt = $pdo->prepare("
+                UPDATE users 
+                SET full_name = ?, email = ?, password_hash = ?, updated_at = NOW() 
+                WHERE id = ?
+            ");
+            $stmt->execute([$fullName, $email, $passwordHash, $userId]);
+        } else {
+            $stmt = $pdo->prepare("
+                UPDATE users 
+                SET full_name = ?, email = ?, updated_at = NOW() 
+                WHERE id = ?
+            ");
+            $stmt->execute([$fullName, $email, $userId]);
+        }
+        
+        echo json_encode(['success' => true]);
         
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);

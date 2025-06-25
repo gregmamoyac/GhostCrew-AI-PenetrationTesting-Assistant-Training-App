@@ -1182,7 +1182,11 @@ async function exportSessionDetail(sessionId, format) {
         
         if (data.success) {
             const session = data.session;
-            const user = currentData.users.find(u => u.id === session.user_id);
+            // Ensure users data is loaded first
+            if (!currentData.users || currentData.users.length === 0) {
+                await loadUsers();
+            }
+            const user = currentData.users.find(u => parseInt(u.id) === parseInt(session.user_id));
             const commands = data.commands;
             const conversations = data.conversations || [];
             
@@ -2096,7 +2100,11 @@ async function viewSessionDetail(sessionId) {
         
         if (data.success) {
             const session = data.session;
-            const user = currentData.users.find(u => u.id === session.user_id);
+            // Ensure users data is loaded first
+            if (!currentData.users || currentData.users.length === 0) {
+                await loadUsers();
+            }
+            const user = currentData.users.find(u => parseInt(u.id) === parseInt(session.user_id));
             const commands = data.commands;
             const feedback = data.feedback;
             const conversations = data.conversations || [];
@@ -2366,7 +2374,11 @@ async function loadGradingContent(sessionId) {
         
         if (data.success) {
             const session = data.session;
-            const user = currentData.users.find(u => u.id === session.user_id);
+            // Ensure users data is loaded first
+            if (!currentData.users || currentData.users.length === 0) {
+                await loadUsers();
+            }
+            const user = currentData.users.find(u => parseInt(u.id) === parseInt(session.user_id));
             const commands = data.commands;
             const conversations = data.conversations || [];
             const existingFeedback = data.feedback;
@@ -2766,7 +2778,11 @@ async function viewSessionDetailPage(sessionId) {
                 return;
             }
             
-            const user = currentData.users.find(u => u.id === session.user_id);
+            // Ensure users data is loaded first
+            if (!currentData.users || currentData.users.length === 0) {
+                await loadUsers();
+            }
+            const user = currentData.users.find(u => parseInt(u.id) === parseInt(session.user_id));
             const commands = data.commands;
             const conversations = data.conversations || [];
             
@@ -2885,7 +2901,11 @@ async function viewGradePage(sessionId) {
                 return;
             }
             
-            const user = currentData.users.find(u => u.id === session.user_id);
+            // Ensure users data is loaded first
+            if (!currentData.users || currentData.users.length === 0) {
+                await loadUsers();
+            }
+            const user = currentData.users.find(u => parseInt(u.id) === parseInt(session.user_id));
             const commands = data.commands;
             const conversations = data.conversations || [];
             const feedback = data.feedback;
@@ -3181,6 +3201,167 @@ async function loadProfile() {
     await loadUserGrades();
 }
 
+function showEditProfileModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'block';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Profile</h3>
+                <button class="close-btn" onclick="this.closest('.modal').remove()">&times;</button>
+            </div>
+            <form id="editProfileForm">
+                <div class="form-group">
+                    <label class="form-label">Full Name:</label>
+                    <input type="text" id="editFullName" class="form-input" value="${currentUser.full_name}" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email:</label>
+                    <input type="email" id="editEmail" class="form-input" value="${currentUser.email}" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Current Password:</label>
+                    <input type="password" id="editCurrentPassword" class="form-input" placeholder="Enter current password to save changes" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">New Password (optional):</label>
+                    <input type="password" id="editNewPassword" class="form-input" placeholder="Leave blank to keep current password" minlength="8">
+                    <div id="passwordStrength" class="password-strength" style="display: none;">
+                        <div class="strength-meter">
+                            <div class="strength-fill"></div>
+                        </div>
+                        <div class="strength-text">Password strength: <span id="strengthText">Weak</span></div>
+                        <div class="password-requirements">
+                            <div class="requirement" id="req-length">• At least 8 characters</div>
+                            <div class="requirement" id="req-upper">• One uppercase letter</div>
+                            <div class="requirement" id="req-lower">• One lowercase letter</div>
+                            <div class="requirement" id="req-number">• One number</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Confirm New Password:</label>
+                    <input type="password" id="editConfirmPassword" class="form-input" placeholder="Confirm new password">
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="this.closest('.modal').remove()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="saveProfileBtn">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    `;
+    
+    // Add password strength checking
+    const newPasswordInput = modal.querySelector('#editNewPassword');
+    const strengthMeter = modal.querySelector('#passwordStrength');
+    
+    newPasswordInput.addEventListener('input', function() {
+        const password = this.value;
+        if (password.length > 0) {
+            strengthMeter.style.display = 'block';
+            updatePasswordStrength(password);
+        } else {
+            strengthMeter.style.display = 'none';
+        }
+    });
+    
+    modal.querySelector('#editProfileForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await saveProfileChanges(modal);
+    });
+    
+    document.body.appendChild(modal);
+}
+
+function updatePasswordStrength(password) {
+    const requirements = {
+        length: password.length >= 8,
+        upper: /[A-Z]/.test(password),
+        lower: /[a-z]/.test(password),
+        number: /\d/.test(password)
+    };
+    
+    const metCount = Object.values(requirements).filter(Boolean).length;
+    const strengthFill = document.querySelector('.strength-fill');
+    const strengthText = document.getElementById('strengthText');
+    
+    // Update requirement indicators
+    Object.keys(requirements).forEach(req => {
+        const element = document.getElementById(`req-${req}`);
+        if (element) {
+            element.classList.toggle('met', requirements[req]);
+        }
+    });
+    
+    // Update strength meter
+    const strength = metCount <= 1 ? 'weak' : metCount <= 2 ? 'fair' : metCount <= 3 ? 'good' : 'strong';
+    const widths = { weak: '25%', fair: '50%', good: '75%', strong: '100%' };
+    const colors = { weak: '#f85149', fair: '#d29922', good: '#58a6ff', strong: '#3fb950' };
+    
+    strengthFill.style.width = widths[strength];
+    strengthFill.style.backgroundColor = colors[strength];
+    strengthText.textContent = strength.charAt(0).toUpperCase() + strength.slice(1);
+    strengthText.style.color = colors[strength];
+}
+
+async function saveProfileChanges(modal) {
+    const fullName = modal.querySelector('#editFullName').value;
+    const email = modal.querySelector('#editEmail').value;
+    const currentPassword = modal.querySelector('#editCurrentPassword').value;
+    const newPassword = modal.querySelector('#editNewPassword').value;
+    const confirmPassword = modal.querySelector('#editConfirmPassword').value;
+    
+    // Validation
+    if (newPassword && newPassword !== confirmPassword) {
+        showAlert('New passwords do not match', 'danger');
+        return;
+    }
+    
+    if (newPassword && newPassword.length < 8) {
+        showAlert('New password must be at least 8 characters long', 'danger');
+        return;
+    }
+    
+    const saveBtn = modal.querySelector('#saveProfileBtn');
+    saveBtn.textContent = 'Saving...';
+    saveBtn.disabled = true;
+    
+    try {
+        const response = await fetch(API_BASE, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'update_profile',
+                user_id: currentUser.id,
+                full_name: fullName,
+                email: email,
+                current_password: currentPassword,
+                new_password: newPassword || null
+            })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            // Update current user data
+            currentUser.full_name = fullName;
+            currentUser.email = email;
+            localStorage.setItem('user_data', JSON.stringify(currentUser));
+            
+            showAlert('Profile updated successfully!', 'success');
+            modal.remove();
+            loadProfile(); // Refresh profile display
+        } else {
+            showAlert('Error updating profile: ' + data.message, 'danger');
+        }
+    } catch (error) {
+        showAlert('Error updating profile', 'danger');
+    } finally {
+        saveBtn.textContent = 'Save Changes';
+        saveBtn.disabled = false;
+    }
+}
+
 function showChangePasswordModal() {
     const modal = document.createElement('div');
     modal.className = 'modal';
@@ -3455,12 +3636,34 @@ async function loadUserProfileSessions() {
         if (data.success && data.sessions.length > 0) {
             const recentSessions = data.sessions.slice(0, 5); // Show last 5 sessions
             
-            document.getElementById('profileSessions').innerHTML = recentSessions.map(session => `
-                <div class="profile-stat">
-                    <span class="profile-stat-label">${session.session_id}:</span>
-                    <span class="profile-stat-value">${formatDate(session.start_time)}</span>
+            document.getElementById('profileSessions').innerHTML = `
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Session ID</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${recentSessions.map(session => `
+                                <tr>
+                                    <td>${session.session_id}</td>
+                                    <td>${formatDate(session.start_time)}</td>
+                                    <td>
+                                        <button class="btn btn-secondary btn-small" style="margin-right: 4px;" onclick="viewSessionDetailPage('${session.session_id}')">View</button>
+                                        ${currentData.sessions.find(s => s.session_id === session.session_id)?.has_feedback ? 
+                                            `<button class="btn btn-primary btn-small" onclick="viewGradePage('${session.session_id}')">View Grade</button>` : 
+                                            '<span style="font-style: italic; color: var(--text-secondary);">Not graded</span>'
+                                        }
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
                 </div>
-            `).join('');
+            `;
         } else {
             document.getElementById('profileSessions').innerHTML = `
                 <div class="profile-stat">
