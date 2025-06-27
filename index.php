@@ -21,7 +21,7 @@ $csrfToken = generateCSRFToken();
 // Get setup command with instance token
 $instanceToken = getCurrentInstanceToken();
 $WindowssetupCommand = "mshta \"" . APP_URL . "/local/autoconnect.hta?token=" . urlencode($instanceToken) . "\"";
-$LinuxsetupCommand = "curl -O \"" . APP_URL . "/local/autoconnect.py\" && python3 autoconnect.py --token " . urlencode($instanceToken);
+$LinuxsetupCommand = "sudo curl -O \"" . APP_URL . "/local/autoconnect.py\" && python3 autoconnect.py --token " . urlencode($instanceToken);
 ?>
 <!DOCTYPE html>
 <html lang="en">
