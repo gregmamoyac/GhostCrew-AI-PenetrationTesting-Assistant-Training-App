@@ -454,7 +454,7 @@ header h1::before {
     list-style: none;
     margin-bottom: 25px;
     padding-left: 0;
-    max-height: 250px;
+    max-height: 275px;
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--accent-blue) var(--tertiary-dark);
@@ -4234,3 +4234,63 @@ header h1::before {
     max-height: 280px !important;
 }
 
+/* Streaming controls */
+
+#terminate-streaming {
+    display: none;
+    padding: 4px 8px;
+    font-size: 12px;
+    border-radius: 3px;
+    background: #dc3545;
+    color: white;
+    border: 1px solid #dc3545;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+#terminate-streaming:hover {
+    background: #c82333;
+    border-color: #bd2130;
+}
+
+#terminate-streaming.show {
+    display: inline-block;
+}
+
+.streaming-output pre,
+.terminal-output pre {
+    font-family: 'JetBrains Mono', 'Consolas', 'Monaco', 'Courier New', monospace;
+    unicode-bidi: plaintext;
+    text-rendering: optimizeLegibility;
+    -webkit-font-feature-settings: "liga" off;
+    font-feature-settings: "liga" off;
+}
+
+/* Better Unicode character support */
+.terminal-output,
+.streaming-output {
+    font-variant-ligatures: none;
+    text-rendering: geometricPrecision;
+}
+
+/* Input echo styling that preserves formatting */
+.user-input-echo {
+    color: #28a745;
+    font-weight: bold;
+    background: rgba(40, 167, 69, 0.1);
+    padding: 1px 3px;
+    border-radius: 2px;
+    display: inline;
+    white-space: pre-wrap;
+}
+
+.control-input {
+    color: #dc3545;
+    font-family: monospace;
+    background: rgba(220, 53, 69, 0.1);
+    padding: 1px 3px;
+    border-radius: 2px;
+    font-weight: bold;
+    display: inline;
+    white-space: pre-wrap;
+}

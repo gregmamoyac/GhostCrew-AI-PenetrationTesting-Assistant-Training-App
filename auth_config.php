@@ -560,5 +560,4 @@ if (!function_exists('validateCSRFToken')) {
         return isset($_SESSION["csrf_token"]) && hash_equals($_SESSION["csrf_token"], $token);
     }
 }
-
 ?>

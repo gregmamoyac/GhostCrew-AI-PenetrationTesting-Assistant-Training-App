@@ -20,8 +20,8 @@ $csrfToken = generateCSRFToken();
 
 // Get setup command with instance token
 $instanceToken = getCurrentInstanceToken();
-$WindowssetupCommand = "mshta \"" . APP_URL . "/local/autoconnect.hta?token=" . urlencode($instanceToken) . "\"";
-$LinuxsetupCommand = "sudo curl -O \"" . APP_URL . "/local/autoconnect.py\" && python3 autoconnect.py --token " . urlencode($instanceToken);
+$WindowssetupCommand = 'curl -o "GhostCrew.ps1" "' . APP_URL . '/local/GhostCrew.ps1" && powershell -ExecutionPolicy Bypass -File GhostCrew.ps1 -ApiURL "' . APP_URL . '/api.php" -Token "' . $instanceToken . '"';
+$LinuxsetupCommand = 'curl -o "GhostCrew.ps1" "' . APP_URL . '/local/GhostCrew.ps1" && pwsh GhostCrew.ps1 -ApiURL "' . APP_URL . '/api.php" -Token "' . $instanceToken . '"';
 ?>
 <!DOCTYPE html>
 <html lang="en">

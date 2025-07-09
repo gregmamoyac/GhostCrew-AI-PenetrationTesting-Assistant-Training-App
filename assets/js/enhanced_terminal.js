@@ -1,8 +1,7 @@
-// js/enhanced_terminal.js - Complete chatbot integration and improvements
+// js/enhanced_terminal.js - Complete Enhanced Terminal with Streaming Support
 
-// Enhanced Terminal App JavaScript with Authentication, Session Management, and AI Chatbot
 $(document).ready(function() {
-    // Variables
+    // Global Variables
     let activeHostId = null;
     let activeSessionId = 'welcome';
     let currentRemoteSessionId = null;
@@ -17,10 +16,21 @@ $(document).ready(function() {
     let currentConversationId = null;
     let chatInitialized = false;
     let lastCommandSent = null;
-    let chat_server = 'http://192.168.1.171:8090/chat'
+    let chat_server = 'http://192.168.1.171:8090/chat';
     
-    // Initialize the application
-    initApp();
+    // Streaming support variables
+    let streamingCommands = new Map(); // Track active streaming commands
+    let streamingInterval = null;
+    let userInputQueue = [];
+    let isStreamingMode = false;
+    let currentStreamingCommandId = null;
+    let lastStreamingUpdate = '1970-01-01 00:00:00';
+    let streamingOutputBuffer = '';
+    let streamingCheckInterval = null;
+    
+    // ===========================================
+    // EVENT HANDLERS
+    // ===========================================
     
     // Send command when Send button is clicked
     $('#send-command').on('click', function() {
@@ -57,7 +67,6 @@ $(document).ready(function() {
     $(document).on('click', '.load-suggestion-btn', function() {
         const suggestionId = $(this).data('suggestion-id');
         const command = $(this).data('command');
-        
         loadSuggestedCommand(suggestionId, command);
     });
     
@@ -90,7 +99,6 @@ $(document).ready(function() {
         if ($(this).hasClass('no-hosts')) {
             return;
         }
-        
         const hostId = $(this).data('hostid');
         switchToHost(hostId);
     });
@@ -100,17 +108,25 @@ $(document).ready(function() {
         if ($(this).hasClass('no-hosts')) {
             return;
         }
-        
         const sessionId = $(this).data('sessionid');
         viewHistoricalSession(sessionId);
     });
     
-    // Function to initialize the application
+    // ===========================================
+    // INITIALIZATION
+    // ===========================================
+    
+    // Initialize the application
+    initApp();
+    
     function initApp() {
-        console.log('Initializing GhostCrew Terminal v4.0 with Enhanced AI Assistant');
+        console.log('Initializing GhostCrew Terminal v4.0 with Enhanced AI Assistant and Streaming Support');
         
         // Initialize chat interface
         initializeChatInterface();
+        
+        // Initialize streaming support
+        initializeStreamingSupport();
         
         // Load initial data
         loadSystemInfo();
@@ -121,11 +137,12 @@ $(document).ready(function() {
         refreshInterval = setInterval(function() {
             loadHosts();
             
-            // If a host is active, check for command results
+            // If a host is active, check for command results and streaming
             if (activeHostId && currentRemoteSessionId) {
                 loadCommandHistory(currentRemoteSessionId);
+                checkForStreamingUpdates();
             }
-        }, 3000); // Refresh every 3 seconds
+        }, 2000); // Refresh every 2 seconds for better responsiveness
         
         // Session timeout warning
         if (typeof SESSION_TIMEOUT !== 'undefined' && SESSION_TIMEOUT > 300) {
@@ -143,7 +160,7 @@ $(document).ready(function() {
         // Add welcome message to chat
         if (!chatInitialized) {
             setTimeout(() => {
-                addChatMessage('bot', 'Hello! I\'m your AI command assistant. I can help you with Windows commands, explain how to perform tasks, and suggest useful commands.\n\n**Try asking me:**\n• "How do I list files?"\n• "Help with network commands"\n• "Show me system information"\n• "How do I create a folder?"\n\nWhat would you like to know?');
+                addChatMessage('bot', 'Hello! I\'m your AI command assistant. I can help you with commands, explain how to perform tasks, and provide interactive session support.\n\n**Try asking me:**\n• "How do I use telnet?"\n• "Help with interactive commands"\n• "What can I do in this session?"\n\nWhat would you like to know?');
                 chatInitialized = true;
             }, 1000);
         }
@@ -182,6 +199,368 @@ $(document).ready(function() {
             });
         }
     }
+    
+    // ===========================================
+    // STREAMING SUPPORT
+    // ===========================================
+    
+    // Initialize streaming support
+    function initializeStreamingSupport() {
+        console.log('🔄 Initializing streaming support...');
+        
+        // Set up keyboard shortcuts for interactive mode
+        setupStreamingKeyboardShortcuts();
+    }
+
+    function startStreamingConnectionMonitor() {
+        if (window.streamingConnectionInterval) {
+            clearInterval(window.streamingConnectionInterval);
+        }
+        
+        window.streamingConnectionInterval = setInterval(function() {
+            if (isStreamingMode && currentRemoteSessionId && activeHostId) {
+                // Check if host is still connected
+                const currentHost = connectedHosts.find(h => h.host_id === activeHostId);
+                if (!currentHost) {
+                    console.warn('Host disconnected during streaming session');
+                    showNotification('Host disconnected during interactive session', 'warning');
+                    disableStreamingMode();
+                    return;
+                }
+                
+                // Check if host is delayed
+                const secondsSinceLastSeen = currentHost.seconds_since_last_seen || 0;
+                if (secondsSinceLastSeen > 120) { // 2 minutes
+                    showNotification(`Host connection delayed (${Math.floor(secondsSinceLastSeen / 60)}m since last ping)`, 'warning');
+                }
+            }
+        }, 10000); // Check every 10 seconds
+    }
+
+    function stopStreamingConnectionMonitor() {
+        if (window.streamingConnectionInterval) {
+            clearInterval(window.streamingConnectionInterval);
+            window.streamingConnectionInterval = null;
+        }
+    }
+    
+    function setupStreamingKeyboardShortcuts() {
+        $(document).on('keydown', function(e) {
+            if (isStreamingMode) {
+                // Ctrl+C to interrupt
+                if (e.ctrlKey && e.key === 'c') {
+                    e.preventDefault();
+                    sendPredefinedInput('^C');
+                }
+                // Focus streaming input when typing
+                else if (!e.ctrlKey && !e.altKey && e.key.length === 1) {
+                    $('#streaming-input').focus();
+                }
+            }
+        });
+    }
+    
+    // Function to check for streaming updates
+    function checkForStreamingUpdates() {
+        if (!currentRemoteSessionId) return;
+        
+        $.ajax({
+            url: 'api.php',
+            type: 'POST',
+            data: {
+                action: 'get_streaming_output',
+                session_id: currentRemoteSessionId,
+                last_update: lastStreamingUpdate,
+                csrf_token: CSRF_TOKEN
+            },
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success' && response.updates && response.updates.length > 0) {
+                    processStreamingUpdates(response.updates);
+                }
+            },
+            error: function() {
+                // Silently fail - this runs frequently
+            }
+        });
+    }
+    
+    function processStreamingUpdates(updates) {
+        console.log('Processing streaming updates:', updates.length);
+        
+        updates.forEach(function(update) {
+            const commandId = update.command_id;
+            const output = update.output_chunk;
+            const isPartial = update.is_partial;
+            const lastUpdate = update.last_update;
+            const commandStatus = update.status;
+            const streamingStatus = update.streaming_status;
+            
+            // Update last update timestamp
+            if (lastUpdate > lastStreamingUpdate) {
+                lastStreamingUpdate = lastUpdate;
+            }
+            
+            // Find the terminal for this command
+            const $terminal = $(`#${activeHostId}-terminal .terminal-output`);
+            
+            // Find the command entry for this command ID
+            let $commandEntry = $terminal.find(`[data-command-id="${commandId}"]`);
+            
+            if ($commandEntry.length === 0) {
+                // Create new command entry for streaming
+                const commandText = update.command || 'Interactive Command';
+                const currentPrompt = $('#terminal-prompt').text().replace(/\\\\/g, '\\');
+                
+                let entryHtml = `<div class="command-entry streaming-command" data-command-id="${commandId}">`;
+                entryHtml += `<div class="prompt-line">${escapeHtml(currentPrompt)} ${escapeHtml(commandText)}</div>`;
+                entryHtml += `<div class="result streaming-output" data-command-id="${commandId}"></div>`;
+                entryHtml += `</div>`;
+                
+                $terminal.append(entryHtml);
+                $commandEntry = $terminal.find(`[data-command-id="${commandId}"]`);
+            }
+            
+            // Update the output
+            const $output = $commandEntry.find('.result');
+            let $pre = $output.find('pre');
+
+            // Create pre element if it doesn't exist
+            if ($pre.length === 0) {
+                $output.html('<pre></pre>');
+                $pre = $output.find('pre');
+            }
+
+            if (isPartial) {
+                // For partial updates, replace content (server sends cumulative output)
+                $pre.html(escapeHtml(output));
+            } else {
+                // For final updates, replace all content and mark as completed
+                $pre.html(escapeHtml(output));
+                $commandEntry.removeClass('streaming-command').addClass('completed-command');
+                
+                // Add completion indicator without overwriting content
+                if (output && output.trim()) {
+                    $output.append('<div class="session-completed"><small><i class="fas fa-check-circle"></i> Interactive session completed</small></div>');
+                }
+            }
+            
+            // Handle interactive mode
+            if (streamingStatus === 'active' && !isStreamingMode) {
+                enableStreamingMode(commandId);
+            } else if (streamingStatus === 'completed' && isStreamingMode && currentStreamingCommandId === commandId) {
+                disableStreamingMode();
+            }
+            
+            // Auto-scroll to bottom
+            scrollToBottom($terminal[0]);
+        });
+    }
+    
+    function enableStreamingMode(commandId) {
+        if (!isStreamingMode) {
+            isStreamingMode = true;
+            currentStreamingCommandId = commandId;
+            
+            console.log(`🔴 Enabling streaming mode for command ${commandId}`);
+            
+            // Keep the regular terminal input enabled - don't disable it
+            $('#terminal-input').prop('disabled', false).focus();
+            $('#send-command').prop('disabled', false);
+            
+            // Update UI indicators
+            $(`#session-tabs .tab[data-session="${activeHostId}"]`).addClass('streaming');
+            
+            // Update terminal prompt to show command name
+            updateTerminalPromptForStreaming(commandId);
+            
+            // Start connection monitoring
+            startStreamingConnectionMonitor();
+            
+            // Notify chat
+            addChatMessage('bot', '🔴 **Interactive Mode Active**\n\nUse the main terminal input to send commands to the interactive session.\n\n**Tips:**\n• Type commands and press Enter\n• Use Ctrl+C to interrupt\n• Click Terminate to end session');
+        }
+    }
+
+    function disableStreamingMode() {
+        if (isStreamingMode) {
+            isStreamingMode = false;
+            currentStreamingCommandId = null;
+            
+            console.log('⚪ Disabling streaming mode');
+            
+            // Keep terminal input enabled
+            $('#terminal-input').prop('disabled', false).focus();
+            $('#send-command').prop('disabled', false);
+            
+            // Update UI indicators
+            $(`#session-tabs .tab[data-session="${activeHostId}"]`).removeClass('streaming');
+            
+            // Restore normal prompt
+            updateTerminalPrompt('>');
+            
+            // Stop connection monitoring
+            stopStreamingConnectionMonitor();
+            
+            // Notify chat
+            addChatMessage('bot', '⚪ **Interactive Mode Ended**\n\nReturned to normal command mode.');
+        }
+    }
+
+    function updateTerminalPromptForStreaming(commandId) {
+        // Get the command name from the command entry
+        const $commandEntry = $(`.command-entry[data-command-id="${commandId}"]`);
+        if ($commandEntry.length > 0) {
+            const commandText = $commandEntry.find('.prompt-line').text();
+            // Extract just the command name (first word after the >)
+            const commandMatch = commandText.match(/>\s*(\w+)/);
+            if (commandMatch) {
+                const commandName = commandMatch[1];
+                // Update the actual terminal prompt element
+                $('#terminal-prompt').text(`${commandName}>`);
+                return;
+            }
+        }
+        
+        // Fallback to generic interactive prompt
+        $('#terminal-prompt').text('interactive>');
+    }
+    
+    function sendStreamingInput() {
+        const input = $('#streaming-input').val();
+        if (!input || !isStreamingMode || !currentRemoteSessionId) {
+            return;
+        }
+        
+        // Clear input
+        $('#streaming-input').val('').focus();
+        
+        // Send input to server
+        $.ajax({
+            url: 'api.php',
+            type: 'POST',
+            data: {
+                action: 'send_user_input',
+                session_id: currentRemoteSessionId,
+                host_id: activeHostId,
+                input: input,
+                csrf_token: CSRF_TOKEN
+            },
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    console.log('Sent user input:', input);
+                    // Show input echo in terminal
+                    showInputEcho(input);
+                } else {
+                    showNotification('Failed to send input: ' + (response.message || 'Unknown error'), 'error');
+                }
+            },
+            error: function() {
+                showNotification('Network error while sending input', 'error');
+            }
+        });
+    }
+    
+    function sendPredefinedInput(input) {
+        if (!isStreamingMode || !currentRemoteSessionId) {
+            return;
+        }
+        
+        // Handle special control characters
+        let actualInput = input;
+        if (input === '^C') {
+            actualInput = String.fromCharCode(3); // Ctrl+C
+        }
+        
+        $.ajax({
+            url: 'api.php',
+            type: 'POST',
+            data: {
+                action: 'send_user_input',
+                session_id: currentRemoteSessionId,
+                host_id: activeHostId,
+                input: actualInput,
+                csrf_token: CSRF_TOKEN
+            },
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    showInputEcho(input, true);
+                } else {
+                    showNotification('Failed to send control input', 'error');
+                }
+            }
+        });
+    }
+    
+    function showInputEcho(input, isControl = false) {
+        const $terminal = $(`#${activeHostId}-terminal .terminal-output`);
+        const $commandEntry = $terminal.find(`[data-command-id="${currentStreamingCommandId}"]`);
+        
+        if ($commandEntry.length > 0) {
+            let $output = $commandEntry.find('.result');
+            let $pre = $output.find('pre');
+            
+            // Create pre element if it doesn't exist
+            if ($pre.length === 0) {
+                $output.html('<pre></pre>');
+                $pre = $output.find('pre');
+            }
+            
+            // Get current content
+            let currentContent = $pre.html();
+            
+            // Show the command as if it was typed in the interactive session
+            const currentPrompt = $('#terminal-prompt').text();
+            const displayInput = isControl ? `<span class="control-input">[${input}]</span>` : escapeHtml(input);
+            
+            // Append the new input to existing content
+            const newLine = currentContent ? '\n' : '';
+            $pre.html(currentContent + newLine + currentPrompt + ' ' + displayInput);
+            
+            scrollToBottom($terminal[0]);
+        }
+    }
+    
+    function terminateStreamingCommand() {
+        if (!isStreamingMode || !currentStreamingCommandId) {
+            return;
+        }
+        
+        if (confirm('Are you sure you want to terminate the interactive command?')) {
+            // Send Ctrl+C
+            $.ajax({
+                url: 'api.php',
+                type: 'POST',
+                data: {
+                    action: 'send_user_input',
+                    session_id: currentRemoteSessionId,
+                    host_id: activeHostId,
+                    input: String.fromCharCode(3), // Ctrl+C
+                    csrf_token: CSRF_TOKEN
+                },
+                dataType: 'json',
+                success: function(response) {
+                    if (response.status === 'success') {
+                        showInputEcho('^C', true);
+                    }
+                }
+            });
+            
+            // Force disable streaming mode after a delay
+            setTimeout(function() {
+                if (isStreamingMode) {
+                    disableStreamingMode();
+                    showNotification('Interactive command terminated', 'warning');
+                }
+            }, 3000);
+        }
+    }
+    
+    // ===========================================
+    // DATA LOADING FUNCTIONS
+    // ===========================================
     
     // Function to load system information
     function loadSystemInfo() {
@@ -350,33 +729,264 @@ $(document).ready(function() {
         });
     }
     
-    // Function to handle host disconnection
-    function handleHostDisconnection() {
-        if (!$(`#${activeHostId}-terminal .connection-lost-message`).length) {
-            $(`#${activeHostId}-terminal .terminal-output`).append(
-                `<div class="connection-lost-message">
-                    <p><i class="fas fa-exclamation-triangle"></i> Connection to host has been lost.</p>
-                    <p>The host is no longer responding. Session has been terminated.</p>
-                </div>`
-            );
+    // ===========================================
+    // COMMAND FUNCTIONS
+    // ===========================================
+    
+    // Enhanced sendCommand function with streaming detection
+    function sendCommand() {
+        const command = $('#terminal-input').val().trim();
+        
+        if (command === '' || !activeHostId || !currentRemoteSessionId) {
+            return;
         }
         
-        // Disable terminal input
-        $('#terminal-input').prop('disabled', true);
-        $('#send-command').prop('disabled', true);
+        // Store the command being sent
+        lastCommandSent = {
+            command: command,
+            timestamp: Date.now(),
+            sessionId: currentRemoteSessionId
+        };
         
-        // Mark tab as reconnecting
-        $(`#session-tabs .tab[data-session="${activeHostId}"]`).addClass('reconnecting');
+        // Clear the input field
+        $('#terminal-input').val('').focus();
         
-        // End the remote session
-        if (currentRemoteSessionId) {
-            endSession(currentRemoteSessionId);
-            currentRemoteSessionId = null;
+        // Add to command history
+        if (!commandHistory.includes(command)) {
+            commandHistory.unshift(command);
+            sessionCommandHistories[currentRemoteSessionId] = commandHistory;
+        }
+        commandHistoryIndex = -1;
+        
+        // Check if this might be an interactive command
+        const interactivePatterns = [
+            /^(telnet|ssh|ftp|sftp|msfconsole)\s*/,
+            /^(mysql|psql)\s+.*-[uU]/,
+            /^python3?(\s|$)/,
+            /^(node|irb|bc|gdb)(\s|$)/,
+            /^(vim|nano|less|more)\s+/,
+            /^(top|htop|watch)\s+/,
+            /^ping\s+/,
+            /^tail\s+.*-f/
+        ];
+        
+        const isLikelyInteractive = interactivePatterns.some(pattern => pattern.test(command)) || 
+                                   ['msfconsole', 'telnet', 'ssh', 'python', 'python3', 'mysql', 'psql'].includes(command.split(' ')[0]);
+        
+        if (isLikelyInteractive) {
+            // Warn user about interactive command
+            addChatMessage('bot', `🔄 **Executing Interactive Command**\n\nDetected potentially interactive command: **${command}**\n\nIf this command requires input, you'll see interactive controls appear below the terminal.`);
         }
         
-        // Notify chat about disconnection
-        addChatMessage('bot', '⚠️ **Connection Lost**\n\nThe connection to the host has been lost. The session has been terminated automatically.');
+        // Check if we're in streaming mode - send as user input instead
+        if (isStreamingMode && currentStreamingCommandId) {
+            // Send as interactive input
+            $.ajax({
+                url: 'api.php',
+                type: 'POST',
+                data: {
+                    action: 'send_user_input',
+                    session_id: currentRemoteSessionId,
+                    host_id: activeHostId,
+                    input: command,
+                    csrf_token: CSRF_TOKEN
+                },
+                dataType: 'json',
+                success: function(response) {
+                    if (response.status === 'success') {
+                        console.log('Sent interactive input:', command);
+                        // Show input echo in terminal
+                        showInputEcho(command);
+                    } else {
+                        showNotification('Failed to send input: ' + (response.message || 'Unknown error'), 'error');
+                    }
+                },
+                error: function() {
+                    showNotification('Network error while sending input', 'error');
+                }
+            });
+            return; // Don't execute the regular command sending
+        }
+
+        // Send the command to the server (normal mode)
+        $.ajax({
+            url: 'api.php',
+            type: 'POST',
+            data: {
+                action: 'send_command',
+                host_id: activeHostId,
+                session_id: currentRemoteSessionId,
+                command: command,
+                csrf_token: CSRF_TOKEN
+            },
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    const commandId = response.command_id;
+                    const isInteractive = response.is_interactive;
+                    
+                    console.log('Command sent successfully. ID:', commandId, 'Interactive:', isInteractive);
+                    
+                    // Add the command to the terminal immediately
+                    const $terminal = $(`#${activeHostId}-terminal .terminal-output`);
+                    const currentPrompt = $('#terminal-prompt').text().replace(/\\\\/g, '\\');
+
+                    let entryHtml = `<div class="command-entry" data-command-id="${commandId}">`;
+                    entryHtml += `<div class="prompt-line">${escapeHtml(currentPrompt)} ${escapeHtml(command)}</div>`;
+                    
+                    if (isInteractive) {
+                        entryHtml += `<div class="result streaming-output" data-command-id="${commandId}"><em>Starting interactive session...</em></div>`;
+                    } else {
+                        entryHtml += `<div class="result"><em>Executing...</em></div>`;
+                    }
+                    
+                    entryHtml += `</div>`;
+                    
+                    $terminal.append(entryHtml);
+                    scrollToBottom($terminal[0]);
+                    
+                    // Send command context to chatbot after a short delay
+                    setTimeout(() => {
+                        sendCommandContextToChat(command);
+                    }, 500);
+                    
+                } else if (response.redirect) {
+                    window.location.href = response.redirect;
+                } else {
+                    showNotification('Failed to send command: ' + response.message, 'error');
+                }
+            },
+            error: function(xhr) {
+                if (xhr.status === 401) {
+                    window.location.href = 'login.php';
+                } else {
+                    showNotification('Network error while sending command', 'error');
+                }
+            }
+        });
     }
+    
+    // Function to navigate command history
+    function navigateCommandHistory(direction) {
+        if (commandHistory.length === 0) {
+            return;
+        }
+        
+        // Store current command if we're at the beginning of history
+        if (commandHistoryIndex === -1 && direction === -1) {
+            currentCommand = $('#terminal-input').val();
+        }
+        
+        // Calculate new index
+        commandHistoryIndex += direction;
+        
+        // Ensure index is within bounds
+        if (commandHistoryIndex < -1) {
+            commandHistoryIndex = -1;
+        } else if (commandHistoryIndex >= commandHistory.length) {
+            commandHistoryIndex = commandHistory.length - 1;
+        }
+        
+        // Set command from history or restore current command
+        if (commandHistoryIndex === -1) {
+            $('#terminal-input').val(currentCommand || '');
+        } else {
+            $('#terminal-input').val(commandHistory[commandHistoryIndex]);
+        }
+    
+    }
+    
+    // Function to load command history for a session
+    function loadCommandHistory(sessionId) {
+        $.ajax({
+            url: 'api.php',
+            type: 'POST',
+            data: {
+                action: 'get_command_history',
+                session_id: sessionId,
+                limit: 50,
+                csrf_token: CSRF_TOKEN
+            },
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    updateTerminalWithHistory(sessionId, response.commands);
+                }
+            }
+        });
+    }
+    
+    // Function to update terminal with command history
+    function updateTerminalWithHistory(sessionId, commands) {
+        const terminalId = sessionId === currentRemoteSessionId ? activeHostId : sessionId;
+        const $terminal = $(`#${terminalId}-terminal .terminal-output`);
+        
+        if (!$terminal.length) return;
+        
+        // Clear existing command entries, but keep welcome message
+        $terminal.find('.command-entry').remove();
+        
+        // Sort commands by timestamp (oldest first)
+        commands.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        
+        // Store commands for history navigation and update session storage
+        const sessionCommands = commands.map(cmd => cmd.command);
+        sessionCommandHistories[sessionId] = sessionCommands;
+        
+        if (sessionId === currentRemoteSessionId) {
+            commandHistory = sessionCommands;
+        }
+        
+        let lastWorkingDir = '>';
+        
+        // Add each command and its output to the terminal
+        $.each(commands, function(index, cmd) {
+            // Update working directory if available
+            if (cmd.working_directory) {
+                lastWorkingDir = cmd.working_directory.endsWith('>') ? cmd.working_directory : cmd.working_directory + '>';
+            }
+            
+            // Fix escaped slashes in display
+            let displayDir = lastWorkingDir.replace(/\\\\/g, '\\');
+            
+            let entryHtml = `<div class="command-entry" data-command-id="${cmd.id}">`;
+            entryHtml += `<div class="prompt-line">${escapeHtml(displayDir)} ${escapeHtml(cmd.command)}</div>`;
+            
+            if (cmd.output !== null) {
+                if (cmd.is_interactive && cmd.status === 'executing') {
+                    // For interactive commands that are still executing
+                    entryHtml += `<div class="result streaming-output" data-command-id="${cmd.id}">`;
+                    entryHtml += `<pre>${escapeHtml(cmd.output || 'Interactive session running...')}</pre>`;
+                    entryHtml += `</div>`;
+                    
+                    // Mark as streaming command
+                    entryHtml = entryHtml.replace('command-entry', 'command-entry streaming-command');
+                } else {
+                    entryHtml += `<div class="result"><pre>${escapeHtml(cmd.output)}</pre></div>`;
+                }
+            } else {
+                entryHtml += `<div class="result"><em>Waiting for response...</em></div>`;
+            }
+            
+            entryHtml += `</div>`;
+            
+            $terminal.append(entryHtml);
+        });
+        
+        // Update terminal prompt with last working directory
+        if (sessionId === currentRemoteSessionId) {
+            updateTerminalPrompt(lastWorkingDir);
+        }
+        
+        // Only scroll to bottom if user hasn't manually scrolled up
+        if (sessionId === currentRemoteSessionId && !isUserScrolledUp($terminal[0])) {
+            scrollToBottom($terminal[0]);
+        }
+    }
+    
+    // ===========================================
+    // SESSION MANAGEMENT
+    // ===========================================
     
     // Function to switch to a host
     function switchToHost(hostId) {
@@ -431,8 +1041,11 @@ $(document).ready(function() {
                     // Initialize chat for this session
                     initializeChatForSession(response.session_id);
                     
+                    // Reset streaming state for new session
+                    lastStreamingUpdate = '1970-01-01 00:00:00';
+                    
                     // Notify about new session
-                    addChatMessage('bot', `🖥️ **New Session Started**\n\nConnected to **${host.hostname}** (${host.ip_address})\nSession ID: ${response.session_id}\n\nI'm here to help with commands! Try asking me for suggestions.`);
+                    addChatMessage('bot', `🖥️ **New Session Started**\n\nConnected to **${host.hostname}** (${host.ip_address})\nSession ID: ${response.session_id}\n\nI'm here to help with commands and interactive sessions!`);
                     
                     console.log(`New session started: ${response.session_id}`);
                 } else {
@@ -474,7 +1087,7 @@ $(document).ready(function() {
                         <p><strong>IP:</strong> ${escapeHtml(host.ip_address)}</p>
                         <p><strong>OS:</strong> ${escapeHtml(host.os_info)}</p>
                         <p><strong>Session ID:</strong> ${sessionId}</p>
-                        <p>Ready to receive commands. Type commands below or ask the AI assistant for help.</p>
+                        <p>Ready to receive commands. Interactive commands will show special controls when needed.</p>
                     </div>
                 </div>
             </div>`;
@@ -514,6 +1127,139 @@ $(document).ready(function() {
         
         // Load existing chat history if any
         loadChatHistory(sessionId);
+    }
+    
+    // Function to switch between sessions
+    function switchToSession(sessionId) {
+        const $tab = $(`#session-tabs .tab[data-session="${sessionId}"]`);
+        const remoteSessionId = $tab.data('remote-session');
+        const isReadonly = $tab.hasClass('readonly');
+        
+        // Update active tab
+        $('#session-tabs .tab').removeClass('active');
+        $tab.addClass('active');
+        
+        // Update active terminal session
+        $('.terminal-session').removeClass('active');
+        $(`#${sessionId}-terminal`).addClass('active');
+        
+        // Update variables
+        activeSessionId = sessionId;
+        
+        if (sessionId === 'welcome') {
+            activeHostId = null;
+            currentRemoteSessionId = null;
+            $('#terminal-input').prop('disabled', true);
+            $('#send-command').prop('disabled', true);
+            updateTerminalPrompt();
+            commandHistory = [];
+            commandHistoryIndex = -1;
+            
+            // Disable streaming mode
+            if (isStreamingMode) {
+                disableStreamingMode();
+            }
+        } else if (isReadonly) {
+            activeHostId = null;
+            currentRemoteSessionId = null;
+            $('#terminal-input').prop('disabled', true);
+            $('#send-command').prop('disabled', true);
+            updateTerminalPrompt();
+            commandHistory = [];
+            commandHistoryIndex = -1;
+            
+            // Disable streaming mode
+            if (isStreamingMode) {
+                disableStreamingMode();
+            }
+        } else {
+            activeHostId = sessionId;
+            currentRemoteSessionId = remoteSessionId;
+            
+            // Reset streaming state for session switch
+            lastStreamingUpdate = '1970-01-01 00:00:00';
+            
+            // Load command history for this session
+            commandHistory = sessionCommandHistories[remoteSessionId] || [];
+            commandHistoryIndex = -1;
+            
+            // Update active host in list
+            $('#host-list li').removeClass('active');
+            $(`#host-list li[data-hostid="${sessionId}"]`).addClass('active');
+            
+            // Enable input if host is still connected
+            const hostExists = connectedHosts.find(h => h.host_id === sessionId);
+            if (hostExists && remoteSessionId) {
+                $('#terminal-input').prop('disabled', false).focus();
+                $('#send-command').prop('disabled', false);
+                
+                // Load chat history for this session
+                loadChatHistory(remoteSessionId);
+                currentConversationId = `conv_${remoteSessionId}_${Date.now()}`;
+                
+                // Check for active streaming sessions
+                setTimeout(checkForStreamingUpdates, 1000);
+            } else {
+                $('#terminal-input').prop('disabled', true);
+                $('#send-command').prop('disabled', true);
+            }
+        }
+    }
+    
+    // Function to close a session
+    function closeSession(sessionId) {
+        const $tab = $(`#session-tabs .tab[data-session="${sessionId}"]`);
+        const remoteSessionId = $tab.data('remote-session');
+        
+        // End remote session if it's active
+        if (remoteSessionId && !$tab.hasClass('readonly')) {
+            endSession(remoteSessionId);
+        }
+        
+        // Remove tab and terminal
+        $tab.remove();
+        $(`#${sessionId}-terminal`).remove();
+        
+        // Reset active session if this was active
+        if (sessionId === activeSessionId) {
+            // Always switch to welcome tab when closing active session
+            switchToSession('welcome');
+            $('.tab[data-session="welcome"]').addClass('active');
+            $('#welcome-terminal').addClass('active');
+            activeSessionId = 'welcome';
+            activeHostId = null;
+            currentRemoteSessionId = null;
+            
+            // Reset terminal state
+            $('#terminal-input').prop('disabled', true);
+            $('#send-command').prop('disabled', true);
+            updateTerminalPrompt();
+            
+            // Disable streaming mode
+            if (isStreamingMode) {
+                disableStreamingMode();
+            }
+        }
+    }
+    
+    // Function to end a session
+    function endSession(sessionId) {
+        $.ajax({
+            url: 'api.php',
+            type: 'POST',
+            data: {
+                action: 'end_session',
+                session_id: sessionId,
+                csrf_token: CSRF_TOKEN
+            },
+            dataType: 'json',
+            success: function(response) {
+                console.log(`Session ${sessionId} ended`);
+                
+                // Refresh historical sessions
+                loadHistoricalSessions();
+            }
+        });
     }
     
     // Function to view historical session
@@ -614,296 +1360,10 @@ $(document).ready(function() {
         scrollToBottom($terminal[0]);
     }
     
-    // Function to close a session
-    function closeSession(sessionId) {
-        const $tab = $(`#session-tabs .tab[data-session="${sessionId}"]`);
-        const remoteSessionId = $tab.data('remote-session');
-        
-        // End remote session if it's active
-        if (remoteSessionId && !$tab.hasClass('readonly')) {
-            endSession(remoteSessionId);
-        }
-        
-        // Remove tab and terminal
-        $tab.remove();
-        $(`#${sessionId}-terminal`).remove();
-        
-        // Reset active session if this was active
-        if (sessionId === activeSessionId) {
-            // Always switch to welcome tab when closing active session
-            switchToSession('welcome');
-            $('.tab[data-session="welcome"]').addClass('active');
-            $('#welcome-terminal').addClass('active');
-            activeSessionId = 'welcome';
-            activeHostId = null;
-            currentRemoteSessionId = null;
-            
-            // Reset terminal state
-            $('#terminal-input').prop('disabled', true);
-            $('#send-command').prop('disabled', true);
-            updateTerminalPrompt();
-        }
-    }
+    // ===========================================
+    // CHAT FUNCTIONS
+    // ===========================================
     
-    // Function to switch between sessions
-    function switchToSession(sessionId) {
-        const $tab = $(`#session-tabs .tab[data-session="${sessionId}"]`);
-        const remoteSessionId = $tab.data('remote-session');
-        const isReadonly = $tab.hasClass('readonly');
-        
-        // Update active tab
-        $('#session-tabs .tab').removeClass('active');
-        $tab.addClass('active');
-        
-        // Update active terminal session
-        $('.terminal-session').removeClass('active');
-        $(`#${sessionId}-terminal`).addClass('active');
-        
-        // Update variables
-        activeSessionId = sessionId;
-        
-        if (sessionId === 'welcome') {
-            activeHostId = null;
-            currentRemoteSessionId = null;
-            $('#terminal-input').prop('disabled', true);
-            $('#send-command').prop('disabled', true);
-            updateTerminalPrompt();
-            commandHistory = [];
-            commandHistoryIndex = -1;
-        } else if (isReadonly) {
-            activeHostId = null;
-            currentRemoteSessionId = null;
-            $('#terminal-input').prop('disabled', true);
-            $('#send-command').prop('disabled', true);
-            updateTerminalPrompt();
-            commandHistory = [];
-            commandHistoryIndex = -1;
-        } else {
-            activeHostId = sessionId;
-            currentRemoteSessionId = remoteSessionId;
-            
-            // Load command history for this session
-            commandHistory = sessionCommandHistories[remoteSessionId] || [];
-            commandHistoryIndex = -1;
-            
-            // Update active host in list
-            $('#host-list li').removeClass('active');
-            $(`#host-list li[data-hostid="${sessionId}"]`).addClass('active');
-            
-            // Enable input if host is still connected
-            const hostExists = connectedHosts.find(h => h.host_id === sessionId);
-            if (hostExists && remoteSessionId) {
-                $('#terminal-input').prop('disabled', false).focus();
-                $('#send-command').prop('disabled', false);
-                
-                // Load chat history for this session
-                loadChatHistory(remoteSessionId);
-                currentConversationId = `conv_${remoteSessionId}_${Date.now()}`;
-            } else {
-                $('#terminal-input').prop('disabled', true);
-                $('#send-command').prop('disabled', true);
-            }
-        }
-    }
-    
-    // Function to load command history for a session
-    function loadCommandHistory(sessionId) {
-        $.ajax({
-            url: 'api.php',
-            type: 'POST',
-            data: {
-                action: 'get_command_history',
-                session_id: sessionId,
-                limit: 50,
-                csrf_token: CSRF_TOKEN
-            },
-            dataType: 'json',
-            success: function(response) {
-                if (response.status === 'success') {
-                    updateTerminalWithHistory(sessionId, response.commands);
-                }
-            }
-        });
-    }
-    
-    // Function to update terminal with command history
-    function updateTerminalWithHistory(sessionId, commands) {
-        const terminalId = sessionId === currentRemoteSessionId ? activeHostId : sessionId;
-        const $terminal = $(`#${terminalId}-terminal .terminal-output`);
-        
-        if (!$terminal.length) return;
-        
-        // Clear existing command entries, but keep welcome message
-        $terminal.find('.command-entry').remove();
-        
-        // Sort commands by timestamp (oldest first)
-        commands.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-        
-        // Store commands for history navigation and update session storage
-        const sessionCommands = commands.map(cmd => cmd.command);
-        sessionCommandHistories[sessionId] = sessionCommands;
-        
-        if (sessionId === currentRemoteSessionId) {
-            commandHistory = sessionCommands;
-        }
-        
-        let lastWorkingDir = '>';
-        
-        // Add each command and its output to the terminal
-        $.each(commands, function(index, cmd) {
-            // Update working directory if available
-            if (cmd.working_directory) {
-                lastWorkingDir = cmd.working_directory.endsWith('>') ? cmd.working_directory : cmd.working_directory + '>';
-            }
-            
-            // Fix escaped slashes in display
-            let displayDir = lastWorkingDir.replace(/\\\\/g, '\\');
-            
-            let entryHtml = `<div class="command-entry">`;
-            entryHtml += `<div class="prompt-line">${escapeHtml(displayDir)} ${escapeHtml(cmd.command)}</div>`;
-            if (cmd.output !== null) {
-                entryHtml += `<div class="result">${escapeHtml(cmd.output)}</div>`;
-            } else {
-                entryHtml += `<div class="result"><em>Waiting for response...</em></div>`;
-            }
-            
-            entryHtml += `</div>`;
-            
-            $terminal.append(entryHtml);
-        });
-        
-        // Update terminal prompt with last working directory
-        if (sessionId === currentRemoteSessionId) {
-            updateTerminalPrompt(lastWorkingDir);
-        }
-        
-        // Only scroll to bottom if user hasn't manually scrolled up
-        if (sessionId === currentRemoteSessionId && !isUserScrolledUp($terminal[0])) {
-            scrollToBottom($terminal[0]);
-        }
-    }
-    
-    // Function to send a command
-    function sendCommand() {
-        const command = $('#terminal-input').val().trim();
-        
-        if (command === '' || !activeHostId || !currentRemoteSessionId) {
-            return;
-        }
-        
-        // Store the command being sent
-        lastCommandSent = {
-            command: command,
-            timestamp: Date.now(),
-            sessionId: currentRemoteSessionId
-        };
-        
-        // Clear the input field
-        $('#terminal-input').val('').focus();
-        
-        // Add to command history
-        if (!commandHistory.includes(command)) {
-            commandHistory.unshift(command);
-            sessionCommandHistories[currentRemoteSessionId] = commandHistory;
-        }
-        commandHistoryIndex = -1;
-        
-        // Send the command to the server
-        $.ajax({
-            url: 'api.php',
-            type: 'POST',
-            data: {
-                action: 'send_command',
-                host_id: activeHostId,
-                session_id: currentRemoteSessionId,
-                command: command,
-                csrf_token: CSRF_TOKEN
-            },
-            dataType: 'json',
-            success: function(response) {
-                if (response.status === 'success') {
-                    // Add the command to the terminal immediately
-                    const $terminal = $(`#${activeHostId}-terminal .terminal-output`);
-                    const currentPrompt = $('#terminal-prompt').text().replace(/\\\\/g, '\\');
-
-                    let entryHtml = `<div class="command-entry">`;
-                    entryHtml += `<div class="prompt-line">${escapeHtml(currentPrompt)} ${escapeHtml(command)}</div>`;
-                    entryHtml += `<div class="result"><em>Executing...</em></div>`;
-                    entryHtml += `</div>`;
-                    
-                    $terminal.append(entryHtml);
-                    scrollToBottom($terminal[0]); // Always scroll after sending command
-                    
-                    // Send command context to chatbot after a short delay
-                    setTimeout(() => {
-                        sendCommandContextToChat(command);
-                    }, 500);
-                    
-                } else if (response.redirect) {
-                    window.location.href = response.redirect;
-                } else {
-                    showNotification('Failed to send command: ' + response.message, 'error');
-                }
-            },
-            error: function(xhr) {
-                if (xhr.status === 401) {
-                    window.location.href = 'login.php';
-                } else {
-                    showNotification('Network error while sending command', 'error');
-                }
-            }
-        });
-    }
-    
-    // Function to end a session
-    function endSession(sessionId) {
-        $.ajax({
-            url: 'api.php',
-            type: 'POST',
-            data: {
-                action: 'end_session',
-                session_id: sessionId,
-                csrf_token: CSRF_TOKEN
-            },
-            dataType: 'json',
-            success: function(response) {
-                console.log(`Session ${sessionId} ended`);
-                
-                // Refresh historical sessions
-                loadHistoricalSessions();
-            }
-        });
-    }
-
-    // Function to navigate command history
-    function navigateCommandHistory(direction) {
-        if (commandHistory.length === 0) {
-            return;
-        }
-        
-        // Store current command if we're at the beginning of history
-        if (commandHistoryIndex === -1 && direction === -1) {
-            currentCommand = $('#terminal-input').val();
-        }
-        
-        // Calculate new index
-        commandHistoryIndex += direction;
-        
-        // Ensure index is within bounds
-        if (commandHistoryIndex < -1) {
-            commandHistoryIndex = -1;
-        } else if (commandHistoryIndex >= commandHistory.length) {
-            commandHistoryIndex = commandHistory.length - 1;
-        }
-        
-        // Set command from history or restore current command
-        if (commandHistoryIndex === -1) {
-            $('#terminal-input').val(currentCommand || '');
-        } else {
-            $('#terminal-input').val(commandHistory[commandHistoryIndex]);
-        }
-    }
-
     // Enhanced Chat functionality
     function sendChatMessage() {
         const message = $('#chat-input').val().trim();
@@ -1170,7 +1630,11 @@ $(document).ready(function() {
             }
         });
     }
-
+    
+    // ===========================================
+    // UTILITY FUNCTIONS
+    // ===========================================
+    
     // Enhanced notification system
     function showNotification(message, type = 'info') {
         const notification = $(`
@@ -1232,190 +1696,85 @@ $(document).ready(function() {
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
     }
-
-    // Auto-complete functionality for terminal input
-    const commonCommands = [
-        'dir', 'cd', 'copy', 'move', 'del', 'mkdir', 'rmdir', 'type', 'echo',
-        'ping', 'ipconfig', 'netstat', 'tracert', 'nslookup',
-        'tasklist', 'taskkill', 'systeminfo', 'ver', 'hostname', 'whoami',
-        'help', 'cls', 'exit', 'sc', 'net', 'wmic'
-    ];
-
-    $('#terminal-input').on('input', function() {
-        const input = $(this).val();
-        const words = input.split(' ');
-        const currentWord = words[words.length - 1];
-        
-        if (currentWord.length > 1) {
-            const matches = commonCommands.filter(cmd => 
-                cmd.toLowerCase().startsWith(currentWord.toLowerCase())
-            );
-            
-            if (matches.length === 1 && matches[0] !== currentWord) {
-                // Auto-complete suggestion
-                const suggestion = input.substring(0, input.lastIndexOf(currentWord)) + matches[0];
-                // Could implement auto-complete UI here
-            }
-        }
-    });
-
-    // Performance optimization: Limit terminal output lines
-    function limitTerminalOutput() {
-        $('.terminal-output').each(function() {
-            const $output = $(this);
-            const $entries = $output.find('.command-entry');
-            
-            if ($entries.length > 100) {
-                // Remove oldest entries, keep last 100
-                $entries.slice(0, $entries.length - 100).remove();
-                
-                // Add indicator that output was trimmed
-                if (!$output.find('.output-trimmed').length) {
-                    $output.prepend('<div class="output-trimmed"><em>... (older output trimmed) ...</em></div>');
-                }
+    
+    // Function to handle host disconnection gracefully
+    function handleHostGracefulDisconnection(hostId) {
+        // Mark host as disconnected in database
+        $.ajax({
+            url: 'api.php',
+            type: 'POST',
+            data: {
+                action: 'mark_host_disconnected',
+                host_id: hostId,
+                csrf_token: CSRF_TOKEN
+            },
+            dataType: 'json',
+            success: function(response) {
+                console.log('Host marked as disconnected:', hostId);
             }
         });
-    }
-
-    // Run performance optimization every 30 seconds
-    setInterval(limitTerminalOutput, 30000);
-
-    // Enhanced session management
-    function handleSessionReconnection() {
-        // Check if we need to reconnect to any sessions
-        if (currentRemoteSessionId) {
-            // Verify session is still active
-            $.ajax({
-                url: 'api.php',
-                type: 'POST',
-                data: {
-                    action: 'ping_session',
-                    csrf_token: CSRF_TOKEN
-                },
-                dataType: 'json',
-                success: function(response) {
-                    if (response.status !== 'success') {
-                        // Session expired, show warning
-                        showNotification('Session may have expired. Please refresh the page.', 'warning');
-                    }
-                }
-            });
-        }
-    }
-
-    // Check session every 5 minutes
-    setInterval(handleSessionReconnection, 300000);
-
-    // Cleanup on page unload
-    $(window).on('beforeunload', function() {
-        if (currentRemoteSessionId) {
-            // Try to end the current session
-            navigator.sendBeacon('api.php', new URLSearchParams({
-                action: 'end_session',
-                session_id: currentRemoteSessionId,
-                csrf_token: CSRF_TOKEN
-            }));
-        }
-    });
-
-    // Initialize welcome chat message after a delay
-    setTimeout(function() {
-        if ($('#chat-messages .chat-message').length === 0 && !chatInitialized) {
-            addChatMessage('bot', 'Hello! I\'m your AI command assistant. I can help you with Windows commands, explain how to perform tasks, and suggest useful commands.\n\n**Quick Tips:**\n• Ask me "How do I...?" questions\n• Request command suggestions\n• Get help with command syntax\n• Understand command output\n\n**Keyboard Shortcuts:**\n• `Ctrl+L` - Clear terminal\n• `Ctrl+K` - Clear chat  \n• `Escape` - Focus terminal\n• `Ctrl+/` - Focus chat\n\nWhat would you like to know?');
-            chatInitialized = true;
-        }
-    }, 2000);
-
-    // Smart command suggestions based on context
-    function suggestRelevantCommands() {
-        if (!currentRemoteSessionId || !lastCommandSent) return;
         
-        const timeSinceLastCommand = Date.now() - lastCommandSent.timestamp;
+        // Update UI to show disconnected state
+        const $hostItem = $(`#host-list li[data-hostid="${hostId}"]`);
+        if ($hostItem.length) {
+            $hostItem.find('.host-status').removeClass('online').addClass('disconnected').text('● Disconnected');
+            $hostItem.addClass('disconnected-host');
+        }
         
-        // If it's been more than 30 seconds since last command, offer help
-        if (timeSinceLastCommand > 30000 && Math.random() < 0.3) {
-            const suggestions = [
-                'Need help with your next command? Just ask!',
-                'Looking for command suggestions? I can help!',
-                'Want to explore what else you can do? Ask me for ideas!',
-                'Stuck? Try asking me "What commands can I use here?"'
-            ];
-            
-            const randomSuggestion = suggestions[Math.floor(Math.random() * suggestions.length)];
-            addChatMessage('bot', `💡 **Tip**: ${randomSuggestion}`);
-        }
-    }
-
-    // Run smart suggestions occasionally
-    setInterval(suggestRelevantCommands, 45000);
-
-    // Enhanced error handling for AJAX requests
-    $(document).ajaxError(function(event, xhr, settings, thrownError) {
-        if (xhr.status === 401) {
-            showNotification('Session expired. Redirecting to login...', 'warning');
-            setTimeout(() => {
-                window.location.href = 'login.php';
-            }, 2000);
-        } else if (xhr.status === 403) {
-            showNotification('Access denied. Please check your permissions.', 'error');
-        } else if (xhr.status >= 500) {
-            showNotification('Server error. Please try again later.', 'error');
-        }
-    });
-
-    // Initialize drag and drop for file upload (future enhancement)
-    $('.terminal-output').on('dragover', function(e) {
-        e.preventDefault();
-        $(this).addClass('drag-over');
-    });
-
-    $('.terminal-output').on('dragleave', function(e) {
-        $(this).removeClass('drag-over');
-    });
-
-    $('.terminal-output').on('drop', function(e) {
-        e.preventDefault();
-        $(this).removeClass('drag-over');
-        
-        // Future: Handle file uploads
-        addChatMessage('bot', '📁 **File Upload**: File upload functionality coming soon! For now, you can use commands like `copy` or `xcopy` to work with files.');
-    });
-
-    // Add loading states for better UX
-    function setLoadingState(element, loading) {
-        if (loading) {
-            $(element).addClass('loading').prop('disabled', true);
-        } else {
-            $(element).removeClass('loading').prop('disabled', false);
-        }
-    }
-
-    // Console debug information
-    console.log('🚀 GhostCrew Terminal Enhanced v4.0 initialized');
-    console.log('📊 Features loaded:');
-    console.log('   ✅ AI Chatbot with contextual responses');
-    console.log('   ✅ Command suggestions and execution');
-    console.log('   ✅ Session management and history');
-    console.log('   ✅ Enhanced terminal with autocomplete');
-    console.log('   ✅ Keyboard shortcuts and context menus');
-    console.log('   ✅ Smart notifications and error handling');
-    console.log('   ✅ Performance optimizations');
-    });
-    
-    // Function to update terminal prompt (defined globally for access from index.php)
-    window.updateTerminalPrompt = function(workingDir) {
-        const promptElement = $('#terminal-prompt');
-        if (workingDir && workingDir !== '') {
-            // Remove escaped characters and format properly
-            let formattedPrompt = workingDir.replace(/\\\\/g, '\\'); // Convert \\ to \
-            if (!formattedPrompt.endsWith('>')) {
-                formattedPrompt += '>';
+        // Add disconnection message to terminal if active
+        if (activeHostId === hostId) {
+            const $terminal = $(`#${hostId}-terminal .terminal-output`);
+            if ($terminal.length && !$terminal.find('.connection-lost-message').length) {
+                $terminal.append(`
+                    <div class="connection-lost-message">
+                        <p><i class="fas fa-plug"></i> Host disconnected gracefully</p>
+                        <p>The remote terminal was closed. This host will be removed from the active list.</p>
+                    </div>
+                `);
             }
-            promptElement.text(formattedPrompt);
-        } else {
-            promptElement.text('$');
+            
+            // Disable terminal input
+            $('#terminal-input').prop('disabled', true);
+            $('#send-command').prop('disabled', true);
+            
+            // Disable streaming mode
+            if (isStreamingMode) {
+                disableStreamingMode();
+            }
+            
+            // End the session
+            if (currentRemoteSessionId) {
+                endSession(currentRemoteSessionId);
+                currentRemoteSessionId = null;
+            }
         }
-    };
+    }
+    
+    // Expose functions globally for access from other scripts
+    window.activeHostId = activeHostId;
+    window.currentRemoteSessionId = currentRemoteSessionId;
+    window.isStreamingMode = isStreamingMode;
+    
+});
+
+// ===========================================
+// GLOBAL FUNCTIONS AND EVENT HANDLERS
+// ===========================================
+
+// Function to update terminal prompt (defined globally for access from index.php)
+window.updateTerminalPrompt = function(workingDir) {
+    const promptElement = $('#terminal-prompt');
+    if (workingDir && workingDir !== '') {
+        // Remove escaped characters and format properly
+        let formattedPrompt = workingDir.replace(/\\\\/g, '\\'); // Convert \\ to \
+        if (!formattedPrompt.endsWith('>')) {
+            formattedPrompt += '>';
+        }
+        promptElement.text(formattedPrompt);
+    } else {
+        promptElement.text('$');
+    }
+};
 
 // Enhanced keyboard shortcuts
 $(document).on('keydown', function(e) {

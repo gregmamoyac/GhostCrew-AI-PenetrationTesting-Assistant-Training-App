@@ -9,8 +9,8 @@ define('DB_PASS', '!Password123!');
 define('DB_NAME', 'terminal_app');
 
 // Application configuration
-define('APP_URL', 'http://192.168.1.171/GhostCrew');
-define('LOCAL_LISTENER_URL', 'http://192.168.1.171/GhostCrew/local');
+define('APP_URL', 'http://localhost/GhostCrew');
+define('LOCAL_LISTENER_URL', 'http://localhost/GhostCrew/local');
 
 // Create database connection
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
@@ -203,4 +203,6 @@ function cleanupOldData($daysToKeep = 30) {
 if (defined('DEBUG') && DEBUG) {
     mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 }
+
+
 ?>

@@ -1,5 +1,5 @@
 <?php
-/* install.php - Enhanced GhostCrew Installation Script with Fixed Step Separation */
+/* install.php - Enhanced GhostCrew Installation Script with Updated Database Schema */
 
 // DEBUG MODE - Set to true for detailed error reporting
 define('DEBUG_MODE', true);
@@ -47,25 +47,19 @@ if (file_exists('config.php') || file_exists('auth_config.php')) {
     $hasAdmin = false;
 }
 
-// Check for existing installation components (UPDATED LOGIC)
+// Check for existing installation components
 $existingInstallation = checkExistingInstallation();
 
 $step = isset($_GET['step']) ? (int)$_GET['step'] : 1;
 $errors = [];
 $success = [];
 
-// Only show cleanup warning if:
-// 1. Step is 1 or not specified AND
-// 2. No session config exists (haven't started installation) AND  
-// 3. Installation exists but is not complete AND
-// 4. Not an AJAX call
+// Only show cleanup warning if conditions are met
 $showCleanupWarning = $existingInstallation['has_existing'] && 
                      !$installComplete && 
                      ($step <= 1) && 
                      empty($_SESSION['db_config']) &&
                      !isset($_GET['action']);
-
-
 
 // Function to safely output JSON (prevents any stray output)
 function safeJsonOutput($data) {
@@ -107,30 +101,6 @@ function handleAjaxError($message, $exception = null) {
     
     safeJsonOutput($errorData);
 }
-
-// Check if already installed
-if (file_exists('config.php') && file_exists('auth_config.php')) {
-    $installComplete = true;
-    // Check if we can connect to verify installation
-    try {
-        include 'auth_config.php';
-        $adminDb = getAdminDB();
-        $stmt = $adminDb->prepare("SELECT COUNT(*) as count FROM users WHERE role = 'admin'");
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $hasAdmin = $result->fetch_assoc()['count'] > 0;
-    } catch (Exception $e) {
-        $installComplete = false;
-        $hasAdmin = false;
-    }
-} else {
-    $installComplete = false;
-    $hasAdmin = false;
-}
-
-$step = isset($_GET['step']) ? (int)$_GET['step'] : 1;
-$errors = [];
-$success = [];
 
 // Handle AJAX requests for real-time validation
 if (isset($_GET['action']) && $_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -220,7 +190,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_GET['action'])) {
         case 1: // Database Configuration
             $errors = validateDatabaseConfig($_POST);
             if (empty($errors)) {
-                // Only save to session if not already saved (to avoid overwriting AJAX-saved config)
+                // Only save to session if not already saved
                 if (empty($_SESSION['db_config'])) {
                     $_SESSION['db_config'] = [
                         'terminal_host' => $_POST['terminal_host'],
@@ -241,7 +211,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_GET['action'])) {
     }
 }
 
-// Table structure definitions
+// Updated table structure definitions based on the provided SQL files
 function getExpectedTableStructures() {
     return [
         'terminal_app' => [
@@ -261,14 +231,16 @@ function getExpectedTableStructures() {
                 'id' => ['type' => 'int(11)', 'null' => 'NO', 'key' => 'PRI', 'extra' => 'auto_increment'],
                 'host_id' => ['type' => 'varchar(50)', 'null' => 'NO'],
                 'session_id' => ['type' => 'varchar(64)', 'null' => 'YES'],
+                'is_interactive' => ['type' => 'tinyint(1)', 'null' => 'YES', 'default' => '0'],
                 'working_directory' => ['type' => 'text', 'null' => 'YES'],
                 'command' => ['type' => 'text', 'null' => 'NO'],
                 'output' => ['type' => 'longtext', 'null' => 'YES'],
                 'timestamp' => ['type' => 'timestamp', 'null' => 'NO', 'default' => 'current_timestamp()'],
+                'execution_start' => ['type' => 'timestamp', 'null' => 'YES'],
                 'response_timestamp' => ['type' => 'timestamp', 'null' => 'YES'],
                 'execution_time' => ['type' => 'decimal(10,6)', 'null' => 'YES'],
                 'exit_code' => ['type' => 'int(11)', 'null' => 'YES'],
-                'status' => ['type' => "enum('pending','completed','failed','timeout')", 'null' => 'YES', 'default' => 'pending'],
+                'status' => ['type' => "enum('pending','executing','completed','failed','timeout')", 'null' => 'YES', 'default' => 'pending'],
                 'context_data' => ['type' => 'longtext', 'null' => 'YES']
             ],
             'shell_sessions' => [
@@ -299,6 +271,52 @@ function getExpectedTableStructures() {
                 'mapped_at' => ['type' => 'timestamp', 'null' => 'NO', 'default' => 'current_timestamp()'],
                 'expires_at' => ['type' => 'timestamp', 'null' => 'NO', 'default' => 'current_timestamp()'],
                 'is_active' => ['type' => 'tinyint(1)', 'null' => 'YES', 'default' => '1']
+            ],
+            'interactive_command_patterns' => [
+                'id' => ['type' => 'int(11)', 'null' => 'NO', 'key' => 'PRI', 'extra' => 'auto_increment'],
+                'command_pattern' => ['type' => 'varchar(255)', 'null' => 'NO'],
+                'pattern_type' => ['type' => "enum('exact','prefix','regex','contains')", 'null' => 'YES', 'default' => 'exact'],
+                'is_interactive' => ['type' => 'tinyint(1)', 'null' => 'YES', 'default' => '1'],
+                'is_continuous' => ['type' => 'tinyint(1)', 'null' => 'YES', 'default' => '0'],
+                'timeout_seconds' => ['type' => 'int(11)', 'null' => 'YES', 'default' => '1800'],
+                'description' => ['type' => 'text', 'null' => 'YES'],
+                'created_at' => ['type' => 'timestamp', 'null' => 'NO', 'default' => 'current_timestamp()'],
+                'is_active' => ['type' => 'tinyint(1)', 'null' => 'YES', 'default' => '1']
+            ],
+            'streaming_output' => [
+                'id' => ['type' => 'int(11)', 'null' => 'NO', 'key' => 'PRI', 'extra' => 'auto_increment'],
+                'command_id' => ['type' => 'int(11)', 'null' => 'NO'],
+                'session_id' => ['type' => 'varchar(64)', 'null' => 'NO'],
+                'output_chunk' => ['type' => 'longtext', 'null' => 'NO'],
+                'chunk_sequence' => ['type' => 'int(11)', 'null' => 'YES', 'default' => '1'],
+                'is_partial' => ['type' => 'tinyint(1)', 'null' => 'YES', 'default' => '1'],
+                'timestamp' => ['type' => 'timestamp', 'null' => 'NO', 'default' => 'current_timestamp()'],
+                'last_update' => ['type' => 'timestamp', 'null' => 'NO', 'default' => 'current_timestamp()']
+            ],
+            'streaming_sessions' => [
+                'id' => ['type' => 'int(11)', 'null' => 'NO', 'key' => 'PRI', 'extra' => 'auto_increment'],
+                'command_id' => ['type' => 'int(11)', 'null' => 'NO'],
+                'session_id' => ['type' => 'varchar(64)', 'null' => 'NO'],
+                'host_id' => ['type' => 'varchar(50)', 'null' => 'NO'],
+                'status' => ['type' => "enum('active','paused','completed','terminated')", 'null' => 'YES', 'default' => 'active'],
+                'start_time' => ['type' => 'timestamp', 'null' => 'NO', 'default' => 'current_timestamp()'],
+                'end_time' => ['type' => 'timestamp', 'null' => 'YES'],
+                'last_activity' => ['type' => 'timestamp', 'null' => 'NO', 'default' => 'current_timestamp()'],
+                'total_input_lines' => ['type' => 'int(11)', 'null' => 'YES', 'default' => '0'],
+                'total_output_size' => ['type' => 'bigint(20)', 'null' => 'YES', 'default' => '0']
+            ],
+            'user_input_queue' => [
+                'id' => ['type' => 'int(11)', 'null' => 'NO', 'key' => 'PRI', 'extra' => 'auto_increment'],
+                'session_id' => ['type' => 'varchar(64)', 'null' => 'NO'],
+                'host_id' => ['type' => 'varchar(50)', 'null' => 'NO'],
+                'user_id' => ['type' => 'int(11)', 'null' => 'YES'],
+                'command_id' => ['type' => 'int(11)', 'null' => 'YES'],
+                'input_data' => ['type' => 'text', 'null' => 'NO'],
+                'input_type' => ['type' => "enum('command','response','ctrl_signal')", 'null' => 'YES', 'default' => 'response'],
+                'timestamp' => ['type' => 'timestamp', 'null' => 'NO', 'default' => 'current_timestamp()'],
+                'processed' => ['type' => 'tinyint(1)', 'null' => 'YES', 'default' => '0'],
+                'processed_at' => ['type' => 'timestamp', 'null' => 'YES'],
+                'priority' => ['type' => 'tinyint(4)', 'null' => 'YES', 'default' => '5']
             ]
         ],
         'ghostcrew_admin' => [
@@ -400,6 +418,7 @@ function getExpectedTableStructures() {
             'command_log' => [
                 'id' => ['type' => 'int(11)', 'null' => 'NO', 'key' => 'PRI', 'extra' => 'auto_increment'],
                 'session_id' => ['type' => 'varchar(64)', 'null' => 'NO'],
+                'is_interactive' => ['type' => 'tinyint(1)', 'null' => 'YES', 'default' => '0'],
                 'user_id' => ['type' => 'int(11)', 'null' => 'NO'],
                 'command' => ['type' => 'text', 'null' => 'NO'],
                 'output' => ['type' => 'longtext', 'null' => 'YES'],
@@ -649,7 +668,7 @@ function saveDatabaseConfigAjax($data) {
     return $result;
 }
 
-// NEW: Separate function to create config files ONLY
+// Create config files function
 function createConfigFilesAjax($config) {
     $result = ['success' => true, 'checks' => []];
     
@@ -699,7 +718,7 @@ function createConfigFilesAjax($config) {
             $result['success'] = false;
         }
         
-        // Create auth_config.php (without database connection)
+        // Create auth_config.php
         $result['checks']['auth_config_file'] = ['status' => 'checking', 'message' => 'Creating auth_config.php...'];
         
         try {
@@ -724,7 +743,6 @@ function createConfigFilesAjax($config) {
             $result['success'] = false;
         }
 
-        
         // Wait for files to be visible and validate content
         if ($result['success']) {
             $result['checks']['file_verification'] = ['status' => 'checking', 'message' => 'Verifying configuration files...'];
@@ -746,7 +764,7 @@ function createConfigFilesAjax($config) {
     return $result;
 }
 
-// UPDATED: Database creation function that only creates databases, not config files
+// Database creation function that only creates databases
 function createDatabasesAjax($config) {
     $result = ['success' => true, 'checks' => []];
     
@@ -862,7 +880,7 @@ function createDatabasesAjax($config) {
     return $result;
 }
 
-// New function to wait for and verify config files
+// Function to wait for and verify config files
 function waitForConfigFiles($config, $maxWaitTime = 30) {
     $startTime = time();
     $configFile = 'config.php';
@@ -966,7 +984,6 @@ function verifyAuthConfigFileContent($filePath, $expectedConfig) {
     return ['success' => true, 'message' => 'auth_config.php verified'];
 }
 
-
 function validateTablesAjax($config) {
     $result = ['success' => true, 'checks' => []];
     $expectedStructures = getExpectedTableStructures();
@@ -1005,9 +1022,26 @@ function validateTablesAjax($config) {
                 if (!isset($actualColumns[$columnName])) {
                     $columnIssues[] = "Missing column: $columnName";
                 } else {
-                    // Check column properties
+                    // Check column properties (more flexible type checking)
                     $actual = $actualColumns[$columnName];
-                    if (strtolower($actual['type']) !== strtolower($expectedProps['type'])) {
+                    $expectedType = strtolower($expectedProps['type']);
+                    $actualType = strtolower($actual['type']);
+                    
+                    // Handle enum type variations
+                    if (strpos($expectedType, 'enum') === 0) {
+                        if (strpos($actualType, 'enum') !== 0) {
+                            $columnIssues[] = "Column $columnName type mismatch: expected enum, got {$actual['type']}";
+                        }
+                    } elseif (strpos($expectedType, 'int') === 0) {
+                        if (strpos($actualType, 'int') !== 0) {
+                            $columnIssues[] = "Column $columnName type mismatch: expected int, got {$actual['type']}";
+                        }
+                    } elseif (strpos($expectedType, 'varchar') === 0) {
+                        if (strpos($actualType, 'varchar') !== 0) {
+                            $columnIssues[] = "Column $columnName type mismatch: expected varchar, got {$actual['type']}";
+                        }
+                    } elseif ($expectedType !== $actualType) {
+                        // For other types, require exact match
                         $columnIssues[] = "Column $columnName type mismatch: expected {$expectedProps['type']}, got {$actual['type']}";
                     }
                 }
@@ -1061,9 +1095,26 @@ function validateTablesAjax($config) {
                 if (!isset($actualColumns[$columnName])) {
                     $columnIssues[] = "Missing column: $columnName";
                 } else {
-                    // Check column properties
+                    // Check column properties (more flexible type checking)
                     $actual = $actualColumns[$columnName];
-                    if (strtolower($actual['type']) !== strtolower($expectedProps['type'])) {
+                    $expectedType = strtolower($expectedProps['type']);
+                    $actualType = strtolower($actual['type']);
+                    
+                    // Handle enum type variations
+                    if (strpos($expectedType, 'enum') === 0) {
+                        if (strpos($actualType, 'enum') !== 0) {
+                            $columnIssues[] = "Column $columnName type mismatch: expected enum, got {$actual['type']}";
+                        }
+                    } elseif (strpos($expectedType, 'int') === 0) {
+                        if (strpos($actualType, 'int') !== 0) {
+                            $columnIssues[] = "Column $columnName type mismatch: expected int, got {$actual['type']}";
+                        }
+                    } elseif (strpos($expectedType, 'varchar') === 0) {
+                        if (strpos($actualType, 'varchar') !== 0) {
+                            $columnIssues[] = "Column $columnName type mismatch: expected varchar, got {$actual['type']}";
+                        }
+                    } elseif ($expectedType !== $actualType) {
+                        // For other types, require exact match
                         $columnIssues[] = "Column $columnName type mismatch: expected {$expectedProps['type']}, got {$actual['type']}";
                     }
                 }
@@ -1185,7 +1236,7 @@ function createAdminUserAjax($config, $userData) {
         
         $result['checks']['user_validation'] = ['status' => 'success', 'message' => 'User data validated'];
         
-        // Test database connection directly (don't use auth_config.php yet)
+        // Test database connection directly
         $result['checks']['database_connection'] = ['status' => 'checking', 'message' => 'Connecting to admin database...'];
         
         try {
@@ -1340,215 +1391,6 @@ function createAdminUserAjax($config, $userData) {
     }
     
     return $result;
-}
-
-function generateConfigFile($config) {
-    return '<?php
-
-/* config.php - Generated by GhostCrew Installer */
-
-// Enhanced configuration with session support
-define(\'DB_HOST\', \'' . addslashes($config['terminal_host']) . '\');
-define(\'DB_USER\', \'' . addslashes($config['terminal_user']) . '\');
-define(\'DB_PASS\', \'' . addslashes($config['terminal_pass']) . '\');
-define(\'DB_NAME\', \'' . addslashes($config['terminal_name']) . '\');
-
-// Application configuration
-define(\'APP_URL\', \'' . addslashes($config['app_url']) . '\');
-define(\'LOCAL_LISTENER_URL\', \'' . addslashes($config['app_url']) . '/local\');
-
-// Create database connection
-$conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
-
-// Check connection
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
-}
-
-// Set timezone
-$conn->query("SET time_zone = \'+00:00\'");
-
-// Enhanced sanitize function
-function sanitize($input) {
-    global $conn;
-    if (is_array($input)) {
-        return array_map(\'sanitize\', $input);
-    }
-    return $conn->real_escape_string(htmlspecialchars(trim($input), ENT_QUOTES, \'UTF-8\'));
-}
-
-// Function to log command execution
-function logCommandExecution($hostId, $sessionId, $command, $output = null, $executionTime = null, $status = "completed") {
-    global $conn;
-    
-    $stmt = $conn->prepare("UPDATE command_history SET output = ?, execution_time = ?, status = ?, response_timestamp = CURRENT_TIMESTAMP WHERE host_id = ? AND session_id = ? AND command = ? AND status = \'pending\' ORDER BY timestamp DESC LIMIT 1");
-    $stmt->bind_param("sdsssss", $output, $executionTime, $status, $hostId, $sessionId, $command);
-    $stmt->execute();
-    $stmt->close();
-}
-
-// Function to update shell session state
-function updateShellSession($sessionId, $hostId, $currentDirectory = null, $environmentVars = null) {
-    global $conn;
-    
-    // Check if session exists
-    $stmt = $conn->prepare("SELECT id FROM shell_sessions WHERE session_id = ?");
-    $stmt->bind_param("s", $sessionId);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    if ($result->num_rows > 0) {
-        // Update existing session
-        $updateFields = ["last_activity = CURRENT_TIMESTAMP"];
-        $params = "";
-        $values = [];
-        
-        if ($currentDirectory !== null) {
-            $updateFields[] = "current_directory = ?";
-            $params .= "s";
-            $values[] = $currentDirectory;
-        }
-        
-        if ($environmentVars !== null) {
-            $updateFields[] = "environment_vars = ?";
-            $params .= "s";
-            $values[] = json_encode($environmentVars);
-        }
-        
-        $values[] = $sessionId;
-        $params .= "s";
-        
-        $sql = "UPDATE shell_sessions SET " . implode(", ", $updateFields) . " WHERE session_id = ?";
-        $stmt = $conn->prepare($sql);
-        if (!empty($params)) {
-            $stmt->bind_param($params, ...$values);
-        }
-        $stmt->execute();
-    } else {
-        // Create new session
-        $envJson = $environmentVars ? json_encode($environmentVars) : null;
-        $stmt = $conn->prepare("INSERT INTO shell_sessions (session_id, host_id, current_directory, environment_vars) VALUES (?, ?, ?, ?)");
-        $stmt->bind_param("ssss", $sessionId, $hostId, $currentDirectory, $envJson);
-        $stmt->execute();
-    }
-    
-    $stmt->close();
-}
-
-// Function to get shell session state
-function getShellSession($sessionId) {
-    global $conn;
-    
-    $stmt = $conn->prepare("SELECT * FROM shell_sessions WHERE session_id = ? AND is_active = 1");
-    $stmt->bind_param("s", $sessionId);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    if ($result->num_rows > 0) {
-        $session = $result->fetch_assoc();
-        if ($session["environment_vars"]) {
-            $session["environment_vars"] = json_decode($session["environment_vars"], true);
-        }
-        return $session;
-    }
-    
-    return null;
-}
-
-// Function to end shell session
-function endShellSession($sessionId) {
-    global $conn;
-    
-    $stmt = $conn->prepare("UPDATE shell_sessions SET is_active = 0 WHERE session_id = ?");
-    $stmt->bind_param("s", $sessionId);
-    $stmt->execute();
-    $stmt->close();
-}
-
-// Function to get host statistics
-function getHostStatistics($hostId) {
-    global $conn;
-    
-    $stats = [
-        "total_sessions" => 0,
-        "total_commands" => 0,
-        "active_sessions" => 0,
-        "last_activity" => null
-    ];
-    
-    // Get total sessions from admin database if available
-    if (function_exists("getAdminDB")) {
-        try {
-            $adminDb = getAdminDB();
-            $stmt = $adminDb->prepare("SELECT COUNT(*) as count FROM remote_sessions WHERE host_id = ?");
-            $stmt->bind_param("s", $hostId);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            if ($result->num_rows > 0) {
-                $stats["total_sessions"] = $result->fetch_assoc()["count"];
-            }
-            
-            $stmt = $adminDb->prepare("SELECT COUNT(*) as count FROM remote_sessions WHERE host_id = ? AND status = \'active\'");
-            $stmt->bind_param("s", $hostId);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            if ($result->num_rows > 0) {
-                $stats["active_sessions"] = $result->fetch_assoc()["count"];
-            }
-        } catch (Exception $e) {
-            // Admin DB not available, use local data
-        }
-    }
-    
-    // Get command count
-    $stmt = $conn->prepare("SELECT COUNT(*) as count FROM command_history WHERE host_id = ?");
-    $stmt->bind_param("s", $hostId);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    if ($result->num_rows > 0) {
-        $stats["total_commands"] = $result->fetch_assoc()["count"];
-    }
-    
-    // Get last activity
-    $stmt = $conn->prepare("SELECT MAX(timestamp) as last_activity FROM command_history WHERE host_id = ?");
-    $stmt->bind_param("s", $hostId);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    if ($result->num_rows > 0) {
-        $stats["last_activity"] = $result->fetch_assoc()["last_activity"];
-    }
-    
-    return $stats;
-}
-
-// Function to clean up old data (should be called periodically)
-function cleanupOldData($daysToKeep = 30) {
-    global $conn;
-    
-    // Clean up old command history
-    $stmt = $conn->prepare("DELETE FROM command_history WHERE timestamp < DATE_SUB(NOW(), INTERVAL ? DAY)");
-    $stmt->bind_param("i", $daysToKeep);
-    $stmt->execute();
-    $deleted = $stmt->affected_rows;
-    $stmt->close();
-    
-    // Clean up inactive shell sessions older than 1 day
-    $stmt = $conn->prepare("DELETE FROM shell_sessions WHERE is_active = 0 AND last_activity < DATE_SUB(NOW(), INTERVAL 1 DAY)");
-    $stmt->execute();
-    $deletedSessions = $stmt->affected_rows;
-    $stmt->close();
-    
-    return [
-        "commands_deleted" => $deleted,
-        "sessions_deleted" => $deletedSessions
-    ];
-}
-
-// Add error reporting for development (remove in production)
-if (defined(\'DEBUG\') && DEBUG) {
-    mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-}
-?>';
 }
 
 function generateAuthConfigFile($config) {
@@ -2114,94 +1956,167 @@ if (!function_exists(\'validateCSRFToken\')) {
         return isset($_SESSION["csrf_token"]) && hash_equals($_SESSION["csrf_token"], $token);
     }
 }
-
 ?>';
 }
 
+// Updated SQL functions with the exact content from the provided files
 function getTerminalAppSQL() {
     return 'SET FOREIGN_KEY_CHECKS=0;
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
 SET time_zone = "+00:00";
-CREATE DATABASE IF NOT EXISTS terminal_app DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
-USE terminal_app;
+CREATE DATABASE IF NOT EXISTS `terminal_app` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+USE `terminal_app`;
 
-CREATE TABLE command_history (
-  id int(11) NOT NULL,
-  host_id varchar(50) NOT NULL,
-  session_id varchar(64) DEFAULT NULL,
-  working_directory text DEFAULT NULL,
-  command text NOT NULL,
-  output longtext DEFAULT NULL,
-  timestamp timestamp NOT NULL DEFAULT current_timestamp(),
-  response_timestamp timestamp NULL DEFAULT NULL,
-  execution_time decimal(10,6) DEFAULT NULL,
-  exit_code int(11) DEFAULT NULL,
-  status enum(\'pending\',\'completed\',\'failed\',\'timeout\') DEFAULT \'pending\',
-  context_data longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(context_data))
+CREATE TABLE `command_history` (
+  `id` int(11) NOT NULL,
+  `host_id` varchar(50) NOT NULL,
+  `session_id` varchar(64) DEFAULT NULL,
+  `is_interactive` tinyint(1) DEFAULT 0,
+  `working_directory` text DEFAULT NULL,
+  `command` text NOT NULL,
+  `output` longtext DEFAULT NULL,
+  `timestamp` timestamp NOT NULL DEFAULT current_timestamp(),
+  `execution_start` timestamp NULL DEFAULT NULL,
+  `response_timestamp` timestamp NULL DEFAULT NULL,
+  `execution_time` decimal(10,6) DEFAULT NULL,
+  `exit_code` int(11) DEFAULT NULL,
+  `status` enum(\'pending\',\'executing\',\'completed\',\'failed\',\'timeout\') DEFAULT \'pending\',
+  `context_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`context_data`))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-CREATE TABLE command_statistics (
-  id int(11) NOT NULL,
-  host_id varchar(50) NOT NULL,
-  command_base varchar(100) NOT NULL,
-  execution_count int(11) DEFAULT 1,
-  avg_execution_time decimal(10,6) DEFAULT NULL,
-  last_executed timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  success_rate decimal(5,2) DEFAULT 100.00
+CREATE TABLE `command_statistics` (
+  `id` int(11) NOT NULL,
+  `host_id` varchar(50) NOT NULL,
+  `command_base` varchar(100) NOT NULL,
+  `execution_count` int(11) DEFAULT 1,
+  `avg_execution_time` decimal(10,6) DEFAULT NULL,
+  `last_executed` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `success_rate` decimal(5,2) DEFAULT 100.00
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE `hosts` (
-  id int(11) NOT NULL,
-  host_id varchar(50) NOT NULL,
-  hostname varchar(255) NOT NULL,
-  ip_address varchar(45) NOT NULL,
-  os_info text DEFAULT NULL,
-  last_seen timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  connected tinyint(1) DEFAULT 1,
-  first_seen timestamp NOT NULL DEFAULT current_timestamp(),
-  total_sessions int(11) DEFAULT 0,
-  total_commands int(11) DEFAULT 0
+  `id` int(11) NOT NULL,
+  `host_id` varchar(50) NOT NULL,
+  `hostname` varchar(255) NOT NULL,
+  `ip_address` varchar(45) NOT NULL,
+  `os_info` text DEFAULT NULL,
+  `last_seen` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `connected` tinyint(1) DEFAULT 1,
+  `first_seen` timestamp NOT NULL DEFAULT current_timestamp(),
+  `total_sessions` int(11) DEFAULT 0,
+  `total_commands` int(11) DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-CREATE TABLE host_instance_mappings (
-  id int(11) NOT NULL,
-  host_id varchar(50) NOT NULL,
-  instance_token varchar(128) NOT NULL,
-  user_id int(11) DEFAULT NULL,
-  mapped_at timestamp NOT NULL DEFAULT current_timestamp(),
-  expires_at timestamp NOT NULL DEFAULT current_timestamp(),
-  is_active tinyint(1) DEFAULT 1
+CREATE TABLE `host_instance_mappings` (
+  `id` int(11) NOT NULL,
+  `host_id` varchar(50) NOT NULL,
+  `instance_token` varchar(128) NOT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `mapped_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `expires_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `is_active` tinyint(1) DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-CREATE TABLE shell_sessions (
-  id int(11) NOT NULL,
-  session_id varchar(64) NOT NULL,
-  host_id varchar(50) NOT NULL,
-  current_directory text DEFAULT NULL,
-  initial_directory text DEFAULT NULL,
-  environment_vars longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(environment_vars)),
-  start_time timestamp NOT NULL DEFAULT current_timestamp(),
-  last_activity timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  is_active tinyint(1) DEFAULT 1
+CREATE TABLE `interactive_command_patterns` (
+  `id` int(11) NOT NULL,
+  `command_pattern` varchar(255) NOT NULL,
+  `pattern_type` enum(\'exact\',\'prefix\',\'regex\',\'contains\') DEFAULT \'exact\',
+  `is_interactive` tinyint(1) DEFAULT 1,
+  `is_continuous` tinyint(1) DEFAULT 0,
+  `timeout_seconds` int(11) DEFAULT 1800,
+  `description` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `is_active` tinyint(1) DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-ALTER TABLE command_history ADD PRIMARY KEY (id), ADD KEY idx_host_session (host_id,session_id), ADD KEY idx_session_time (session_id,timestamp), ADD KEY idx_status_time (status,timestamp), ADD KEY idx_working_dir (host_id,working_directory(100));
-ALTER TABLE command_statistics ADD PRIMARY KEY (id), ADD UNIQUE KEY unique_host_command (host_id,command_base), ADD KEY idx_host_stats (host_id,execution_count);
-ALTER TABLE hosts ADD PRIMARY KEY (id), ADD UNIQUE KEY host_id (host_id), ADD KEY idx_host_status (connected,last_seen), ADD KEY idx_host_id (host_id);
-ALTER TABLE host_instance_mappings ADD PRIMARY KEY (id), ADD KEY idx_host_instance (host_id,instance_token), ADD KEY idx_instance_active (instance_token,is_active), ADD KEY idx_token_expires (instance_token,expires_at,is_active);
-ALTER TABLE shell_sessions ADD PRIMARY KEY (id), ADD UNIQUE KEY session_id (session_id), ADD KEY idx_session_active (session_id,is_active), ADD KEY idx_session_host (host_id,is_active,last_activity);
+INSERT INTO `interactive_command_patterns` (`id`, `command_pattern`, `pattern_type`, `is_interactive`, `is_continuous`, `timeout_seconds`, `description`, `created_at`, `is_active`) VALUES
+(1, \'msfconsole\', \'exact\', 1, 0, 1800, \'Metasploit\', \'2025-07-07 23:54:06\', 1),
+(2, \'ssh\', \'prefix\', 1, 0, 1800, \'SSH remote access\', \'2025-07-07 23:54:06\', 1),
+(3, \'python\', \'exact\', 1, 0, 1800, \'Python interpreter\', \'2025-07-07 23:54:06\', 1),
+(4, \'python3\', \'exact\', 1, 0, 1800, \'Python 3 interpreter\', \'2025-07-07 23:54:06\', 1),
+(5, \'mysql\', \'prefix\', 1, 0, 1800, \'MySQL client\', \'2025-07-07 23:54:06\', 1),
+(6, \'vim\', \'prefix\', 1, 0, 1800, \'Vim editor\', \'2025-07-07 23:54:06\', 1),
+(7, \'nano\', \'prefix\', 1, 0, 1800, \'Nano editor\', \'2025-07-07 23:54:06\', 1),
+(8, \'top\', \'exact\', 1, 0, 1800, \'System monitor\', \'2025-07-07 23:54:06\', 1),
+(9, \'ping\', \'prefix\', 1, 0, 1800, \'Network ping\', \'2025-07-07 23:54:06\', 1),
+(10, \'telnet\', \'exact\', 1, 0, 1800, \'Telnet client - exact match\', \'2025-07-08 00:24:32\', 1),
+(11, \'telnet \', \'prefix\', 1, 0, 1800, \'Telnet client with arguments\', \'2025-07-08 00:24:32\', 1);
 
-ALTER TABLE command_history MODIFY id int(11) NOT NULL AUTO_INCREMENT;
-ALTER TABLE command_statistics MODIFY id int(11) NOT NULL AUTO_INCREMENT;
-ALTER TABLE hosts MODIFY id int(11) NOT NULL AUTO_INCREMENT;
-ALTER TABLE host_instance_mappings MODIFY id int(11) NOT NULL AUTO_INCREMENT;
-ALTER TABLE shell_sessions MODIFY id int(11) NOT NULL AUTO_INCREMENT;
+CREATE TABLE `shell_sessions` (
+  `id` int(11) NOT NULL,
+  `session_id` varchar(64) NOT NULL,
+  `host_id` varchar(50) NOT NULL,
+  `current_directory` text DEFAULT NULL,
+  `initial_directory` text DEFAULT NULL,
+  `environment_vars` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`environment_vars`)),
+  `start_time` timestamp NOT NULL DEFAULT current_timestamp(),
+  `last_activity` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `is_active` tinyint(1) DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-ALTER TABLE command_history ADD CONSTRAINT command_history_ibfk_1 FOREIGN KEY (host_id) REFERENCES `hosts` (host_id) ON DELETE CASCADE;
-ALTER TABLE command_statistics ADD CONSTRAINT command_statistics_ibfk_1 FOREIGN KEY (host_id) REFERENCES `hosts` (host_id) ON DELETE CASCADE;
-ALTER TABLE host_instance_mappings ADD CONSTRAINT host_instance_mappings_ibfk_1 FOREIGN KEY (host_id) REFERENCES `hosts` (host_id) ON DELETE CASCADE;
-ALTER TABLE shell_sessions ADD CONSTRAINT shell_sessions_ibfk_1 FOREIGN KEY (host_id) REFERENCES `hosts` (host_id) ON DELETE CASCADE;
+CREATE TABLE `streaming_output` (
+  `id` int(11) NOT NULL,
+  `command_id` int(11) NOT NULL,
+  `session_id` varchar(64) NOT NULL,
+  `output_chunk` longtext NOT NULL,
+  `chunk_sequence` int(11) DEFAULT 1,
+  `is_partial` tinyint(1) DEFAULT 1,
+  `timestamp` timestamp NOT NULL DEFAULT current_timestamp(),
+  `last_update` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `streaming_sessions` (
+  `id` int(11) NOT NULL,
+  `command_id` int(11) NOT NULL,
+  `session_id` varchar(64) NOT NULL,
+  `host_id` varchar(50) NOT NULL,
+  `status` enum(\'active\',\'paused\',\'completed\',\'terminated\') DEFAULT \'active\',
+  `start_time` timestamp NOT NULL DEFAULT current_timestamp(),
+  `end_time` timestamp NULL DEFAULT NULL,
+  `last_activity` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `total_input_lines` int(11) DEFAULT 0,
+  `total_output_size` bigint(20) DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `user_input_queue` (
+  `id` int(11) NOT NULL,
+  `session_id` varchar(64) NOT NULL,
+  `host_id` varchar(50) NOT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `command_id` int(11) DEFAULT NULL,
+  `input_data` text NOT NULL,
+  `input_type` enum(\'command\',\'response\',\'ctrl_signal\') DEFAULT \'response\',
+  `timestamp` timestamp NOT NULL DEFAULT current_timestamp(),
+  `processed` tinyint(1) DEFAULT 0,
+  `processed_at` timestamp NULL DEFAULT NULL,
+  `priority` tinyint(4) DEFAULT 5
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+ALTER TABLE `command_history` ADD PRIMARY KEY (`id`), ADD KEY `idx_host_session` (`host_id`,`session_id`), ADD KEY `idx_session_time` (`session_id`,`timestamp`), ADD KEY `idx_status_time` (`status`,`timestamp`), ADD KEY `idx_working_dir` (`host_id`,`working_directory`(100)), ADD KEY `idx_is_interactive` (`is_interactive`), ADD KEY `idx_status` (`status`);
+ALTER TABLE `command_statistics` ADD PRIMARY KEY (`id`), ADD UNIQUE KEY `unique_host_command` (`host_id`,`command_base`), ADD KEY `idx_host_stats` (`host_id`,`execution_count`);
+ALTER TABLE `hosts` ADD PRIMARY KEY (`id`), ADD UNIQUE KEY `host_id` (`host_id`), ADD KEY `idx_host_status` (`connected`,`last_seen`), ADD KEY `idx_host_id` (`host_id`);
+ALTER TABLE `host_instance_mappings` ADD PRIMARY KEY (`id`), ADD KEY `idx_host_instance` (`host_id`,`instance_token`), ADD KEY `idx_instance_active` (`instance_token`,`is_active`), ADD KEY `idx_token_expires` (`instance_token`,`expires_at`,`is_active`);
+ALTER TABLE `interactive_command_patterns` ADD PRIMARY KEY (`id`);
+ALTER TABLE `shell_sessions` ADD PRIMARY KEY (`id`), ADD UNIQUE KEY `session_id` (`session_id`), ADD KEY `idx_session_active` (`session_id`,`is_active`), ADD KEY `idx_session_host` (`host_id`,`is_active`,`last_activity`);
+ALTER TABLE `streaming_output` ADD PRIMARY KEY (`id`), ADD UNIQUE KEY `unique_command_sequence` (`command_id`,`chunk_sequence`), ADD KEY `idx_session_time` (`session_id`,`last_update`), ADD KEY `idx_command_id` (`command_id`);
+ALTER TABLE `streaming_sessions` ADD PRIMARY KEY (`id`), ADD UNIQUE KEY `command_id` (`command_id`), ADD KEY `idx_session_status` (`session_id`,`status`);
+ALTER TABLE `user_input_queue` ADD PRIMARY KEY (`id`), ADD KEY `idx_session_processed` (`session_id`,`processed`,`timestamp`), ADD KEY `idx_processed` (`processed`);
+
+ALTER TABLE `command_history` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `command_statistics` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `hosts` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `host_instance_mappings` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `interactive_command_patterns` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
+ALTER TABLE `shell_sessions` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `streaming_output` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `streaming_sessions` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `user_input_queue` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+ALTER TABLE `command_history` ADD CONSTRAINT `command_history_ibfk_1` FOREIGN KEY (`host_id`) REFERENCES `hosts` (`host_id`) ON DELETE CASCADE;
+ALTER TABLE `command_statistics` ADD CONSTRAINT `command_statistics_ibfk_1` FOREIGN KEY (`host_id`) REFERENCES `hosts` (`host_id`) ON DELETE CASCADE;
+ALTER TABLE `host_instance_mappings` ADD CONSTRAINT `host_instance_mappings_ibfk_1` FOREIGN KEY (`host_id`) REFERENCES `hosts` (`host_id`) ON DELETE CASCADE;
+ALTER TABLE `shell_sessions` ADD CONSTRAINT `shell_sessions_ibfk_1` FOREIGN KEY (`host_id`) REFERENCES `hosts` (`host_id`) ON DELETE CASCADE;
 SET FOREIGN_KEY_CHECKS=1;
 COMMIT;';
 }
@@ -2211,253 +2126,255 @@ function getGhostcrewAdminSQL() {
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
 SET time_zone = "+00:00";
-CREATE DATABASE IF NOT EXISTS ghostcrew_admin DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE ghostcrew_admin;
+CREATE DATABASE IF NOT EXISTS `ghostcrew_admin` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `ghostcrew_admin`;
 
-CREATE TABLE audit_log (
-  id int(11) NOT NULL,
-  user_id int(11) DEFAULT NULL,
-  action_type enum(\'login\',\'logout\',\'command_execute\',\'session_start\',\'session_end\',\'chat_message\',\'system_access\') NOT NULL,
-  action_details longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(action_details)),
-  ip_address varchar(45) DEFAULT NULL,
-  user_agent text DEFAULT NULL,
-  timestamp timestamp NOT NULL DEFAULT current_timestamp()
+CREATE TABLE `audit_log` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `action_type` enum(\'login\',\'logout\',\'command_execute\',\'session_start\',\'session_end\',\'chat_message\',\'system_access\') NOT NULL,
+  `action_details` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`action_details`)),
+  `ip_address` varchar(45) DEFAULT NULL,
+  `user_agent` text DEFAULT NULL,
+  `timestamp` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE chatbot_conversations (
-  id int(11) NOT NULL,
-  user_id int(11) NOT NULL,
-  session_id varchar(64) DEFAULT NULL,
-  conversation_id varchar(64) NOT NULL,
-  parent_message_id int(11) DEFAULT NULL,
-  message_type enum(\'user\',\'bot\') NOT NULL,
-  message text NOT NULL,
-  timestamp timestamp NOT NULL DEFAULT current_timestamp(),
-  context_data longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(context_data)),
-  response_time decimal(8,3) DEFAULT NULL,
-  message_tokens int(11) DEFAULT NULL,
-  model_used varchar(50) DEFAULT \'local\',
-  suggested_command text DEFAULT NULL,
-  command_executed tinyint(1) DEFAULT 0,
-  rating tinyint(1) DEFAULT NULL,
-  flagged tinyint(1) DEFAULT 0
+CREATE TABLE `chatbot_conversations` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `session_id` varchar(64) DEFAULT NULL,
+  `conversation_id` varchar(64) NOT NULL,
+  `parent_message_id` int(11) DEFAULT NULL,
+  `message_type` enum(\'user\',\'bot\') NOT NULL,
+  `message` text NOT NULL,
+  `timestamp` timestamp NOT NULL DEFAULT current_timestamp(),
+  `context_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`context_data`)),
+  `response_time` decimal(8,3) DEFAULT NULL,
+  `message_tokens` int(11) DEFAULT NULL,
+  `model_used` varchar(50) DEFAULT \'local\',
+  `suggested_command` text DEFAULT NULL,
+  `command_executed` tinyint(1) DEFAULT 0,
+  `rating` tinyint(1) DEFAULT NULL,
+  `flagged` tinyint(1) DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE chatbot_feedback (
-  id int(11) NOT NULL,
-  conversation_id varchar(64) NOT NULL,
-  message_id int(11) NOT NULL,
-  user_id int(11) NOT NULL,
-  feedback_type enum(\'helpful\',\'not_helpful\',\'incorrect\',\'suggestion\') NOT NULL,
-  feedback_text text DEFAULT NULL,
-  created_at timestamp NOT NULL DEFAULT current_timestamp()
+CREATE TABLE `chatbot_feedback` (
+  `id` int(11) NOT NULL,
+  `conversation_id` varchar(64) NOT NULL,
+  `message_id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `feedback_type` enum(\'helpful\',\'not_helpful\',\'incorrect\',\'suggestion\') NOT NULL,
+  `feedback_text` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE chatbot_knowledge_base (
-  id int(11) NOT NULL,
-  category varchar(100) NOT NULL,
-  question text NOT NULL,
-  answer text NOT NULL,
-  keywords text DEFAULT NULL,
-  command_example text DEFAULT NULL,
-  created_at timestamp NOT NULL DEFAULT current_timestamp(),
-  updated_at timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  is_active tinyint(1) DEFAULT 1
+CREATE TABLE `chatbot_knowledge_base` (
+  `id` int(11) NOT NULL,
+  `category` varchar(100) NOT NULL,
+  `question` text NOT NULL,
+  `answer` text NOT NULL,
+  `keywords` text DEFAULT NULL,
+  `command_example` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `is_active` tinyint(1) DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE command_log (
-  id int(11) NOT NULL,
-  session_id varchar(64) NOT NULL,
-  user_id int(11) NOT NULL,
-  command text NOT NULL,
-  output longtext DEFAULT NULL,
-  execution_time decimal(10,6) DEFAULT NULL,
-  status enum(\'pending\',\'completed\',\'failed\',\'timeout\') DEFAULT \'pending\',
-  timestamp timestamp NOT NULL DEFAULT current_timestamp(),
-  response_timestamp timestamp NULL DEFAULT NULL,
-  error_message text DEFAULT NULL
+CREATE TABLE `command_log` (
+  `id` int(11) NOT NULL,
+  `session_id` varchar(64) NOT NULL,
+  `is_interactive` tinyint(1) DEFAULT 0,
+  `user_id` int(11) NOT NULL,
+  `command` text NOT NULL,
+  `output` longtext DEFAULT NULL,
+  `execution_time` decimal(10,6) DEFAULT NULL,
+  `status` enum(\'pending\',\'completed\',\'failed\',\'timeout\') DEFAULT \'pending\',
+  `timestamp` timestamp NOT NULL DEFAULT current_timestamp(),
+  `response_timestamp` timestamp NULL DEFAULT NULL,
+  `error_message` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE command_patterns (
-  id int(11) NOT NULL,
-  pattern varchar(255) NOT NULL,
-  category varchar(50) NOT NULL,
-  description text NOT NULL,
-  suggested_commands text NOT NULL,
-  response_template text NOT NULL,
-  match_type enum(\'exact\',\'contains\',\'regex\') DEFAULT \'contains\',
-  priority tinyint(1) DEFAULT 5,
-  is_active tinyint(1) DEFAULT 1,
-  created_at timestamp NOT NULL DEFAULT current_timestamp(),
-  updated_at timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+CREATE TABLE `command_patterns` (
+  `id` int(11) NOT NULL,
+  `pattern` varchar(255) NOT NULL,
+  `category` varchar(50) NOT NULL,
+  `description` text NOT NULL,
+  `suggested_commands` text NOT NULL,
+  `response_template` text NOT NULL,
+  `match_type` enum(\'exact\',\'contains\',\'regex\') DEFAULT \'contains\',
+  `priority` tinyint(1) DEFAULT 5,
+  `is_active` tinyint(1) DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE command_suggestions (
-  id int(11) NOT NULL,
-  conversation_id varchar(64) NOT NULL,
-  user_id int(11) NOT NULL,
-  suggested_command text NOT NULL,
-  command_description text DEFAULT NULL,
-  priority tinyint(1) DEFAULT 5,
-  category varchar(50) DEFAULT \'general\',
-  suggestion_context text DEFAULT NULL,
-  executed tinyint(1) DEFAULT 0,
-  executed_at timestamp NULL DEFAULT NULL,
-  created_at timestamp NOT NULL DEFAULT current_timestamp()
+CREATE TABLE `command_suggestions` (
+  `id` int(11) NOT NULL,
+  `conversation_id` varchar(64) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `suggested_command` text NOT NULL,
+  `command_description` text DEFAULT NULL,
+  `priority` tinyint(1) DEFAULT 5,
+  `category` varchar(50) DEFAULT \'general\',
+  `suggestion_context` text DEFAULT NULL,
+  `executed` tinyint(1) DEFAULT 0,
+  `executed_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE hosts_info (
-  id int(11) NOT NULL,
-  host_id varchar(50) NOT NULL,
-  hostname varchar(255) NOT NULL,
-  ip_address varchar(45) NOT NULL,
-  os_info text DEFAULT NULL,
-  first_seen timestamp NOT NULL DEFAULT current_timestamp(),
-  last_seen timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  total_sessions int(11) DEFAULT 0,
-  total_commands int(11) DEFAULT 0,
-  is_active tinyint(1) DEFAULT 1,
-  notes text DEFAULT NULL
+CREATE TABLE `hosts_info` (
+  `id` int(11) NOT NULL,
+  `host_id` varchar(50) NOT NULL,
+  `hostname` varchar(255) NOT NULL,
+  `ip_address` varchar(45) NOT NULL,
+  `os_info` text DEFAULT NULL,
+  `first_seen` timestamp NOT NULL DEFAULT current_timestamp(),
+  `last_seen` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `total_sessions` int(11) DEFAULT 0,
+  `total_commands` int(11) DEFAULT 0,
+  `is_active` tinyint(1) DEFAULT 1,
+  `notes` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE remote_sessions (
-  id int(11) NOT NULL,
-  session_id varchar(64) NOT NULL,
-  user_id int(11) NOT NULL,
-  host_id varchar(50) NOT NULL,
-  hostname varchar(255) NOT NULL,
-  ip_address varchar(45) NOT NULL,
-  os_info text DEFAULT NULL,
-  start_time timestamp NOT NULL DEFAULT current_timestamp(),
-  end_time timestamp NULL DEFAULT NULL,
-  status enum(\'active\',\'disconnected\',\'terminated\') DEFAULT \'active\',
-  last_activity timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  total_commands int(11) DEFAULT 0,
-  session_notes text DEFAULT NULL
+CREATE TABLE `remote_sessions` (
+  `id` int(11) NOT NULL,
+  `session_id` varchar(64) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `host_id` varchar(50) NOT NULL,
+  `hostname` varchar(255) NOT NULL,
+  `ip_address` varchar(45) NOT NULL,
+  `os_info` text DEFAULT NULL,
+  `start_time` timestamp NOT NULL DEFAULT current_timestamp(),
+  `end_time` timestamp NULL DEFAULT NULL,
+  `status` enum(\'active\',\'disconnected\',\'terminated\') DEFAULT \'active\',
+  `last_activity` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `total_commands` int(11) DEFAULT 0,
+  `session_notes` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE session_contexts (
-  id int(11) NOT NULL,
-  session_id varchar(64) NOT NULL,
-  conversation_id varchar(64) NOT NULL,
-  context_type enum(\'command_history\',\'system_info\',\'working_directory\') NOT NULL,
-  context_data longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(context_data)),
-  updated_at timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+CREATE TABLE `session_contexts` (
+  `id` int(11) NOT NULL,
+  `session_id` varchar(64) NOT NULL,
+  `conversation_id` varchar(64) NOT NULL,
+  `context_type` enum(\'command_history\',\'system_info\',\'working_directory\') NOT NULL,
+  `context_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`context_data`)),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE session_feedback (
-  id int(11) NOT NULL,
-  session_id varchar(64) NOT NULL,
-  user_id int(11) NOT NULL,
-  overall_score int(11) DEFAULT NULL,
-  instructor_feedback text DEFAULT NULL,
-  command_feedback longtext DEFAULT NULL,
-  rating tinyint(4) DEFAULT NULL,
-  graded_by int(11) DEFAULT NULL,
-  graded_at timestamp NOT NULL DEFAULT current_timestamp(),
-  created_at timestamp NOT NULL DEFAULT current_timestamp()
+CREATE TABLE `session_feedback` (
+  `id` int(11) NOT NULL,
+  `session_id` varchar(64) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `overall_score` int(11) DEFAULT NULL,
+  `instructor_feedback` text DEFAULT NULL,
+  `command_feedback` longtext DEFAULT NULL,
+  `rating` tinyint(4) DEFAULT NULL,
+  `graded_by` int(11) DEFAULT NULL,
+  `graded_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE system_config (
-  id int(11) NOT NULL,
-  config_key varchar(100) NOT NULL,
-  config_value text DEFAULT NULL,
-  description text DEFAULT NULL,
-  updated_by int(11) DEFAULT NULL,
-  updated_at timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+CREATE TABLE `system_config` (
+  `id` int(11) NOT NULL,
+  `config_key` varchar(100) NOT NULL,
+  `config_value` text DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `updated_by` int(11) DEFAULT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO system_config (id, config_key, config_value, description, updated_by, updated_at) VALUES
+INSERT INTO `system_config` (`id`, `config_key`, `config_value`, `description`, `updated_by`, `updated_at`) VALUES
 (1, \'session_timeout\', \'3600\', \'User session timeout in seconds\', NULL, \'2025-06-01 18:25:18\'),
 (2, \'max_command_history\', \'100000\', \'Maximum commands to keep in history per session\', NULL, \'2025-06-01 18:25:18\'),
 (3, \'chatbot_enabled\', \'1\', \'Enable/disable chatbot functionality\', NULL, \'2025-05-26 22:03:43\'),
 (4, \'audit_retention_days\', \'999999\', \'Days to retain audit logs\', NULL, \'2025-06-01 18:25:18\'),
 (5, \'max_concurrent_sessions\', \'10\', \'Maximum concurrent sessions per user\', NULL, \'2025-05-26 22:03:43\');
 
-CREATE TABLE users (
-  id int(11) NOT NULL,
-  username varchar(50) NOT NULL,
-  password_hash varchar(255) NOT NULL,
-  full_name varchar(100) NOT NULL,
-  email varchar(100) NOT NULL,
-  role enum(\'admin\',\'manager\',\'operator\') DEFAULT \'operator\',
-  is_active tinyint(1) DEFAULT 1,
-  last_login timestamp NULL DEFAULT NULL,
-  created_at timestamp NOT NULL DEFAULT current_timestamp(),
-  updated_at timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  created_by int(11) DEFAULT NULL,
-  manager_id int(11) DEFAULT NULL
+CREATE TABLE `users` (
+  `id` int(11) NOT NULL,
+  `username` varchar(50) NOT NULL,
+  `password_hash` varchar(255) NOT NULL,
+  `full_name` varchar(100) NOT NULL,
+  `email` varchar(100) NOT NULL,
+  `role` enum(\'admin\',\'manager\',\'operator\') DEFAULT \'operator\',
+  `is_active` tinyint(1) DEFAULT 1,
+  `last_login` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `created_by` int(11) DEFAULT NULL,
+  `manager_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE user_instance_tokens (
-  id int(11) NOT NULL,
-  user_id int(11) NOT NULL,
-  instance_token varchar(128) NOT NULL,
-  created_at timestamp NOT NULL DEFAULT current_timestamp(),
-  expires_at timestamp NOT NULL DEFAULT current_timestamp(),
-  is_active tinyint(1) DEFAULT 1
+CREATE TABLE `user_instance_tokens` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `instance_token` varchar(128) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `expires_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `is_active` tinyint(1) DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE user_sessions (
-  id int(11) NOT NULL,
-  user_id int(11) NOT NULL,
-  session_token varchar(128) NOT NULL,
-  ip_address varchar(45) NOT NULL,
-  user_agent text DEFAULT NULL,
-  login_time timestamp NOT NULL DEFAULT current_timestamp(),
-  last_activity timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  logout_time timestamp NULL DEFAULT NULL,
-  is_active tinyint(1) DEFAULT 1
+CREATE TABLE `user_sessions` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `session_token` varchar(128) NOT NULL,
+  `ip_address` varchar(45) NOT NULL,
+  `user_agent` text DEFAULT NULL,
+  `login_time` timestamp NOT NULL DEFAULT current_timestamp(),
+  `last_activity` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `logout_time` timestamp NULL DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-ALTER TABLE audit_log ADD PRIMARY KEY (id), ADD KEY idx_user_audit (user_id,timestamp), ADD KEY idx_action_time (action_type,timestamp);
-ALTER TABLE chatbot_conversations ADD PRIMARY KEY (id), ADD KEY idx_user_conversation (user_id,conversation_id,timestamp), ADD KEY idx_session_chat (session_id,timestamp), ADD KEY idx_flagged_review (flagged,timestamp), ADD KEY idx_parent_message (parent_message_id), ADD KEY idx_conversation_thread (conversation_id,timestamp), ADD KEY idx_conversation_messages (conversation_id,timestamp), ADD KEY idx_user_conversations (user_id,timestamp), ADD KEY idx_message_search (message_type,timestamp);
-ALTER TABLE chatbot_feedback ADD PRIMARY KEY (id), ADD KEY idx_conversation_feedback (conversation_id,created_at), ADD KEY idx_message_feedback (message_id), ADD KEY user_id (user_id);
-ALTER TABLE chatbot_knowledge_base ADD PRIMARY KEY (id), ADD KEY idx_category (category,is_active), ADD KEY idx_keywords (keywords(255));
-ALTER TABLE chatbot_knowledge_base ADD FULLTEXT KEY idx_question_answer (question,answer,keywords);
-ALTER TABLE command_log ADD PRIMARY KEY (id), ADD KEY idx_session_time (session_id,timestamp), ADD KEY idx_user_commands (user_id,timestamp);
-ALTER TABLE command_patterns ADD PRIMARY KEY (id), ADD KEY idx_pattern_category (category,is_active,priority), ADD KEY idx_pattern_active (is_active,priority);
-ALTER TABLE command_suggestions ADD PRIMARY KEY (id), ADD KEY idx_conversation_suggestions (conversation_id,created_at), ADD KEY user_id (user_id), ADD KEY idx_executed_suggestions (executed,created_at), ADD KEY idx_user_suggestions (user_id,executed,created_at), ADD KEY idx_priority_category (category,priority,created_at);
-ALTER TABLE hosts_info ADD PRIMARY KEY (id), ADD UNIQUE KEY host_id (host_id), ADD KEY idx_host_activity (is_active,last_seen);
-ALTER TABLE remote_sessions ADD PRIMARY KEY (id), ADD UNIQUE KEY session_id (session_id), ADD KEY idx_user_host (user_id,host_id), ADD KEY idx_session_status (status,start_time);
-ALTER TABLE session_contexts ADD PRIMARY KEY (id), ADD UNIQUE KEY unique_session_context (session_id,conversation_id,context_type), ADD KEY idx_session_context (session_id,context_type), ADD KEY idx_context_lookup (session_id,context_type,updated_at);
-ALTER TABLE session_feedback ADD PRIMARY KEY (id), ADD KEY user_id (user_id), ADD KEY graded_by (graded_by), ADD KEY session_id (session_id);
-ALTER TABLE system_config ADD PRIMARY KEY (id), ADD UNIQUE KEY config_key (config_key), ADD KEY updated_by (updated_by);
-ALTER TABLE users ADD PRIMARY KEY (id), ADD UNIQUE KEY username (username), ADD KEY created_by (created_by), ADD KEY idx_manager_id (manager_id);
-ALTER TABLE user_instance_tokens ADD PRIMARY KEY (id), ADD UNIQUE KEY instance_token (instance_token), ADD KEY user_id (user_id);
-ALTER TABLE user_sessions ADD PRIMARY KEY (id), ADD UNIQUE KEY session_token (session_token), ADD KEY user_id (user_id);
+ALTER TABLE `audit_log` ADD PRIMARY KEY (`id`), ADD KEY `idx_user_audit` (`user_id`,`timestamp`), ADD KEY `idx_action_time` (`action_type`,`timestamp`);
+ALTER TABLE `chatbot_conversations` ADD PRIMARY KEY (`id`), ADD KEY `idx_user_conversation` (`user_id`,`conversation_id`,`timestamp`), ADD KEY `idx_session_chat` (`session_id`,`timestamp`), ADD KEY `idx_flagged_review` (`flagged`,`timestamp`), ADD KEY `idx_parent_message` (`parent_message_id`), ADD KEY `idx_conversation_thread` (`conversation_id`,`timestamp`), ADD KEY `idx_conversation_messages` (`conversation_id`,`timestamp`), ADD KEY `idx_user_conversations` (`user_id`,`timestamp`), ADD KEY `idx_message_search` (`message_type`,`timestamp`);
+ALTER TABLE `chatbot_feedback` ADD PRIMARY KEY (`id`), ADD KEY `idx_conversation_feedback` (`conversation_id`,`created_at`), ADD KEY `idx_message_feedback` (`message_id`), ADD KEY `user_id` (`user_id`);
+ALTER TABLE `chatbot_knowledge_base` ADD PRIMARY KEY (`id`), ADD KEY `idx_category` (`category`,`is_active`), ADD KEY `idx_keywords` (`keywords`(255));
+ALTER TABLE `chatbot_knowledge_base` ADD FULLTEXT KEY `idx_question_answer` (`question`,`answer`,`keywords`);
+ALTER TABLE `command_log` ADD PRIMARY KEY (`id`), ADD KEY `idx_session_time` (`session_id`,`timestamp`), ADD KEY `idx_user_commands` (`user_id`,`timestamp`);
+ALTER TABLE `command_patterns` ADD PRIMARY KEY (`id`), ADD KEY `idx_pattern_category` (`category`,`is_active`,`priority`), ADD KEY `idx_pattern_active` (`is_active`,`priority`);
+ALTER TABLE `command_suggestions` ADD PRIMARY KEY (`id`), ADD KEY `idx_conversation_suggestions` (`conversation_id`,`created_at`), ADD KEY `user_id` (`user_id`), ADD KEY `idx_executed_suggestions` (`executed`,`created_at`), ADD KEY `idx_user_suggestions` (`user_id`,`executed`,`created_at`), ADD KEY `idx_priority_category` (`category`,`priority`,`created_at`);
+ALTER TABLE `hosts_info` ADD PRIMARY KEY (`id`), ADD UNIQUE KEY `host_id` (`host_id`), ADD KEY `idx_host_activity` (`is_active`,`last_seen`);
+ALTER TABLE `remote_sessions` ADD PRIMARY KEY (`id`), ADD UNIQUE KEY `session_id` (`session_id`), ADD KEY `idx_user_host` (`user_id`,`host_id`), ADD KEY `idx_session_status` (`status`,`start_time`);
+ALTER TABLE `session_contexts` ADD PRIMARY KEY (`id`), ADD UNIQUE KEY `unique_session_context` (`session_id`,`conversation_id`,`context_type`), ADD KEY `idx_session_context` (`session_id`,`context_type`), ADD KEY `idx_context_lookup` (`session_id`,`context_type`,`updated_at`);
+ALTER TABLE `session_feedback` ADD PRIMARY KEY (`id`), ADD KEY `user_id` (`user_id`), ADD KEY `graded_by` (`graded_by`), ADD KEY `session_id` (`session_id`);
+ALTER TABLE `system_config` ADD PRIMARY KEY (`id`), ADD UNIQUE KEY `config_key` (`config_key`), ADD KEY `updated_by` (`updated_by`);
+ALTER TABLE `users` ADD PRIMARY KEY (`id`), ADD UNIQUE KEY `username` (`username`), ADD KEY `created_by` (`created_by`), ADD KEY `idx_manager_id` (`manager_id`);
+ALTER TABLE `user_instance_tokens` ADD PRIMARY KEY (`id`), ADD UNIQUE KEY `instance_token` (`instance_token`), ADD KEY `user_id` (`user_id`);
+ALTER TABLE `user_sessions` ADD PRIMARY KEY (`id`), ADD UNIQUE KEY `session_token` (`session_token`), ADD KEY `user_id` (`user_id`);
 
-ALTER TABLE audit_log MODIFY id int(11) NOT NULL AUTO_INCREMENT;
-ALTER TABLE chatbot_conversations MODIFY id int(11) NOT NULL AUTO_INCREMENT;
-ALTER TABLE chatbot_feedback MODIFY id int(11) NOT NULL AUTO_INCREMENT;
-ALTER TABLE chatbot_knowledge_base MODIFY id int(11) NOT NULL AUTO_INCREMENT;
-ALTER TABLE command_log MODIFY id int(11) NOT NULL AUTO_INCREMENT;
-ALTER TABLE command_patterns MODIFY id int(11) NOT NULL AUTO_INCREMENT;
-ALTER TABLE command_suggestions MODIFY id int(11) NOT NULL AUTO_INCREMENT;
-ALTER TABLE hosts_info MODIFY id int(11) NOT NULL AUTO_INCREMENT;
-ALTER TABLE remote_sessions MODIFY id int(11) NOT NULL AUTO_INCREMENT;
-ALTER TABLE session_contexts MODIFY id int(11) NOT NULL AUTO_INCREMENT;
-ALTER TABLE session_feedback MODIFY id int(11) NOT NULL AUTO_INCREMENT;
-ALTER TABLE system_config MODIFY id int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
-ALTER TABLE users MODIFY id int(11) NOT NULL AUTO_INCREMENT;
-ALTER TABLE user_instance_tokens MODIFY id int(11) NOT NULL AUTO_INCREMENT;
-ALTER TABLE user_sessions MODIFY id int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `audit_log` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `chatbot_conversations` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `chatbot_feedback` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `chatbot_knowledge_base` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `command_log` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `command_patterns` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `command_suggestions` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `hosts_info` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `remote_sessions` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `session_contexts` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `session_feedback` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `system_config` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+ALTER TABLE `users` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `user_instance_tokens` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `user_sessions` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
-ALTER TABLE audit_log ADD CONSTRAINT audit_log_ibfk_1 FOREIGN KEY (user_id) REFERENCES `users` (id) ON DELETE SET NULL;
-ALTER TABLE chatbot_conversations ADD CONSTRAINT chatbot_conversations_ibfk_1 FOREIGN KEY (user_id) REFERENCES `users` (id) ON DELETE CASCADE, ADD CONSTRAINT chatbot_conversations_ibfk_2 FOREIGN KEY (session_id) REFERENCES remote_sessions (session_id) ON DELETE SET NULL;
-ALTER TABLE chatbot_feedback ADD CONSTRAINT chatbot_feedback_ibfk_1 FOREIGN KEY (user_id) REFERENCES `users` (id) ON DELETE CASCADE, ADD CONSTRAINT chatbot_feedback_ibfk_2 FOREIGN KEY (message_id) REFERENCES chatbot_conversations (id) ON DELETE CASCADE;
-ALTER TABLE command_log ADD CONSTRAINT command_log_ibfk_1 FOREIGN KEY (session_id) REFERENCES remote_sessions (session_id) ON DELETE CASCADE, ADD CONSTRAINT command_log_ibfk_2 FOREIGN KEY (user_id) REFERENCES `users` (id) ON DELETE CASCADE;
-ALTER TABLE command_suggestions ADD CONSTRAINT command_suggestions_ibfk_1 FOREIGN KEY (user_id) REFERENCES `users` (id) ON DELETE CASCADE;
-ALTER TABLE remote_sessions ADD CONSTRAINT remote_sessions_ibfk_1 FOREIGN KEY (user_id) REFERENCES `users` (id) ON DELETE CASCADE;
-ALTER TABLE session_contexts ADD CONSTRAINT session_contexts_ibfk_1 FOREIGN KEY (session_id) REFERENCES remote_sessions (session_id) ON DELETE CASCADE;
-ALTER TABLE session_feedback ADD CONSTRAINT session_feedback_ibfk_1 FOREIGN KEY (user_id) REFERENCES `users` (id) ON DELETE CASCADE, ADD CONSTRAINT session_feedback_ibfk_2 FOREIGN KEY (graded_by) REFERENCES `users` (id) ON DELETE SET NULL, ADD CONSTRAINT session_feedback_ibfk_3 FOREIGN KEY (session_id) REFERENCES remote_sessions (session_id) ON DELETE CASCADE;
-ALTER TABLE system_config ADD CONSTRAINT system_config_ibfk_1 FOREIGN KEY (updated_by) REFERENCES `users` (id) ON DELETE SET NULL;
-ALTER TABLE users ADD CONSTRAINT users_ibfk_1 FOREIGN KEY (created_by) REFERENCES `users` (id) ON DELETE SET NULL, ADD CONSTRAINT users_manager_fk FOREIGN KEY (manager_id) REFERENCES `users` (id) ON DELETE SET NULL;
-ALTER TABLE user_instance_tokens ADD CONSTRAINT user_instance_tokens_ibfk_1 FOREIGN KEY (user_id) REFERENCES `users` (id) ON DELETE CASCADE;
-ALTER TABLE user_sessions ADD CONSTRAINT user_sessions_ibfk_1 FOREIGN KEY (user_id) REFERENCES `users` (id) ON DELETE CASCADE;
+ALTER TABLE `audit_log` ADD CONSTRAINT `audit_log_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+ALTER TABLE `chatbot_conversations` ADD CONSTRAINT `chatbot_conversations_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE, ADD CONSTRAINT `chatbot_conversations_ibfk_2` FOREIGN KEY (`session_id`) REFERENCES `remote_sessions` (`session_id`) ON DELETE SET NULL;
+ALTER TABLE `chatbot_feedback` ADD CONSTRAINT `chatbot_feedback_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE, ADD CONSTRAINT `chatbot_feedback_ibfk_2` FOREIGN KEY (`message_id`) REFERENCES `chatbot_conversations` (`id`) ON DELETE CASCADE;
+ALTER TABLE `command_log` ADD CONSTRAINT `command_log_ibfk_1` FOREIGN KEY (`session_id`) REFERENCES `remote_sessions` (`session_id`) ON DELETE CASCADE, ADD CONSTRAINT `command_log_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+ALTER TABLE `command_suggestions` ADD CONSTRAINT `command_suggestions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+ALTER TABLE `remote_sessions` ADD CONSTRAINT `remote_sessions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+ALTER TABLE `session_contexts` ADD CONSTRAINT `session_contexts_ibfk_1` FOREIGN KEY (`session_id`) REFERENCES `remote_sessions` (`session_id`) ON DELETE CASCADE;
+ALTER TABLE `session_feedback` ADD CONSTRAINT `session_feedback_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE, ADD CONSTRAINT `session_feedback_ibfk_2` FOREIGN KEY (`graded_by`) REFERENCES `users` (`id`) ON DELETE SET NULL, ADD CONSTRAINT `session_feedback_ibfk_3` FOREIGN KEY (`session_id`) REFERENCES `remote_sessions` (`session_id`) ON DELETE CASCADE;
+ALTER TABLE `system_config` ADD CONSTRAINT `system_config_ibfk_1` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+ALTER TABLE `users` ADD CONSTRAINT `users_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL, ADD CONSTRAINT `users_manager_fk` FOREIGN KEY (`manager_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+ALTER TABLE `user_instance_tokens` ADD CONSTRAINT `user_instance_tokens_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+ALTER TABLE `user_sessions` ADD CONSTRAINT `user_sessions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 SET FOREIGN_KEY_CHECKS=1;
 COMMIT;';
 }
+
 
 // Function to check for existing installation files and databases
 function checkExistingInstallation() {
@@ -2620,7 +2537,216 @@ function cleanupInstallationAjax() {
     return $result;
 }
 
+function generateConfigFile($config) {
+    return '<?php
 
+/* config.php - Generated by GhostCrew Installer */
+
+// Enhanced configuration with session support
+define(\'DB_HOST\', \'' . addslashes($config['terminal_host']) . '\');
+define(\'DB_USER\', \'' . addslashes($config['terminal_user']) . '\');
+define(\'DB_PASS\', \'' . addslashes($config['terminal_pass']) . '\');
+define(\'DB_NAME\', \'' . addslashes($config['terminal_name']) . '\');
+
+// Application configuration
+define(\'APP_URL\', \'' . addslashes($config['app_url']) . '\');
+define(\'LOCAL_LISTENER_URL\', \'' . addslashes($config['app_url']) . '/local\');
+
+// Create database connection
+$conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+
+// Check connection
+if ($conn->connect_error) {
+    die("Connection failed: " . $conn->connect_error);
+}
+
+// Set timezone
+$conn->query("SET time_zone = \'+00:00\'");
+
+// Enhanced sanitize function
+function sanitize($input) {
+    global $conn;
+    if (is_array($input)) {
+        return array_map(\'sanitize\', $input);
+    }
+    return $conn->real_escape_string(htmlspecialchars(trim($input), ENT_QUOTES, \'UTF-8\'));
+}
+
+// Function to log command execution
+function logCommandExecution($hostId, $sessionId, $command, $output = null, $executionTime = null, $status = "completed") {
+    global $conn;
+    
+    $stmt = $conn->prepare("UPDATE command_history SET output = ?, execution_time = ?, status = ?, response_timestamp = CURRENT_TIMESTAMP WHERE host_id = ? AND session_id = ? AND command = ? AND status = \'pending\' ORDER BY timestamp DESC LIMIT 1");
+    $stmt->bind_param("sdsssss", $output, $executionTime, $status, $hostId, $sessionId, $command);
+    $stmt->execute();
+    $stmt->close();
+}
+
+// Function to update shell session state
+function updateShellSession($sessionId, $hostId, $currentDirectory = null, $environmentVars = null) {
+    global $conn;
+    
+    // Check if session exists
+    $stmt = $conn->prepare("SELECT id FROM shell_sessions WHERE session_id = ?");
+    $stmt->bind_param("s", $sessionId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($result->num_rows > 0) {
+        // Update existing session
+        $updateFields = ["last_activity = CURRENT_TIMESTAMP"];
+        $params = "";
+        $values = [];
+        
+        if ($currentDirectory !== null) {
+            $updateFields[] = "current_directory = ?";
+            $params .= "s";
+            $values[] = $currentDirectory;
+        }
+        
+        if ($environmentVars !== null) {
+            $updateFields[] = "environment_vars = ?";
+            $params .= "s";
+            $values[] = json_encode($environmentVars);
+        }
+        
+        $values[] = $sessionId;
+        $params .= "s";
+        
+        $sql = "UPDATE shell_sessions SET " . implode(", ", $updateFields) . " WHERE session_id = ?";
+        $stmt = $conn->prepare($sql);
+        if (!empty($params)) {
+            $stmt->bind_param($params, ...$values);
+        }
+        $stmt->execute();
+    } else {
+        // Create new session
+        $envJson = $environmentVars ? json_encode($environmentVars) : null;
+        $stmt = $conn->prepare("INSERT INTO shell_sessions (session_id, host_id, current_directory, environment_vars) VALUES (?, ?, ?, ?)");
+        $stmt->bind_param("ssss", $sessionId, $hostId, $currentDirectory, $envJson);
+        $stmt->execute();
+    }
+    
+    $stmt->close();
+}
+
+// Function to get shell session state
+function getShellSession($sessionId) {
+    global $conn;
+    
+    $stmt = $conn->prepare("SELECT * FROM shell_sessions WHERE session_id = ? AND is_active = 1");
+    $stmt->bind_param("s", $sessionId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($result->num_rows > 0) {
+        $session = $result->fetch_assoc();
+        if ($session["environment_vars"]) {
+            $session["environment_vars"] = json_decode($session["environment_vars"], true);
+        }
+        return $session;
+    }
+    
+    return null;
+}
+
+// Function to end shell session
+function endShellSession($sessionId) {
+    global $conn;
+    
+    $stmt = $conn->prepare("UPDATE shell_sessions SET is_active = 0 WHERE session_id = ?");
+    $stmt->bind_param("s", $sessionId);
+    $stmt->execute();
+    $stmt->close();
+}
+
+// Function to get host statistics
+function getHostStatistics($hostId) {
+    global $conn;
+    
+    $stats = [
+        "total_sessions" => 0,
+        "total_commands" => 0,
+        "active_sessions" => 0,
+        "last_activity" => null
+    ];
+    
+    // Get total sessions from admin database if available
+    if (function_exists("getAdminDB")) {
+        try {
+            $adminDb = getAdminDB();
+            $stmt = $adminDb->prepare("SELECT COUNT(*) as count FROM remote_sessions WHERE host_id = ?");
+            $stmt->bind_param("s", $hostId);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($result->num_rows > 0) {
+                $stats["total_sessions"] = $result->fetch_assoc()["count"];
+            }
+            
+            $stmt = $adminDb->prepare("SELECT COUNT(*) as count FROM remote_sessions WHERE host_id = ? AND status = \'active\'");
+            $stmt->bind_param("s", $hostId);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($result->num_rows > 0) {
+                $stats["active_sessions"] = $result->fetch_assoc()["count"];
+            }
+        } catch (Exception $e) {
+            // Admin DB not available, use local data
+        }
+    }
+    
+    // Get command count
+    $stmt = $conn->prepare("SELECT COUNT(*) as count FROM command_history WHERE host_id = ?");
+    $stmt->bind_param("s", $hostId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    if ($result->num_rows > 0) {
+        $stats["total_commands"] = $result->fetch_assoc()["count"];
+    }
+    
+    // Get last activity
+    $stmt = $conn->prepare("SELECT MAX(timestamp) as last_activity FROM command_history WHERE host_id = ?");
+    $stmt->bind_param("s", $hostId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    if ($result->num_rows > 0) {
+        $stats["last_activity"] = $result->fetch_assoc()["last_activity"];
+    }
+    
+    return $stats;
+}
+
+// Function to clean up old data (should be called periodically)
+function cleanupOldData($daysToKeep = 30) {
+    global $conn;
+    
+    // Clean up old command history
+    $stmt = $conn->prepare("DELETE FROM command_history WHERE timestamp < DATE_SUB(NOW(), INTERVAL ? DAY)");
+    $stmt->bind_param("i", $daysToKeep);
+    $stmt->execute();
+    $deleted = $stmt->affected_rows;
+    $stmt->close();
+    
+    // Clean up inactive shell sessions older than 1 day
+    $stmt = $conn->prepare("DELETE FROM shell_sessions WHERE is_active = 0 AND last_activity < DATE_SUB(NOW(), INTERVAL 1 DAY)");
+    $stmt->execute();
+    $deletedSessions = $stmt->affected_rows;
+    $stmt->close();
+    
+    return [
+        "commands_deleted" => $deleted,
+        "sessions_deleted" => $deletedSessions
+    ];
+}
+
+// Add error reporting for development (remove in production)
+if (defined(\'DEBUG\') && DEBUG) {
+    mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+}
+
+
+?>';
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -2917,7 +3043,6 @@ function cleanupInstallationAjax() {
             font-size: 0.875rem;
         }
         
-        /* NEW: Hide installation content when cleanup warning is shown */
         .installation-content-hidden {
             display: none !important;
         }
@@ -2998,6 +3123,7 @@ function cleanupInstallationAjax() {
                     <div id="cleanupChecks" class="status-checks"></div>
                 </div>
             <?php endif; ?>
+
             <!-- Step Indicator -->
             <div class="step-indicator">
                 <div class="step <?php echo $step >= 1 ? 'active' : ''; ?> <?php echo $step > 1 ? 'completed' : ''; ?>">
@@ -3041,7 +3167,7 @@ function cleanupInstallationAjax() {
                 </div>
             <?php endif; ?>
 
-<?php if ($installComplete && $hasAdmin): ?>
+            <?php if ($installComplete && $hasAdmin): ?>
                 <!-- Installation Already Complete -->
                 <div class="alert alert-success">
                     <h5><i class="fas fa-check-circle"></i> Installation Complete!</h5>
@@ -3098,207 +3224,7 @@ function cleanupInstallationAjax() {
                         </small>
                     </div>
                 </div>
-                
-                <!-- Reinstall Confirmation Modal -->
-                <div class="alert alert-danger mt-4" id="reinstallWarning" style="display: none;">
-                    <h5><i class="fas fa-exclamation-triangle"></i> Reinstall GhostCrew</h5>
-                    <p>This will remove the current installation and restart the setup process. The following will be detected and removed:</p>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <strong>Configuration Files:</strong>
-                            <ul class="mt-2">
-                                <?php if (file_exists('config.php')): ?>
-                                    <li><code>config.php</code> <i class="fas fa-check text-success"></i></li>
-                                <?php endif; ?>
-                                <?php if (file_exists('auth_config.php')): ?>
-                                    <li><code>auth_config.php</code> <i class="fas fa-check text-success"></i></li>
-                                <?php endif; ?>
-                            </ul>
-                        </div>
-                        <div class="col-md-6">
-                            <strong>Databases:</strong>
-                            <ul class="mt-2">
-                                <?php
-                                try {
-                                    include_once 'config.php';
-                                    if (defined('DB_NAME')) {
-                                        echo '<li><code>' . htmlspecialchars(DB_NAME) . '</code> <i class="fas fa-check text-success"></i></li>';
-                                    }
-                                } catch (Exception $e) {
-                                    echo '<li>Terminal database <i class="fas fa-question text-warning"></i></li>';
-                                }
-                                
-                                try {
-                                    include_once 'auth_config.php';
-                                    if (defined('ADMIN_DB_NAME')) {
-                                        echo '<li><code>' . htmlspecialchars(ADMIN_DB_NAME) . '</code> <i class="fas fa-check text-success"></i></li>';
-                                    }
-                                } catch (Exception $e) {
-                                    echo '<li>Admin database <i class="fas fa-question text-warning"></i></li>';
-                                }
-                                ?>
-                            </ul>
-                        </div>
-                    </div>
-                    
-                    <div class="alert alert-warning mt-3">
-                        <strong><i class="fas fa-exclamation-circle"></i> Warning:</strong> 
-                        All user accounts, command history, session data, and configuration will be permanently lost. This action cannot be undone.
-                    </div>
-                    
-                    <div class="text-center mt-3">
-                        <button type="button" id="confirmReinstallBtn" class="btn btn-danger">
-                            <i class="fas fa-trash-alt"></i> Yes, Reinstall GhostCrew
-                        </button>
-                        <button type="button" id="cancelReinstallBtn" class="btn btn-secondary">
-                            <i class="fas fa-times"></i> Cancel
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- Reinstall Status Section -->
-                <div class="realtime-section" id="reinstallResults" style="display: none;">
-                    <div class="realtime-header">
-                        <h5><i class="fas fa-redo"></i> Reinstall Process</h5>
-                    </div>
-                    <div id="reinstallChecks" class="status-checks"></div>
-                </div>
-                
-                <script>
-                // Handle reinstall button click
-                document.getElementById('reinstallBtn')?.addEventListener('click', function() {
-                    const warningDiv = document.getElementById('reinstallWarning');
-                    warningDiv.style.display = 'block';
-                    warningDiv.scrollIntoView({ behavior: 'smooth' });
-                });
-                
-                // Handle cancel reinstall
-                document.getElementById('cancelReinstallBtn')?.addEventListener('click', function() {
-                    const warningDiv = document.getElementById('reinstallWarning');
-                    warningDiv.style.display = 'none';
-                });
-                
-                // Handle confirm reinstall
-                document.getElementById('confirmReinstallBtn')?.addEventListener('click', function() {
-                    if (confirm('Are you absolutely sure you want to reinstall GhostCrew? This will delete ALL existing data and cannot be undone.')) {
-                        performReinstall();
-                    }
-                });
-                
-                function performReinstall() {
-                    const warningDiv = document.getElementById('reinstallWarning');
-                    const resultsDiv = document.getElementById('reinstallResults');
-                    const checksDiv = document.getElementById('reinstallChecks');
-                    
-                    // Hide warning, show results
-                    warningDiv.style.display = 'none';
-                    resultsDiv.style.display = 'block';
-                    checksDiv.innerHTML = '';
-                    
-                    // Disable all buttons during reinstall
-                    document.getElementById('reinstallBtn').disabled = true;
-                    document.querySelectorAll('.btn').forEach(btn => {
-                        if (btn.id !== 'cancelReinstallBtn') {
-                            btn.disabled = true;
-                        }
-                    });
-                    
-                    // Add initial status items
-                    checksDiv.innerHTML = 
-                        createStatusItem('reinstall_start', 'Starting reinstall process...') +
-                        createStatusItem('reinstall_cleanup', 'Removing existing installation...');
-                    
-                    fetch('install.php?action=cleanup_installation', {
-                        method: 'POST',
-                        headers: {
-                            'Accept': 'application/json',
-                            'Content-Type': 'application/x-www-form-urlencoded'
-                        }
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log('Reinstall cleanup response:', data);
-                        
-                        if (data && data.checks && typeof data.checks === 'object') {
-                            Object.keys(data.checks).forEach(checkId => {
-                                const check = data.checks[checkId];
-                                if (check && typeof check === 'object') {
-                                    updateStatusItem(checkId, check.message || 'No message', check.status || 'error');
-                                }
-                            });
-                        }
-                        
-                        if (data && data.success === true) {
-                            // Add success message and reload
-                            updateStatusItem('reinstall_cleanup', 'Installation removed successfully', 'success');
-                            
-                            const successDiv = document.createElement('div');
-                            successDiv.className = 'alert alert-success mt-3';
-                            successDiv.innerHTML = `
-                                <h6><i class="fas fa-check-circle"></i> Reinstall Preparation Complete!</h6>
-                                <p>All existing components have been removed. Redirecting to Step 1...</p>
-                                <div class="progress mt-2">
-                                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
-                                </div>
-                            `;
-                            checksDiv.appendChild(successDiv);
-                            
-                            // Clear session and redirect after 3 seconds
-                            setTimeout(() => {
-                                window.location.href = 'install.php?step=1';
-                            }, 3000);
-                        } else {
-                            // Re-enable buttons on failure
-                            document.getElementById('reinstallBtn').disabled = false;
-                            document.querySelectorAll('.btn').forEach(btn => {
-                                btn.disabled = false;
-                            });
-                            
-                            updateStatusItem('reinstall_cleanup', 'Reinstall failed - some components could not be removed', 'error');
-                            
-                            const errorDiv = document.createElement('div');
-                            errorDiv.className = 'alert alert-danger mt-3';
-                            errorDiv.innerHTML = `
-                                <h6><i class="fas fa-times-circle"></i> Reinstall Failed</h6>
-                                <p>Some components could not be removed automatically. You may need to:</p>
-                                <ul>
-                                    <li>Manually delete config.php and auth_config.php files</li>
-                                    <li>Drop the databases using MySQL admin tools</li>
-                                    <li>Then refresh this page to start over</li>
-                                </ul>
-                                <button class="btn btn-warning mt-2" onclick="location.reload()">
-                                    <i class="fas fa-refresh"></i> Refresh Page
-                                </button>
-                            `;
-                            checksDiv.appendChild(errorDiv);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Reinstall error:', error);
-                        
-                        // Re-enable buttons on error
-                        document.getElementById('reinstallBtn').disabled = false;
-                        document.querySelectorAll('.btn').forEach(btn => {
-                            btn.disabled = false;
-                        });
-                        
-                        updateStatusItem('reinstall_cleanup', 'Reinstall failed: ' + error.message, 'error');
-                        
-                        const errorDiv = document.createElement('div');
-                        errorDiv.className = 'alert alert-danger mt-3';
-                        errorDiv.innerHTML = `
-                            <h6><i class="fas fa-times-circle"></i> Reinstall Error</h6>
-                            <p>An error occurred during reinstall: ${error.message}</p>
-                            <button class="btn btn-warning mt-2" onclick="location.reload()">
-                                <i class="fas fa-refresh"></i> Try Again
-                            </button>
-                        `;
-                        checksDiv.appendChild(errorDiv);
-                    });
-                }
-                </script>
-                
+
             <?php elseif ($step === 1): ?>
                 <!-- Step 1: Database Configuration & Config File Creation -->
                 <h3><i class="fas fa-database"></i> Database Configuration & Config Files</h3>
@@ -3608,7 +3534,6 @@ function cleanupInstallationAjax() {
             const installationContent = document.querySelectorAll('.step-indicator ~ *:not(#existingInstallationWarning):not(#cleanupResults)');
             
             if (cleanupWarning) {
-                // Hide installation content when cleanup warning is shown
                 installationContent.forEach(element => {
                     if (!element.id || (element.id !== 'existingInstallationWarning' && element.id !== 'cleanupResults')) {
                         element.classList.add('installation-content-hidden');
@@ -3621,128 +3546,6 @@ function cleanupInstallationAjax() {
             }
         });
         
-        // Handle cleanup button click
-        document.getElementById('cleanupBtn')?.addEventListener('click', function() {
-            if (confirm('Are you sure you want to remove the existing installation? This will delete all configuration files and databases. This action cannot be undone.')) {
-                const resultsDiv = document.getElementById('cleanupResults');
-                const checksDiv = document.getElementById('cleanupChecks');
-                const warningDiv = document.getElementById('existingInstallationWarning');
-                
-                resultsDiv.style.display = 'block';
-                checksDiv.innerHTML = '';
-                
-                // Disable buttons during cleanup
-                document.getElementById('cleanupBtn').disabled = true;
-                document.getElementById('proceedAnywayBtn').disabled = true;
-                
-                // Add initial status items
-                checksDiv.innerHTML = 
-                    createStatusItem('cleanup_start', 'Starting cleanup process...') +
-                    createStatusItem('cleanup_complete', 'Removing existing installation components...');
-                
-                fetch('install.php?action=cleanup_installation', {
-                    method: 'POST',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Cleanup response:', data);
-                    
-                    if (data && data.checks && typeof data.checks === 'object') {
-                        Object.keys(data.checks).forEach(checkId => {
-                            const check = data.checks[checkId];
-                            if (check && typeof check === 'object') {
-                                updateStatusItem(checkId, check.message || 'No message', check.status || 'error');
-                            }
-                        });
-                    }
-                    
-                    if (data && data.success === true) {
-                        // Add success message and reload option
-                        const successDiv = document.createElement('div');
-                        successDiv.className = 'alert alert-success mt-3';
-                        successDiv.innerHTML = `
-                            <h6><i class="fas fa-check-circle"></i> Cleanup Completed Successfully!</h6>
-                            <p>All existing installation components have been removed.</p>
-                            <button class="btn btn-success mt-2" onclick="location.reload()">
-                                <i class="fas fa-refresh"></i> Restart Installation
-                            </button>
-                        `;
-                        checksDiv.appendChild(successDiv);
-                        
-                        // Auto-reload after 3 seconds
-                        setTimeout(() => {
-                            location.reload();
-                        }, 3000);
-                    } else {
-                        // Re-enable buttons on failure
-                        document.getElementById('cleanupBtn').disabled = false;
-                        document.getElementById('proceedAnywayBtn').disabled = false;
-                        
-                        // Add error message
-                        const errorDiv = document.createElement('div');
-                        errorDiv.className = 'alert alert-danger mt-3';
-                        errorDiv.innerHTML = `
-                            <h6><i class="fas fa-times-circle"></i> Cleanup Failed</h6>
-                            <p>Some components could not be removed. You may need to remove them manually.</p>
-                            <button class="btn btn-warning mt-2" onclick="showInstallationContent()">
-                                <i class="fas fa-forward"></i> Proceed with Installation
-                            </button>
-                        `;
-                        checksDiv.appendChild(errorDiv);
-                    }
-                })
-                .catch(error => {
-                    console.error('Cleanup error:', error);
-                    
-                    // Re-enable buttons on error
-                    document.getElementById('cleanupBtn').disabled = false;
-                    document.getElementById('proceedAnywayBtn').disabled = false;
-                    
-                    const errorDiv = document.createElement('div');
-                    errorDiv.className = 'alert alert-danger mt-3';
-                    errorDiv.innerHTML = `
-                        <h6><i class="fas fa-times-circle"></i> Cleanup Error</h6>
-                        <p>An error occurred during cleanup: ${error.message}</p>
-                        <button class="btn btn-warning mt-2" onclick="showInstallationContent()">
-                            <i class="fas fa-forward"></i> Proceed with Installation
-                        </button>
-                    `;
-                    checksDiv.appendChild(errorDiv);
-                });
-            }
-        });
-        
-        // Handle proceed anyway button click
-        document.getElementById('proceedAnywayBtn')?.addEventListener('click', function() {
-            if (confirm('Are you sure you want to proceed? This may cause conflicts with existing installation components.')) {
-                showInstallationContent();
-            }
-        });
-        
-        // Function to show installation content
-        function showInstallationContent() {
-            const warningDiv = document.getElementById('existingInstallationWarning');
-            const cleanupDiv = document.getElementById('cleanupResults');
-            const stepIndicator = document.querySelector('.step-indicator');
-            const installationContent = document.querySelectorAll('.installation-content-hidden');
-            
-            // Hide warning and cleanup sections
-            if (warningDiv) warningDiv.style.display = 'none';
-            if (cleanupDiv) cleanupDiv.style.display = 'none';
-            
-            // Show installation content
-            installationContent.forEach(element => {
-                element.classList.remove('installation-content-hidden');
-            });
-            
-            if (stepIndicator) {
-                stepIndicator.classList.remove('installation-content-hidden');
-            }
-        }
         // Enhanced function to safely create status items
         function createStatusItem(id, message, status = 'checking') {
             const safeId = id || 'unknown_' + Date.now();
@@ -3797,6 +3600,117 @@ function cleanupInstallationAjax() {
             `;
         }
         
+        // Function to show installation content
+        function showInstallationContent() {
+            const warningDiv = document.getElementById('existingInstallationWarning');
+            const cleanupDiv = document.getElementById('cleanupResults');
+            const stepIndicator = document.querySelector('.step-indicator');
+            const installationContent = document.querySelectorAll('.installation-content-hidden');
+            
+            if (warningDiv) warningDiv.style.display = 'none';
+            if (cleanupDiv) cleanupDiv.style.display = 'none';
+            
+            installationContent.forEach(element => {
+                element.classList.remove('installation-content-hidden');
+            });
+            
+            if (stepIndicator) {
+                stepIndicator.classList.remove('installation-content-hidden');
+            }
+        }
+        
+        // Handle cleanup button click
+        document.getElementById('cleanupBtn')?.addEventListener('click', function() {
+            if (confirm('Are you sure you want to remove the existing installation? This will delete all configuration files and databases. This action cannot be undone.')) {
+                const resultsDiv = document.getElementById('cleanupResults');
+                const checksDiv = document.getElementById('cleanupChecks');
+                
+                resultsDiv.style.display = 'block';
+                checksDiv.innerHTML = '';
+                
+                document.getElementById('cleanupBtn').disabled = true;
+                document.getElementById('proceedAnywayBtn').disabled = true;
+                
+                checksDiv.innerHTML = 
+                    createStatusItem('cleanup_start', 'Starting cleanup process...') +
+                    createStatusItem('cleanup_complete', 'Removing existing installation components...');
+                
+                fetch('install.php?action=cleanup_installation', {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.checks && typeof data.checks === 'object') {
+                        Object.keys(data.checks).forEach(checkId => {
+                            const check = data.checks[checkId];
+                            if (check && typeof check === 'object') {
+                                updateStatusItem(checkId, check.message || 'No message', check.status || 'error');
+                            }
+                        });
+                    }
+                    
+                    if (data && data.success === true) {
+                        const successDiv = document.createElement('div');
+                        successDiv.className = 'alert alert-success mt-3';
+                        successDiv.innerHTML = `
+                            <h6><i class="fas fa-check-circle"></i> Cleanup Completed Successfully!</h6>
+                            <p>All existing installation components have been removed.</p>
+                            <button class="btn btn-success mt-2" onclick="location.reload()">
+                                <i class="fas fa-refresh"></i> Restart Installation
+                            </button>
+                        `;
+                        checksDiv.appendChild(successDiv);
+                        
+                        setTimeout(() => {
+                            location.reload();
+                        }, 3000);
+                    } else {
+                        document.getElementById('cleanupBtn').disabled = false;
+                        document.getElementById('proceedAnywayBtn').disabled = false;
+                        
+                        const errorDiv = document.createElement('div');
+                        errorDiv.className = 'alert alert-danger mt-3';
+                        errorDiv.innerHTML = `
+                            <h6><i class="fas fa-times-circle"></i> Cleanup Failed</h6>
+                            <p>Some components could not be removed. You may need to remove them manually.</p>
+                            <button class="btn btn-warning mt-2" onclick="showInstallationContent()">
+                                <i class="fas fa-forward"></i> Proceed with Installation
+                            </button>
+                        `;
+                        checksDiv.appendChild(errorDiv);
+                    }
+                })
+                .catch(error => {
+                    console.error('Cleanup error:', error);
+                    
+                    document.getElementById('cleanupBtn').disabled = false;
+                    document.getElementById('proceedAnywayBtn').disabled = false;
+                    
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'alert alert-danger mt-3';
+                    errorDiv.innerHTML = `
+                        <h6><i class="fas fa-times-circle"></i> Cleanup Error</h6>
+                        <p>An error occurred during cleanup: ${error.message}</p>
+                        <button class="btn btn-warning mt-2" onclick="showInstallationContent()">
+                            <i class="fas fa-forward"></i> Proceed with Installation
+                        </button>
+                    `;
+                    checksDiv.appendChild(errorDiv);
+                });
+            }
+        });
+        
+        // Handle proceed anyway button click
+        document.getElementById('proceedAnywayBtn')?.addEventListener('click', function() {
+            if (confirm('Are you sure you want to proceed? This may cause conflicts with existing installation components.')) {
+                showInstallationContent();
+            }
+        });
+        
         // Step 1: Test database connections
         document.getElementById('testConnectionsBtn')?.addEventListener('click', function() {
             const form = document.getElementById('dbConfigForm');
@@ -3809,7 +3723,6 @@ function cleanupInstallationAjax() {
             checksDiv.innerHTML = '';
             createConfigBtn.disabled = true;
             
-            // Add initial status items
             checksDiv.innerHTML = 
                 createStatusItem('terminal_connection', 'Testing terminal database connection...') +
                 createStatusItem('terminal_permissions', 'Checking terminal database permissions...') +
@@ -3822,8 +3735,6 @@ function cleanupInstallationAjax() {
             })
             .then(response => response.json())
             .then(data => {
-                console.log('DB validation response:', data);
-                
                 if (data && data.checks && typeof data.checks === 'object') {
                     Object.keys(data.checks).forEach(checkId => {
                         const check = data.checks[checkId];
@@ -3834,20 +3745,17 @@ function cleanupInstallationAjax() {
                 }
                 
                 if (data && data.success === true) {
-                    // Save configuration to session via AJAX call
                     fetch('install.php?action=save_db_config', {
                         method: 'POST',
                         body: formData
                     })
                     .then(response => response.json())
                     .then(saveData => {
-                        console.log('Config save response:', saveData);
                         if (saveData && saveData.success === true) {
                             createConfigBtn.disabled = false;
                             createConfigBtn.classList.add('btn-warning');
                             createConfigBtn.classList.remove('btn-secondary');
                             
-                            // Add success message
                             const successDiv = document.createElement('div');
                             successDiv.className = 'alert alert-success mt-3';
                             successDiv.innerHTML = `
@@ -3883,7 +3791,6 @@ function cleanupInstallationAjax() {
             checksDiv.innerHTML = '';
             continueBtn.disabled = true;
             
-            // Add initial status items - INCLUDING THE NEW FILE
             checksDiv.innerHTML = 
                 createStatusItem('config_file', 'Creating config.php...') +
                 createStatusItem('auth_config_file', 'Creating auth_config.php...') +
@@ -3895,8 +3802,6 @@ function cleanupInstallationAjax() {
             })
             .then(response => response.json())
             .then(data => {
-                console.log('Config creation response:', data);
-                
                 if (data && data.checks && typeof data.checks === 'object') {
                     Object.keys(data.checks).forEach(checkId => {
                         const check = data.checks[checkId];
@@ -3911,7 +3816,6 @@ function cleanupInstallationAjax() {
                     continueBtn.classList.add('btn-success');
                     continueBtn.classList.remove('btn-secondary');
                     
-                    // Add success message
                     const successDiv = document.createElement('div');
                     successDiv.className = 'alert alert-success mt-3';
                     successDiv.innerHTML = `
@@ -3942,7 +3846,6 @@ function cleanupInstallationAjax() {
             
             disableContinueToStep3();
 
-            // Add initial status items
             checksDiv.innerHTML = 
                 createStatusItem('config_check', 'Verifying configuration files...') +
                 createStatusItem('terminal_database', 'Creating terminal database...') +
@@ -3957,8 +3860,6 @@ function cleanupInstallationAjax() {
             })
             .then(response => response.json())
             .then(data => {
-                console.log('Database creation response:', data);
-                
                 if (data && data.checks && typeof data.checks === 'object') {
                     Object.keys(data.checks).forEach(checkId => {
                         const check = data.checks[checkId];
@@ -3971,7 +3872,6 @@ function cleanupInstallationAjax() {
                 if (data && data.success === true) {
                     enableContinueToStep3();
                     
-                    // Add success message
                     const successDiv = document.createElement('div');
                     successDiv.className = 'alert alert-success mt-3';
                     successDiv.innerHTML = `
@@ -3991,47 +3891,39 @@ function cleanupInstallationAjax() {
             });
         });
 
-        // Simple function to enable the continue link
+        // Enable/disable continue functions
         function enableContinueToStep3() {
             const continueLink = document.getElementById('continueStep3Link');
             if (continueLink) {
                 continueLink.style.pointerEvents = 'auto';
                 continueLink.style.opacity = '1';
                 continueLink.classList.remove('disabled');
-                continueLink.title = 'Click to continue to Step 3';
                 continueLink.classList.add('btn-success');
                 continueLink.classList.remove('btn-secondary');
-                console.log('Continue to Step 3 link enabled');
                 return true;
             }
             return false;
         }
 
-        // Simple function to disable the continue link
         function disableContinueToStep3() {
             const continueLink = document.getElementById('continueStep3Link');
             if (continueLink) {
                 continueLink.style.pointerEvents = 'none';
                 continueLink.style.opacity = '0.6';
                 continueLink.classList.add('disabled');
-                continueLink.title = 'Complete database creation first';
-                console.log('Continue to Step 3 link disabled');
                 return true;
             }
             return false;
         }
 
-        // Similar functions for Step 4
         function enableContinueToStep4() {
             const continueLink = document.getElementById('continueStep4Link');
             if (continueLink) {
                 continueLink.style.pointerEvents = 'auto';
                 continueLink.style.opacity = '1';
                 continueLink.classList.remove('disabled');
-                continueLink.title = 'Click to continue to Step 4';
                 continueLink.classList.add('btn-success');
                 continueLink.classList.remove('btn-secondary');
-                console.log('Continue to Step 4 link enabled');
                 return true;
             }
             return false;
@@ -4043,8 +3935,6 @@ function cleanupInstallationAjax() {
                 continueLink.style.pointerEvents = 'none';
                 continueLink.style.opacity = '0.6';
                 continueLink.classList.add('disabled');
-                continueLink.title = 'Complete table validation first';
-                console.log('Continue to Step 4 link disabled');
                 return true;
             }
             return false;
@@ -4062,7 +3952,6 @@ function cleanupInstallationAjax() {
             resultsDiv.style.display = 'block';
             checksDiv.innerHTML = '<div class="status-item"><div class="status-icon status-checking"><div class="spinner"></div></div><div class="status-message">Validating all tables and columns...</div></div>';
             
-            // Disable continue link during validation
             disableContinueToStep4();
             
             fetch('install.php?action=validate_tables', {
@@ -4074,8 +3963,6 @@ function cleanupInstallationAjax() {
             })
             .then(response => response.json())
             .then(data => {
-                console.log('Table validation response:', data);
-                
                 checksDiv.innerHTML = '';
                 let hasErrors = false;
                 
@@ -4103,11 +3990,9 @@ function cleanupInstallationAjax() {
                     });
                 }
                 
-                // Enable continue link if validation successful
                 if (data.success) {
                     enableContinueToStep4();
                     
-                    // Add a success message with direct link
                     const successDiv = document.createElement('div');
                     successDiv.className = 'alert alert-success mt-3';
                     successDiv.innerHTML = `
@@ -4118,10 +4003,6 @@ function cleanupInstallationAjax() {
                         </a>
                     `;
                     checksDiv.appendChild(successDiv);
-                    
-                    console.log('Validation successful - continue link enabled');
-                } else {
-                    console.log('Validation failed - continue link remains disabled');
                 }
                 
                 if (recheckBtn) {
@@ -4151,7 +4032,6 @@ function cleanupInstallationAjax() {
             .then(data => {
                 if (data.success) {
                     updateStatusItem(statusId, data.message, 'success');
-                    // Add recheck button
                     document.getElementById(statusId + '_actions').innerHTML = 
                         `<button class="btn btn-sm btn-primary" onclick="validateTables()">
                             <i class="fas fa-redo"></i> Recheck
@@ -4206,7 +4086,6 @@ function cleanupInstallationAjax() {
             resultsDiv.style.display = 'block';
             checksDiv.innerHTML = '';
             
-            // Add initial status items
             checksDiv.innerHTML = 
                 createStatusItem('user_validation', 'Validating user data...') +
                 createStatusItem('database_connection', 'Connecting to admin database...') +
@@ -4224,9 +4103,6 @@ function cleanupInstallationAjax() {
             })
             .then(response => response.json())
             .then(data => {
-                console.log('Admin user creation response:', data);
-                
-                // Process the response with proper null checking
                 if (data && data.checks && typeof data.checks === 'object') {
                     Object.keys(data.checks).forEach(checkId => {
                         const check = data.checks[checkId];
@@ -4237,7 +4113,6 @@ function cleanupInstallationAjax() {
                 }
                 
                 if (data && data.success === true) {
-                    // Add success message
                     const successDiv = document.createElement('div');
                     successDiv.className = 'alert alert-success mt-3';
                     successDiv.innerHTML = `
@@ -4249,7 +4124,6 @@ function cleanupInstallationAjax() {
                     `;
                     checksDiv.appendChild(successDiv);
                     
-                    // Auto-redirect after 3 seconds
                     setTimeout(() => {
                         window.location.href = 'install.php?step=5';
                     }, 3000);
@@ -4258,7 +4132,6 @@ function cleanupInstallationAjax() {
             .catch(error => {
                 console.error('Admin user creation error:', error);
                 
-                // Clear status items and show error
                 checksDiv.innerHTML = '';
                 
                 const errorDiv = document.createElement('div');
@@ -4292,30 +4165,6 @@ function cleanupInstallationAjax() {
                 this.style.borderColor = '#30363d';
             }
         });
-
-        // Real-time username validation
-        document.querySelector('[name="username"]')?.addEventListener('input', function() {
-            const usernameRegex = /^[a-zA-Z0-9_]{3,50}$/;
-            if (this.value.length > 0 && !usernameRegex.test(this.value)) {
-                this.style.borderColor = '#f85149';
-                this.title = 'Username must be 3-50 characters and contain only letters, numbers, and underscores';
-            } else {
-                this.style.borderColor = '#30363d';
-                this.title = '';
-            }
-        });
-
-        // Real-time email validation
-        document.querySelector('[name="email"]')?.addEventListener('input', function() {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (this.value.length > 0 && !emailRegex.test(this.value)) {
-                this.style.borderColor = '#f85149';
-                this.title = 'Please enter a valid email address';
-            } else {
-                this.style.borderColor = '#30363d';
-                this.title = '';
-            }
-        });
         
         // Delete installer function
         function deleteInstaller() {
@@ -4323,7 +4172,8 @@ function cleanupInstallationAjax() {
                 fetch('install.php?action=delete_installer', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/x-www-form-urlencoded'
                     }
                 })
                 .then(response => response.json())
@@ -4336,95 +4186,11 @@ function cleanupInstallationAjax() {
                     }
                 })
                 .catch(error => {
+                    console.error('Delete installer error:', error);
                     alert('Error deleting installer: ' + error.message);
                 });
             }
         }
-        
-        // Auto-advance on successful database configuration
-        document.getElementById('dbConfigForm')?.addEventListener('submit', function(e) {
-            const continueBtn = document.getElementById('continueBtn');
-            const createConfigBtn = document.getElementById('createConfigBtn');
-            
-            // Check if config files have been created
-            if (continueBtn.disabled) {
-                e.preventDefault();
-                
-                // Check if at least connections have been tested
-                if (createConfigBtn.disabled) {
-                    alert('Please test the database connections first.');
-                } else {
-                    alert('Please create the configuration files before continuing to Step 2.');
-                }
-                return false;
-            }
-            
-            // Allow form submission if everything is ready
-            return true;
-        });
-        
-        // Show real-time feedback on form changes
-        document.querySelectorAll('input[type="password"]').forEach(input => {
-            input.addEventListener('input', function() {
-                if (this.value.length > 0 && this.value.length < 8) {
-                    this.style.borderColor = 'var(--accent-red)';
-                } else {
-                    this.style.borderColor = 'var(--border-color)';
-                }
-            });
-        });
-        
-        document.querySelectorAll('input[type="email"]').forEach(input => {
-            input.addEventListener('input', function() {
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (this.value.length > 0 && !emailRegex.test(this.value)) {
-                    this.style.borderColor = 'var(--accent-red)';
-                } else {
-                    this.style.borderColor = 'var(--border-color)';
-                }
-            });
-        });
-        
-        // Enhanced visual feedback
-        document.querySelectorAll('.btn').forEach(button => {
-            button.addEventListener('click', function() {
-                if (!this.disabled) {
-                    this.style.transform = 'scale(0.98)';
-                    setTimeout(() => {
-                        this.style.transform = 'scale(1)';
-                    }, 100);
-                }
-            });
-        });
-        
-        // Add keyboard shortcuts
-        document.addEventListener('keydown', function(e) {
-            // Ctrl+Enter to trigger main action button
-            if (e.ctrlKey && e.key === 'Enter') {
-                const primaryBtn = document.querySelector('.btn-primary:not([disabled])');
-                if (primaryBtn) {
-                    primaryBtn.click();
-                }
-            }
-        });
-        
-        // Initialize tooltips and help text
-        document.addEventListener('DOMContentLoaded', function() {
-            // Add helpful tooltips
-            const tooltips = [
-                { selector: 'input[name="terminal_host"]', title: 'Usually "localhost" for local MySQL installation' },
-                { selector: 'input[name="admin_host"]', title: 'Usually "localhost" for local MySQL installation' },
-                { selector: 'input[name="app_url"]', title: 'The complete URL where users will access GhostCrew' }
-            ];
-            
-            tooltips.forEach(tooltip => {
-                const element = document.querySelector(tooltip.selector);
-                if (element) {
-                    element.setAttribute('title', tooltip.title);
-                }
-            });
-        });
-
     </script>
 </body>
 </html>

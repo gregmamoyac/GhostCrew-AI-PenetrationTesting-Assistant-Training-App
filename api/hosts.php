@@ -106,13 +106,14 @@ function pingHost() {
     
     $hostId = isset($_POST['host_id']) ? sanitize($_POST['host_id']) : '';
     $instanceToken = isset($_POST['instance_token']) ? sanitize($_POST['instance_token']) : '';
+    $isInteractive = isset($_POST['is_interactive']) ? (bool)$_POST['is_interactive'] : false;
     
     if (empty($hostId)) {
         echo json_encode(['status' => 'error', 'message' => 'Host ID is required']);
         return;
     }
     
-    // Update host's last seen timestamp
+    // More frequent updates for interactive sessions
     $stmt = $conn->prepare("UPDATE hosts SET last_seen = CURRENT_TIMESTAMP, connected = 1 WHERE host_id = ?");
     $stmt->bind_param("s", $hostId);
     
@@ -130,7 +131,12 @@ function pingHost() {
         $adminStmt->bind_param("s", $hostId);
         $adminStmt->execute();
         
-        echo json_encode(['status' => 'success']);
+        // Log interactive session activity
+        if ($isInteractive) {
+            error_log("Interactive session heartbeat from host: $hostId");
+        }
+        
+        echo json_encode(['status' => 'success', 'message' => 'Heartbeat received']);
     } else {
         echo json_encode(['status' => 'error', 'message' => 'Failed to update host status']);
     }

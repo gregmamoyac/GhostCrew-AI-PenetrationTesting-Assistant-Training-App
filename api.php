@@ -12,7 +12,7 @@ header('Content-Type: application/json');
 
 $action = isset($_REQUEST['action']) ? sanitize($_REQUEST['action']) : '';
 
-$unauthenticated = ['register_host', 'ping_host', 'get_command', 'submit_result'];
+$unauthenticated = ['register_host', 'ping_host', 'get_command', 'submit_result', 'stream_output', 'get_user_input', 'get_streaming_output', 'get_streaming_status'];
 if (!in_array($action, $unauthenticated) && !isset($_REQUEST['internal_call'])) {
     requireAuth();
 }
@@ -37,6 +37,14 @@ $routes = [
     'submit_result'          => 'commands.php',
     'get_command_history'    => 'commands.php',
 
+    'stream_output'         => 'streaming.php',
+    'get_user_input'        => 'streaming.php',
+    'send_user_input'       => 'streaming.php',
+    'get_streaming_output'  => 'streaming.php',
+    'terminate_streaming'   => 'streaming.php',
+    'get_streaming_status'  => 'streaming.php',
+    'update_streaming_stats'=> 'streaming.php',
+
     'chat_message'           => 'chat.php',
     'get_chat_history'       => 'chat.php',
     'execute_suggested_command' => 'chat.php',
@@ -50,3 +58,4 @@ if (isset($routes[$action])) {
 } else {
     echo json_encode(['status' => 'error', 'message' => 'Invalid action']);
 }
+?>
