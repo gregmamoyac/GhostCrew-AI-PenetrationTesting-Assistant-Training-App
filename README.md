@@ -1,6 +1,6 @@
 # GhostCrew
 
-GhostCrew is a web based terminal and AI chat assistant tool.
+GhostCrew is a web-based terminal and AI chat assistant tool.
 
 ## Directory layout
 
@@ -24,14 +24,18 @@ local/            Scripts used by the Windows listener
    - Launch the *XAMPP Control Panel* and start both the Apache and MySQL services.
 3. **Place GhostCrew in `htdocs`**
    - Clone or copy this repository to `C:/xampp/htdocs/GhostCrew`.
-4. **Create the databases**
-   - Open `http://localhost/phpmyadmin` in your browser.
-   - Import `terminal_app.sql` and `ghostcrew_admin.sql` using the *Import* tab. This creates the required tables.
-5. **Configure database credentials**
-   - Edit `config.php` and `auth_config.php` if your MySQL credentials differ from the defaults. On a fresh XAMPP install the user is `root` with no password.
-6. **Run the setup script**
-   - Navigate to `http://localhost/GhostCrew/setup.php` and create the first admin account.
-7. **Login**
-   - Access `http://localhost/GhostCrew/login.php` with the credentials you created.
+4. **Create the SQL user accounts**
+   - Open PHPMyAdmin at `http://localhost/phpmyadmin`.
+   - Go to the **User accounts** tab.
+   - Click **Add user account**.
+   - Enter a username (e.g., `ghostcrew`) and a strong password.
+   - For **Host name**, select `localhost`.
+   - Under **Database for user account**, select **Grant all privileges on database**.
+   - Alternatively, you can create a separate user for each database if you prefer.
+   - Click **Go** to create the user(s) and assign privileges.
+5. **Run the setup script**
+   - Navigate to `http://localhost/GhostCrew/install.php` and follow the instructions.
+6. **Login**
+   - Access `http://localhost/GhostCrew/index.php` with the credentials you created.
 
 The application should now be running locally on your XAMPP stack.
