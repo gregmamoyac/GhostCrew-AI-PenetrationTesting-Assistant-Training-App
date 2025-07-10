@@ -402,14 +402,62 @@ $(document).ready(function() {
             // Update UI indicators
             $(`#session-tabs .tab[data-session="${activeHostId}"]`).removeClass('streaming');
             
-            // Restore normal prompt
-            updateTerminalPrompt('>');
+            // Restore normal prompt with a slight delay to avoid conflict
+            setTimeout(function() {
+                restoreNormalPrompt();
+            }, 500);
             
             // Stop connection monitoring
             stopStreamingConnectionMonitor();
             
             // Notify chat
             addChatMessage('bot', '⚪ **Interactive Mode Ended**\n\nReturned to normal command mode.');
+            
+            // Force a command history refresh to get the latest prompt
+            setTimeout(function() {
+                if (currentRemoteSessionId) {
+                    loadCommandHistory(currentRemoteSessionId);
+                }
+            }, 1000);
+        }
+    }
+
+    function restoreNormalPrompt() {
+        // Try to get the last working directory from completed commands
+        if (currentRemoteSessionId) {
+            $.ajax({
+                url: 'api.php',
+                type: 'POST',
+                data: {
+                    action: 'get_command_history',
+                    session_id: currentRemoteSessionId,
+                    limit: 10,
+                    csrf_token: CSRF_TOKEN
+                },
+                dataType: 'json',
+                success: function(response) {
+                    if (response.status === 'success') {
+                        // Look for the most recent working directory
+                        let lastWorkingDir = '>';
+                        response.commands.forEach(function(cmd) {
+                            if (cmd.working_directory && cmd.status === 'completed') {
+                                lastWorkingDir = cmd.working_directory.endsWith('>') ? 
+                                    cmd.working_directory : cmd.working_directory + '>';
+                            }
+                        });
+                        updateTerminalPrompt(lastWorkingDir);
+                    } else {
+                        // Fallback to simple prompt
+                        updateTerminalPrompt('>');
+                    }
+                },
+                error: function() {
+                    // Fallback to simple prompt
+                    updateTerminalPrompt('>');
+                }
+            });
+        } else {
+            updateTerminalPrompt('>');
         }
     }
 
@@ -492,7 +540,8 @@ $(document).ready(function() {
             dataType: 'json',
             success: function(response) {
                 if (response.status === 'success') {
-                    showInputEcho(input, true);
+                    // REMOVE THIS LINE - don't show immediate echo
+                    // showInputEcho(input, true);
                 } else {
                     showNotification('Failed to send control input', 'error');
                 }
@@ -757,7 +806,7 @@ $(document).ready(function() {
         ];
         
         const isLikelyInteractive = interactivePatterns.some(pattern => pattern.test(command)) || 
-                                   ['msfconsole', 'telnet', 'ssh', 'python', 'python3', 'mysql', 'psql'].includes(command.split(' ')[0]);
+                                ['msfconsole', 'telnet', 'ssh', 'python', 'python3', 'mysql', 'psql'].includes(command.split(' ')[0]);
         
         if (isLikelyInteractive) {
             // Warn user about interactive command
@@ -803,9 +852,42 @@ $(document).ready(function() {
                     sendRegularCommand(command);
                 }
             });
-            return; // Don't execute the regular command sending
+            return; // Don't execute the regular command sending below
         }
+        
+        // If we're not in streaming mode, send as regular command
+        sendRegularCommand(command);
+    }
 
+    // Add these helper functions at the end of the enhanced_terminal.js file:
+    function sendInteractiveInput(command) {
+        $.ajax({
+            url: 'api.php',
+            type: 'POST',
+            data: {
+                action: 'send_user_input',
+                session_id: currentRemoteSessionId,
+                host_id: activeHostId,
+                input: command,
+                csrf_token: CSRF_TOKEN
+            },
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    console.log('Sent interactive input:', command);
+                    // REMOVE THIS LINE - don't show immediate echo
+                    // showInputEcho(command);
+                } else {
+                    showNotification('Failed to send input: ' + (response.message || 'Unknown error'), 'error');
+                }
+            },
+            error: function() {
+                showNotification('Network error while sending input', 'error');
+            }
+        });
+    }
+
+    function sendRegularCommand(command) {
         // Send the command to the server (normal mode)
         $.ajax({
             url: 'api.php',
@@ -825,7 +907,8 @@ $(document).ready(function() {
                     
                     console.log('Command sent successfully. ID:', commandId, 'Interactive:', isInteractive);
                     
-                    // Add the command to the terminal immediately
+                    // REMOVE THIS ENTIRE SECTION - don't add command to terminal immediately
+                    /*
                     const $terminal = $(`#${activeHostId}-terminal .terminal-output`);
                     const currentPrompt = $('#terminal-prompt').text().replace(/\\\\/g, '\\');
 
@@ -842,92 +925,7 @@ $(document).ready(function() {
                     
                     $terminal.append(entryHtml);
                     scrollToBottom($terminal[0]);
-                    
-                    // Send command context to chatbot after a short delay
-                    setTimeout(() => {
-                        sendCommandContextToChat(command);
-                    }, 500);
-                    
-                } else if (response.redirect) {
-                    window.location.href = response.redirect;
-                } else {
-                    showNotification('Failed to send command: ' + response.message, 'error');
-                }
-            },
-            error: function(xhr) {
-                if (xhr.status === 401) {
-                    window.location.href = 'login.php';
-                } else {
-                    showNotification('Network error while sending command', 'error');
-                }
-            }
-        });
-    }
-
-    // Add these helper functions at the end of the enhanced_terminal.js file:
-    function sendInteractiveInput(command) {
-        $.ajax({
-            url: 'api.php',
-            type: 'POST',
-            data: {
-                action: 'send_user_input',
-                session_id: currentRemoteSessionId,
-                host_id: activeHostId,
-                input: command,
-                csrf_token: CSRF_TOKEN
-            },
-            dataType: 'json',
-            success: function(response) {
-                if (response.status === 'success') {
-                    console.log('Sent interactive input:', command);
-                    showInputEcho(command);
-                } else {
-                    showNotification('Failed to send input: ' + (response.message || 'Unknown error'), 'error');
-                }
-            },
-            error: function() {
-                showNotification('Network error while sending input', 'error');
-            }
-        });
-    }
-
-    function sendRegularCommand(command) {
-        // Move the existing regular command sending logic here
-        $.ajax({
-            url: 'api.php',
-            type: 'POST',
-            data: {
-                action: 'send_command',
-                host_id: activeHostId,
-                session_id: currentRemoteSessionId,
-                command: command,
-                csrf_token: CSRF_TOKEN
-            },
-            dataType: 'json',
-            success: function(response) {
-                if (response.status === 'success') {
-                    const commandId = response.command_id;
-                    const isInteractive = response.is_interactive;
-                    
-                    console.log('Command sent successfully. ID:', commandId, 'Interactive:', isInteractive);
-                    
-                    // Add the command to the terminal immediately
-                    const $terminal = $(`#${activeHostId}-terminal .terminal-output`);
-                    const currentPrompt = $('#terminal-prompt').text().replace(/\\\\/g, '\\');
-
-                    let entryHtml = `<div class="command-entry" data-command-id="${commandId}">`;
-                    entryHtml += `<div class="prompt-line">${escapeHtml(currentPrompt)} ${escapeHtml(command)}</div>`;
-                    
-                    if (isInteractive) {
-                        entryHtml += `<div class="result streaming-output" data-command-id="${commandId}"><em>Starting interactive session...</em></div>`;
-                    } else {
-                        entryHtml += `<div class="result"><em>Executing...</em></div>`;
-                    }
-                    
-                    entryHtml += `</div>`;
-                    
-                    $terminal.append(entryHtml);
-                    scrollToBottom($terminal[0]);
+                    */
                     
                     // Send command context to chatbot after a short delay
                     setTimeout(() => {
@@ -1927,6 +1925,7 @@ $(document).on('keydown', function(e) {
 });
 
 // Context menu for terminal (right-click)
+/*
 $(document).on('contextmenu', '.terminal-output', function(e) {
     e.preventDefault();
     
@@ -1994,6 +1993,7 @@ $(document).on('contextmenu', '.terminal-output', function(e) {
     // Remove context menu when clicking elsewhere
     $(document).one('click', () => contextMenu.remove());
 });
+*/
 
 // Function to clear terminal display and log the action
 function clearTerminalDisplay() {

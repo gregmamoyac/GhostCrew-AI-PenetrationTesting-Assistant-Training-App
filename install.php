@@ -494,6 +494,14 @@ function getExpectedTableStructures() {
                 'description' => ['type' => 'text', 'null' => 'YES'],
                 'updated_by' => ['type' => 'int(11)', 'null' => 'YES'],
                 'updated_at' => ['type' => 'timestamp', 'null' => 'NO', 'default' => 'current_timestamp()']
+            ],
+            'user_interactions' => [
+                'id' => ['type' => 'int(11)', 'null' => 'NO', 'key' => 'PRI', 'extra' => 'auto_increment'],
+                'session_id' => ['type' => 'varchar(64)', 'null' => 'NO'],
+                'user_id' => ['type' => 'int(11)', 'null' => 'NO'],
+                'interaction_type' => ['type' => "enum('input','output','termination','command')", 'null' => 'NO'],
+                'interaction_data' => ['type' => 'longtext', 'null' => 'YES'],
+                'timestamp' => ['type' => 'timestamp', 'null' => 'NO', 'default' => 'current_timestamp()']
             ]
         ]
     ];
@@ -857,7 +865,7 @@ function createDatabasesAjax($config) {
             // Verify database was created
             $conn->select_db($config['admin_name']);
             $tableCheck = $conn->query("SHOW TABLES");
-            if ($tableCheck->num_rows < 10) {
+            if ($tableCheck->num_rows < 11) {
                 throw new Exception("Database created but tables are missing");
             }
             
@@ -2283,6 +2291,15 @@ CREATE TABLE `system_config` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `user_interactions` (
+  `id` int(11) NOT NULL,
+  `session_id` varchar(64) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `interaction_type` enum(\'input\',\'output\',\'termination\',\'command\') NOT NULL,
+  `interaction_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`interaction_data`)),
+  `timestamp` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 INSERT INTO `system_config` (`id`, `config_key`, `config_value`, `description`, `updated_by`, `updated_at`) VALUES
 (1, \'session_timeout\', \'3600\', \'User session timeout in seconds\', NULL, \'2025-06-01 18:25:18\'),
 (2, \'max_command_history\', \'100000\', \'Maximum commands to keep in history per session\', NULL, \'2025-06-01 18:25:18\'),
@@ -2342,6 +2359,7 @@ ALTER TABLE `system_config` ADD PRIMARY KEY (`id`), ADD UNIQUE KEY `config_key` 
 ALTER TABLE `users` ADD PRIMARY KEY (`id`), ADD UNIQUE KEY `username` (`username`), ADD KEY `created_by` (`created_by`), ADD KEY `idx_manager_id` (`manager_id`);
 ALTER TABLE `user_instance_tokens` ADD PRIMARY KEY (`id`), ADD UNIQUE KEY `instance_token` (`instance_token`), ADD KEY `user_id` (`user_id`);
 ALTER TABLE `user_sessions` ADD PRIMARY KEY (`id`), ADD UNIQUE KEY `session_token` (`session_token`), ADD KEY `user_id` (`user_id`);
+ALTER TABLE `user_interactions` ADD PRIMARY KEY (`id`), ADD KEY `idx_session_interactions` (`session_id`,`timestamp`), ADD KEY `user_id` (`user_id`);
 
 ALTER TABLE `audit_log` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `chatbot_conversations` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
@@ -2358,6 +2376,7 @@ ALTER TABLE `system_config` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_IN
 ALTER TABLE `users` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `user_instance_tokens` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `user_sessions` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `user_interactions` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 ALTER TABLE `audit_log` ADD CONSTRAINT `audit_log_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
 ALTER TABLE `chatbot_conversations` ADD CONSTRAINT `chatbot_conversations_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE, ADD CONSTRAINT `chatbot_conversations_ibfk_2` FOREIGN KEY (`session_id`) REFERENCES `remote_sessions` (`session_id`) ON DELETE SET NULL;
@@ -2371,6 +2390,7 @@ ALTER TABLE `system_config` ADD CONSTRAINT `system_config_ibfk_1` FOREIGN KEY (`
 ALTER TABLE `users` ADD CONSTRAINT `users_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL, ADD CONSTRAINT `users_manager_fk` FOREIGN KEY (`manager_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
 ALTER TABLE `user_instance_tokens` ADD CONSTRAINT `user_instance_tokens_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 ALTER TABLE `user_sessions` ADD CONSTRAINT `user_sessions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+ALTER TABLE `user_interactions` ADD CONSTRAINT `user_interactions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 SET FOREIGN_KEY_CHECKS=1;
 COMMIT;';
 }

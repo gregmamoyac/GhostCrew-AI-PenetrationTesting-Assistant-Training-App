@@ -802,14 +802,43 @@ function submitResult() {
     }
     
     $commandData = $result->fetch_assoc();
+    $finalOutput = $output; // Initialize with submitted output
     
-    // For interactive commands, don't overwrite the streaming output with generic completion message
-    if ($commandData['is_interactive'] && empty($output)) {
-        // Just update the metadata, keep the existing streaming output
-        $stmt = $conn->prepare("UPDATE command_history SET execution_time = ?, working_directory = ?, exit_code = ?, status = 'completed', response_timestamp = CURRENT_TIMESTAMP WHERE id = ?");
-        $stmt->bind_param("dsii", $executionTime, $workingDirectory, $exitCode, $commandId);
+    // For interactive commands, get the complete streaming output
+    if ($commandData['is_interactive']) {
+        // Get complete streaming output if available
+        $streamStmt = $conn->prepare("SELECT GROUP_CONCAT(output_chunk ORDER BY chunk_sequence SEPARATOR '') as complete_output FROM streaming_output WHERE command_id = ?");
+        $streamStmt->bind_param("i", $commandId);
+        $streamStmt->execute();
+        $streamResult = $streamStmt->get_result();
+        
+        if ($streamResult->num_rows > 0) {
+            $streamRow = $streamResult->fetch_assoc();
+            if (!empty($streamRow['complete_output'])) {
+                $streamingOutput = $streamRow['complete_output'];
+                
+                // Combine streaming output with final output
+                if (!empty($streamingOutput)) {
+                    if (!empty($output) && strpos($streamingOutput, $output) === false) {
+                        // If final output isn't already in streaming output, append it
+                        $finalOutput = $streamingOutput . "\n" . $output;
+                    } else {
+                        // Use streaming output as it already contains everything
+                        $finalOutput = $streamingOutput;
+                    }
+                }
+            }
+        }
+        $streamStmt->close();
+        
+        // Debug log the final output length
+        error_log("Interactive command $commandId final output length: " . strlen($finalOutput));
+        
+        // Update command history with complete output
+        $stmt = $conn->prepare("UPDATE command_history SET output = ?, execution_time = ?, working_directory = ?, exit_code = ?, status = 'completed', response_timestamp = CURRENT_TIMESTAMP WHERE id = ?");
+        $stmt->bind_param("sdsii", $finalOutput, $executionTime, $workingDirectory, $exitCode, $commandId);
     } else {
-        // For non-interactive commands or when we have actual output, update normally
+        // For non-interactive commands, update normally
         $stmt = $conn->prepare("UPDATE command_history SET output = ?, execution_time = ?, working_directory = ?, exit_code = ?, status = 'completed', response_timestamp = CURRENT_TIMESTAMP WHERE id = ?");
         $stmt->bind_param("sdsii", $output, $executionTime, $workingDirectory, $exitCode, $commandId);
     }
@@ -823,20 +852,53 @@ function submitResult() {
             $streamStmt->close();
         }
         
-        // Update admin database
-        $adminDb = getAdminDB();
-        $adminStmt = $adminDb->prepare("UPDATE command_log SET output = ?, execution_time = ?, status = 'completed', response_timestamp = CURRENT_TIMESTAMP WHERE session_id = ? AND command = ?");
-        $adminStmt->bind_param("sdss", $output, $executionTime, $commandData['session_id'], $commandData['command']);
-        $adminStmt->execute();
+        // Update admin database with the complete output (including streaming data for interactive commands)
+        try {
+            $adminDb = getAdminDB();
+            
+            if ($commandData['is_interactive']) {
+                // For interactive commands, first try to update existing pending entry with complete output
+                $adminStmt = $adminDb->prepare("
+                    UPDATE command_log 
+                    SET output = ?, execution_time = ?, status = 'completed', response_timestamp = CURRENT_TIMESTAMP, is_interactive = 1
+                    WHERE session_id = ? AND command = ? AND status IN ('pending', 'executing')
+                ");
+                $adminStmt->bind_param("sdss", $finalOutput, $executionTime, $commandData['session_id'], $commandData['command']);
+                $adminStmt->execute();
+                
+                // Check if update worked
+                if ($adminStmt->affected_rows === 0) {
+                    // No existing entry found, insert a new one with complete output
+                    error_log("No existing admin entry found for interactive command, inserting new one");
+                    $adminStmt = $adminDb->prepare("
+                        INSERT INTO command_log (session_id, user_id, command, output, execution_time, status, response_timestamp, is_interactive) 
+                        VALUES (?, (SELECT user_id FROM remote_sessions WHERE session_id = ? LIMIT 1), ?, ?, ?, 'completed', CURRENT_TIMESTAMP, 1)
+                    ");
+                    $adminStmt->bind_param("ssssd", $commandData['session_id'], $commandData['session_id'], $commandData['command'], $finalOutput, $executionTime);
+                    $adminStmt->execute();
+                    error_log("Inserted new admin entry for interactive command with output length: " . strlen($finalOutput));
+                } else {
+                    error_log("Updated existing admin entry for interactive command with output length: " . strlen($finalOutput));
+                }
+            } else {
+                // For non-interactive commands, use standard update
+                $adminStmt = $adminDb->prepare("UPDATE command_log SET output = ?, execution_time = ?, status = 'completed', response_timestamp = CURRENT_TIMESTAMP WHERE session_id = ? AND command = ?");
+                $adminStmt->bind_param("sdss", $output, $executionTime, $commandData['session_id'], $commandData['command']);
+                $adminStmt->execute();
+            }
+        } catch (Exception $e) {
+            error_log("Admin database update error: " . $e->getMessage());
+            // Continue execution even if admin DB update fails
+        }
         
         // Update command statistics
         updateCommandStatistics($commandData['host_id'], $commandData['command'], $executionTime, $exitCode === 0);
         
-        // Update session context for chatbot
+        // Update session context for chatbot (use complete output for interactive commands)
         if (!empty($commandData['session_id'])) {
             updateChatbotContext($commandData['session_id'], 'command_history', [
                 'command' => $commandData['command'],
-                'output' => $output,
+                'output' => $finalOutput, // Use complete output including streaming data
                 'working_directory' => $workingDirectory,
                 'exit_code' => $exitCode,
                 'execution_time' => $executionTime,
