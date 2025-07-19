@@ -1,5 +1,5 @@
 <?php
-// API Backend (api.php) - Updated with fixes
+// API Backend (api.php) - Updated with AI Configuration support
 
 ini_set('log_errors', 1);
 ini_set('error_log', 'php_errors.log');
@@ -10,31 +10,18 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
-// Admin database configuration
-if (!defined('ADMIN_DB_HOST')) {
-    define('ADMIN_DB_HOST', 'gc-admin.cyjo80kgwf8g.us-east-1.rds.amazonaws.com');
-}
-if (!defined('ADMIN_DB_USER')) {
-    define('ADMIN_DB_USER', 'gc_admin_34yVbZL');
-}
-if (!defined('ADMIN_DB_PASS')) {
-    define('ADMIN_DB_PASS', 'Aof^Hy4Z%qgHk}CjXV0):Vy]xpcPJ=+');
-}
-if (!defined('ADMIN_DB_NAME')) {
-    define('ADMIN_DB_NAME', 'ghostcrew_admin');
-}
 
 // Database configuration
-$host = ADMIN_DB_HOST;
-$dbname = ADMIN_DB_NAME;
-$username = ADMIN_DB_USER;
-$password = ADMIN_DB_PASS;
+$host = getenv('DB_HOST');
+$username = getenv('DB_USER');
+$password = getenv('DB_PASS');
+$dbname = getenv('DB_NAME');
+
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $e) {
-    http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Database connection failed']);
     exit;
 }
@@ -93,6 +80,35 @@ try {
         case 'save_settings':
             handleSaveSettings($pdo, $input);
             break;
+        // AI Configuration endpoints
+        case 'ai_config':
+            handleAiConfig($pdo);
+            break;
+        case 'save_ai_config':
+            handleSaveAiConfig($pdo, $input);
+            break;
+        case 'test_ai_connection':
+            handleTestAiConnection($pdo);
+            break;
+        case 'ai_performance_stats':
+            handleAiPerformanceStats($pdo, $_GET);
+            break;
+        case 'ai_command_stats':
+            handleAiCommandStats($pdo, $_GET);
+            break;
+        case 'cleanup_ai_logs':
+            handleCleanupAiLogs($pdo, $input);
+            break;
+        case 'export_ai_config':
+            handleExportAiConfig($pdo);
+            break;
+        case 'import_ai_config':
+            handleImportAiConfig($pdo, $input);
+            break;
+        case 'check_ai_status':
+            handleCheckAiStatus($pdo);
+            break;
+        // Existing endpoints
         case 'create_user':
         case 'update_user':
             handleSaveUser($pdo, $input);
@@ -126,6 +142,311 @@ try {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
 }
+
+// AI Configuration Functions
+function handleAiConfig($pdo) {
+    try {
+        $stmt = $pdo->query("SELECT config_key, config_value FROM ai_config ORDER BY config_key");
+        $configData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $config = [];
+        foreach ($configData as $row) {
+            $config[$row['config_key']] = $row['config_value'];
+        }
+        
+        // Set default values if not found
+        $defaults = [
+            'aws_ai_endpoint' => '',
+            'aws_api_key' => '',
+            'timeout_seconds' => '30',
+            'max_tokens' => '1000',
+            'temperature' => '0.7',
+            'context_messages' => '10',
+            'system_prompt' => 'You are a helpful AI assistant for command-line operations.',
+            'retry_attempts' => '3',
+            'retry_delay' => '1000',
+            'max_context_length' => '4000',
+            'command_detection' => '1'
+        ];
+        
+        foreach ($defaults as $key => $value) {
+            if (!isset($config[$key])) {
+                $config[$key] = $value;
+            }
+        }
+        
+        echo json_encode(['success' => true, 'config' => $config]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
+function handleSaveAiConfig($pdo, $input) {
+    try {
+        $config = $input['config'] ?? [];
+        $updated = 0;
+        
+        foreach ($config as $key => $value) {
+            $stmt = $pdo->prepare("
+                INSERT INTO ai_config (config_key, config_value) 
+                VALUES (?, ?) 
+                ON DUPLICATE KEY UPDATE config_value = VALUES(config_value)
+            ");
+            $stmt->execute([$key, $value]);
+            $updated++;
+        }
+        
+        echo json_encode(['success' => true, 'message' => "Updated $updated configuration settings"]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
+function handleTestAiConnection($pdo) {
+    try {
+        // Get AI configuration
+        $stmt = $pdo->query("SELECT config_key, config_value FROM ai_config");
+        $configData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $config = [];
+        foreach ($configData as $row) {
+            $config[$row['config_key']] = $row['config_value'];
+        }
+        
+        $endpoint = $config['aws_ai_endpoint'] ?? '';
+        $apiKey = $config['aws_api_key'] ?? '';
+        $timeout = (int)($config['timeout_seconds'] ?? 30);
+        
+        if (empty($endpoint) || empty($apiKey)) {
+            echo json_encode(['success' => false, 'message' => 'Missing endpoint URL or API key']);
+            return;
+        }
+        
+        // Test connection with a simple request
+        $testData = [
+            'model' => 'claude-3-haiku-20240307',
+            'max_tokens' => 50,
+            'messages' => [
+                ['role' => 'user', 'content' => 'Hello, this is a connection test. Please respond with "Connection successful".']
+            ]
+        ];
+        
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $endpoint,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode($testData),
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'Authorization: Bearer ' . $apiKey,
+                'anthropic-version: 2023-06-01'
+            ],
+            CURLOPT_TIMEOUT => $timeout,
+            CURLOPT_SSL_VERIFYPEER => false
+        ]);
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+        
+        if ($error) {
+            echo json_encode(['success' => false, 'message' => 'Connection error: ' . $error]);
+            return;
+        }
+        
+        if ($httpCode === 200) {
+            $responseData = json_decode($response, true);
+            if (isset($responseData['content'])) {
+                echo json_encode(['success' => true, 'message' => 'Connection successful! AI responded correctly.']);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Connected but unexpected response format']);
+            }
+        } else {
+            $errorMsg = "HTTP $httpCode";
+            if ($response) {
+                $errorData = json_decode($response, true);
+                if (isset($errorData['error']['message'])) {
+                    $errorMsg .= ': ' . $errorData['error']['message'];
+                }
+            }
+            echo json_encode(['success' => false, 'message' => $errorMsg]);
+        }
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
+function handleAiPerformanceStats($pdo, $params) {
+    try {
+        $days = (int)($params['days'] ?? 7);
+        
+        $stmt = $pdo->prepare("
+            SELECT 
+                DATE(created_at) as date,
+                COUNT(*) as total_requests,
+                AVG(response_time) as avg_response_time,
+                SUM(tokens_used) as total_tokens,
+                COUNT(CASE WHEN success = 1 THEN 1 END) as successful_requests
+            FROM ai_performance_log 
+            WHERE created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+            GROUP BY DATE(created_at)
+            ORDER BY date DESC
+        ");
+        $stmt->execute([$days]);
+        $stats = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode(['success' => true, 'stats' => $stats]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
+function handleAiCommandStats($pdo, $params) {
+    try {
+        $limit = (int)($params['limit'] ?? 10);
+        
+        $stmt = $pdo->prepare("
+            SELECT 
+                command,
+                COUNT(*) as suggested_count,
+                COUNT(CASE WHEN executed = 1 THEN 1 END) as executed_count,
+                AVG(CASE WHEN executed = 1 THEN success_rate ELSE 0 END) as success_rate,
+                MAX(last_executed) as last_executed
+            FROM ai_command_suggestions 
+            GROUP BY command
+            ORDER BY suggested_count DESC
+            LIMIT ?
+        ");
+        $stmt->execute([$limit]);
+        $stats = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode(['success' => true, 'stats' => $stats]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
+function handleCleanupAiLogs($pdo, $input) {
+    try {
+        $days = (int)($input['days'] ?? 30);
+        
+        $stmt = $pdo->prepare("DELETE FROM ai_performance_log WHERE created_at < DATE_SUB(NOW(), INTERVAL ? DAY)");
+        $stmt->execute([$days]);
+        $deleted = $stmt->rowCount();
+        
+        echo json_encode(['success' => true, 'message' => "Cleaned up $deleted old performance log entries"]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
+function handleExportAiConfig($pdo) {
+    try {
+        $stmt = $pdo->query("SELECT config_key, config_value FROM ai_config");
+        $configData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $config = [];
+        foreach ($configData as $row) {
+            $config[$row['config_key']] = $row['config_value'];
+        }
+        
+        $exportData = [
+            'exported_at' => date('Y-m-d H:i:s'),
+            'version' => '1.0',
+            'config' => $config
+        ];
+        
+        echo json_encode(['success' => true, 'config' => json_encode($exportData, JSON_PRETTY_PRINT)]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
+function handleImportAiConfig($pdo, $input) {
+    try {
+        $configData = $input['config_data'] ?? '';
+        $data = json_decode($configData, true);
+        
+        if (!$data || !isset($data['config'])) {
+            echo json_encode(['success' => false, 'message' => 'Invalid configuration format']);
+            return;
+        }
+        
+        $imported = 0;
+        $total = count($data['config']);
+        
+        foreach ($data['config'] as $key => $value) {
+            $stmt = $pdo->prepare("
+                INSERT INTO ai_config (config_key, config_value) 
+                VALUES (?, ?) 
+                ON DUPLICATE KEY UPDATE config_value = VALUES(config_value)
+            ");
+            $stmt->execute([$key, $value]);
+            $imported++;
+        }
+        
+        echo json_encode(['success' => true, 'imported' => $imported, 'total' => $total]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
+function handleCheckAiStatus($pdo) {
+    try {
+        // Simple status check - verify configuration exists
+        $stmt = $pdo->query("SELECT COUNT(*) as count FROM ai_config WHERE config_key IN ('aws_ai_endpoint', 'aws_api_key')");
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        $connected = $result['count'] >= 2;
+        echo json_encode(['success' => true, 'connected' => $connected]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
+// Create AI configuration tables if they don't exist
+try {
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS ai_config (
+            config_key VARCHAR(64) PRIMARY KEY,
+            config_value TEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )
+    ");
+    
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS ai_performance_log (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            request_type VARCHAR(32),
+            response_time INT,
+            tokens_used INT,
+            success BOOLEAN DEFAULT FALSE,
+            error_message TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ");
+    
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS ai_command_suggestions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            command TEXT,
+            suggested_count INT DEFAULT 1,
+            executed_count INT DEFAULT 0,
+            executed BOOLEAN DEFAULT FALSE,
+            success_rate DECIMAL(5,2) DEFAULT 0.00,
+            last_executed TIMESTAMP NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )
+    ");
+} catch (Exception $e) {
+    // Tables might already exist, continue
+}
+
+// [Rest of the existing functions remain unchanged]
+// ... (Include all the existing functions from the original api.php)
 
 function validateUserAccess($requiredRole, $currentUserRole, $targetUserId = null, $currentUserId = null) {
     $roleHierarchy = ['operator' => 1, 'manager' => 2, 'admin' => 3];
@@ -626,366 +947,6 @@ function handleSaveFeedback($pdo, $input) {
     echo json_encode(['success' => true]);
 }
 
-function handleReports($pdo) {
-    try {
-        $stats = [];
-        
-        // Total sessions
-        $stmt = $pdo->query("SELECT COUNT(*) FROM remote_sessions");
-        $stats['total_sessions'] = $stmt->fetchColumn();
-        
-        // Average duration
-        $stmt = $pdo->query("
-            SELECT AVG(TIMESTAMPDIFF(MINUTE, start_time, end_time)) as avg_duration 
-            FROM remote_sessions 
-            WHERE end_time IS NOT NULL
-        ");
-        $avgDuration = $stmt->fetchColumn();
-        $stats['avg_duration'] = $avgDuration ? round($avgDuration) . 'm' : '0m';
-        
-        // Top command
-        $stmt = $pdo->query("
-            SELECT SUBSTRING_INDEX(command, ' ', 1) as base_command, COUNT(*) as count 
-            FROM command_log 
-            GROUP BY base_command 
-            ORDER BY count DESC 
-            LIMIT 1
-        ");
-        $topCommand = $stmt->fetch(PDO::FETCH_ASSOC);
-        $stats['top_command'] = $topCommand ? $topCommand['base_command'] : '-';
-        
-        // Completion rate
-        $stmt = $pdo->query("
-            SELECT 
-                COALESCE(
-                    (SELECT COUNT(*) FROM command_log WHERE status = 'completed') * 100.0 / 
-                    NULLIF((SELECT COUNT(*) FROM command_log), 0), 0
-                ) as completion_rate
-        ");
-        $completionRate = $stmt->fetchColumn();
-        $stats['completion_rate'] = round($completionRate);
-        
-        // Chart data
-        $charts = [];
-        
-        // Command usage - ensure we have data
-        $stmt = $pdo->query("
-            SELECT SUBSTRING_INDEX(command, ' ', 1) as base_command, COUNT(*) as count 
-            FROM command_log 
-            GROUP BY base_command 
-            ORDER BY count DESC 
-            LIMIT 10
-        ");
-        $commandUsage = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        if (empty($commandUsage)) {
-            // Provide default data if no commands exist
-            $commandUsage = [
-                ['base_command' => 'No Data', 'count' => 0]
-            ];
-        }
-        
-        $charts['command_usage'] = [
-            'labels' => array_column($commandUsage, 'base_command'),
-            'values' => array_map('intval', array_column($commandUsage, 'count'))
-        ];
-        
-        // Duration distribution
-        $stmt = $pdo->query("
-            SELECT 
-                CASE 
-                    WHEN TIMESTAMPDIFF(MINUTE, start_time, end_time) < 5 THEN '0-5 min'
-                    WHEN TIMESTAMPDIFF(MINUTE, start_time, end_time) < 15 THEN '5-15 min'
-                    WHEN TIMESTAMPDIFF(MINUTE, start_time, end_time) < 30 THEN '15-30 min'
-                    WHEN TIMESTAMPDIFF(MINUTE, start_time, end_time) < 60 THEN '30-60 min'
-                    ELSE '60+ min'
-                END as duration_range,
-                COUNT(*) as count
-            FROM remote_sessions 
-            WHERE end_time IS NOT NULL
-            GROUP BY duration_range
-            ORDER BY 
-                CASE duration_range
-                    WHEN '0-5 min' THEN 1
-                    WHEN '5-15 min' THEN 2
-                    WHEN '15-30 min' THEN 3
-                    WHEN '30-60 min' THEN 4
-                    WHEN '60+ min' THEN 5
-                END
-        ");
-        $durationData = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        if (empty($durationData)) {
-            // Provide default data if no sessions exist
-            $durationData = [
-                ['duration_range' => 'No Data', 'count' => 0]
-            ];
-        }
-        
-        $charts['duration'] = [
-            'labels' => array_column($durationData, 'duration_range'),
-            'values' => array_map('intval', array_column($durationData, 'count'))
-        ];
-        
-        echo json_encode(['success' => true, 'stats' => $stats, 'charts' => $charts]);
-        
-    } catch (Exception $e) {
-        error_log("Reports error: " . $e->getMessage());
-        echo json_encode(['success' => false, 'message' => 'Error loading reports: ' . $e->getMessage()]);
-    }
-}
-
-function handleLogs($pdo) {
-    $stmt = $pdo->query("
-        SELECT al.*, u.username as user_name 
-        FROM audit_log al 
-        LEFT JOIN users u ON al.user_id = u.id 
-        ORDER BY al.timestamp DESC 
-        LIMIT 1000
-    ");
-    $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Get chatbot conversations as additional log entries
-    $chatStmt = $pdo->query("
-        SELECT 
-            cc.timestamp,
-            cc.user_id,
-            u.username as user_name,
-            'chat_message' as action_type,
-            cc.session_id as ip_address,
-            CONCAT('Type: ', cc.message_type, ', Message: ', cc.message) as action_details
-        FROM chatbot_conversations cc
-        LEFT JOIN users u ON cc.user_id = u.id
-        ORDER BY cc.timestamp DESC
-        LIMIT 500
-    ");
-    $chatLogs = $chatStmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Merge and sort logs
-    $allLogs = array_merge($logs, $chatLogs);
-    usort($allLogs, function($a, $b) {
-        return strtotime($b['timestamp']) - strtotime($a['timestamp']);
-    });
-    
-    echo json_encode(['success' => true, 'logs' => array_slice($allLogs, 0, 1000)]);
-}
-
-function handleSettings($pdo) {
-    $stmt = $pdo->query("SELECT config_key, config_value FROM system_config");
-    $settingsData = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    $settings = [];
-    foreach ($settingsData as $row) {
-        $settings[$row['config_key']] = $row['config_value'];
-    }
-    
-    echo json_encode(['success' => true, 'settings' => $settings]);
-}
-
-function handleSaveSettings($pdo, $input) {
-    $settings = $input['settings'];
-    
-    foreach ($settings as $key => $value) {
-        $stmt = $pdo->prepare("
-            INSERT INTO system_config (config_key, config_value) 
-            VALUES (?, ?) 
-            ON DUPLICATE KEY UPDATE config_value = VALUES(config_value)
-        ");
-        $stmt->execute([$key, $value]);
-    }
-    
-    echo json_encode(['success' => true]);
-}
-
-// UPDATED: Save user function to include manager assignment
-function handleSaveUser($pdo, $input) {
-    try {
-        $isUpdate = $input['action'] === 'update_user';
-        $userId = $input['user_id'] ?? null;
-        $username = $input['username'];
-        $fullName = $input['full_name'];
-        $email = $input['email'];
-        $role = $input['role'];
-        $isActive = $input['is_active'];
-        $password = $input['password'] ?? '';
-        $managerId = $input['manager_id'] ?? null; // New field
-        
-        if ($isUpdate && $userId) {
-            // Update user
-            if (!empty($password)) {
-                $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-                $stmt = $pdo->prepare("
-                    UPDATE users 
-                    SET username = ?, full_name = ?, email = ?, role = ?, is_active = ?, 
-                        password_hash = ?, manager_id = ?, updated_at = NOW() 
-                    WHERE id = ?
-                ");
-                $stmt->execute([$username, $fullName, $email, $role, $isActive, $passwordHash, $managerId, $userId]);
-            } else {
-                $stmt = $pdo->prepare("
-                    UPDATE users 
-                    SET username = ?, full_name = ?, email = ?, role = ?, is_active = ?, 
-                        manager_id = ?, updated_at = NOW() 
-                    WHERE id = ?
-                ");
-                $stmt->execute([$username, $fullName, $email, $role, $isActive, $managerId, $userId]);
-            }
-        } else {
-            // Create user
-            if (empty($password)) {
-                echo json_encode(['success' => false, 'message' => 'Password is required for new users']);
-                return;
-            }
-            
-            $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-            $stmt = $pdo->prepare("
-                INSERT INTO users (username, full_name, email, role, is_active, password_hash, manager_id, created_at, created_by) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?)
-            ");
-            $stmt->execute([$username, $fullName, $email, $role, $isActive, $passwordHash, $managerId, $input['created_by'] ?? null]);
-        }
-        
-        echo json_encode(['success' => true]);
-        
-    } catch (PDOException $e) {
-        if ($e->getCode() == 23000) { // Integrity constraint violation
-            echo json_encode(['success' => false, 'message' => 'Username or email already exists']);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
-        }
-    } catch (Exception $e) {
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-    }
-}
-
-function handleDeleteUser($pdo, $input) {
-    $userId = $input['user_id'];
-    
-    // Don't allow deleting the admin user
-    $stmt = $pdo->prepare("SELECT role FROM users WHERE id = ?");
-    $stmt->execute([$userId]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if ($user && $user['role'] === 'admin') {
-        echo json_encode(['success' => false, 'message' => 'Cannot delete admin user']);
-        return;
-    }
-    
-    $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
-    $stmt->execute([$userId]);
-    
-    echo json_encode(['success' => true]);
-}
-
-function handleResetPassword($pdo, $input) {
-    $userId = $input['user_id'];
-    $newPassword = $input['new_password'] ?? null;
-    
-    if (!$newPassword) {
-        // Generate random password if none provided (backwards compatibility)
-        $newPassword = 'temp' . substr(str_shuffle('0123456789abcdefghijklmnopqrstuvwxyz'), 0, 8);
-    }
-    
-    $passwordHash = password_hash($newPassword, PASSWORD_DEFAULT);
-    
-    $stmt = $pdo->prepare("UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?");
-    $stmt->execute([$passwordHash, $userId]);
-    
-    echo json_encode(['success' => true, 'message' => 'Password updated successfully']);
-}
-
-function handleDeleteSession($pdo, $input) {
-    $sessionId = $input['session_id'];
-    
-    // Start transaction
-    $pdo->beginTransaction();
-    
-    try {
-        // Delete related records first
-        $stmt = $pdo->prepare("DELETE FROM command_log WHERE session_id = ?");
-        $stmt->execute([$sessionId]);
-        
-        $stmt = $pdo->prepare("DELETE FROM session_contexts WHERE session_id = ?");
-        $stmt->execute([$sessionId]);
-        
-        $stmt = $pdo->prepare("DELETE FROM chatbot_conversations WHERE session_id = ?");
-        $stmt->execute([$sessionId]);
-        
-        $stmt = $pdo->prepare("DELETE FROM session_feedback WHERE session_id = ?");
-        $stmt->execute([$sessionId]);
-        
-        // Delete the session
-        $stmt = $pdo->prepare("DELETE FROM remote_sessions WHERE session_id = ?");
-        $stmt->execute([$sessionId]);
-        
-        $pdo->commit();
-        echo json_encode(['success' => true]);
-    } catch (Exception $e) {
-        $pdo->rollback();
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-    }
-}
-
-// Create session_feedback table if it doesn't exist
-try {
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS session_feedback (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            session_id VARCHAR(64) NOT NULL,
-            user_id INT NOT NULL,
-            overall_score INT DEFAULT NULL,
-            instructor_feedback TEXT DEFAULT NULL,
-            command_feedback LONGTEXT DEFAULT NULL,
-            rating TINYINT DEFAULT NULL,
-            graded_by INT DEFAULT NULL,
-            graded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-            FOREIGN KEY (graded_by) REFERENCES users(id) ON DELETE SET NULL,
-            FOREIGN KEY (session_id) REFERENCES remote_sessions(session_id) ON DELETE CASCADE
-        )
-    ");
-} catch (Exception $e) {
-    // Table might already exist, continue
-}
-
-// Handle user grades
-function handleUserGrades($pdo, $userId) {
-    try {
-        $stmt = $pdo->prepare("
-            SELECT sf.*, rs.session_id, rs.start_time
-            FROM session_feedback sf 
-            JOIN remote_sessions rs ON sf.session_id = rs.session_id
-            WHERE sf.user_id = ? 
-            ORDER BY sf.graded_at DESC
-        ");
-        $stmt->execute([$userId]);
-        $grades = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        echo json_encode(['success' => true, 'grades' => $grades]);
-    } catch (Exception $e) {
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-    }
-}
-
-// NEW: Handle managers list for user creation/editing
-function handleManagersList($pdo) {
-    try {
-        $stmt = $pdo->query("
-            SELECT id, full_name, role 
-            FROM users 
-            WHERE role IN ('manager', 'admin') AND is_active = 1 
-            ORDER BY role DESC, full_name ASC
-        ");
-        $managers = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        echo json_encode(['success' => true, 'managers' => $managers]);
-    } catch (Exception $e) {
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-    }
-}
-
-// Enhanced Reports API Functions
 function handleEnhancedReports($pdo, $params = []) {
     error_log("handleEnhancedReports called with params: " . json_encode($params));
     try {
@@ -1189,7 +1150,6 @@ function handleEnhancedReports($pdo, $params = []) {
         $stmt->execute([$startDate, $endDate]);
         $gradeDistribution = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Most used commands
         // Most used commands
         $stmt = $pdo->prepare("
         SELECT 
@@ -1464,6 +1424,256 @@ function handleDetailedReport($pdo, $type, $params = []) {
         $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode(['success' => true, 'data' => $data, 'type' => $type]);
         
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
+function handleLogs($pdo) {
+    $stmt = $pdo->query("
+        SELECT al.*, u.username as user_name 
+        FROM audit_log al 
+        LEFT JOIN users u ON al.user_id = u.id 
+        ORDER BY al.timestamp DESC 
+        LIMIT 1000
+    ");
+    $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Get chatbot conversations as additional log entries
+    $chatStmt = $pdo->query("
+        SELECT 
+            cc.timestamp,
+            cc.user_id,
+            u.username as user_name,
+            'chat_message' as action_type,
+            cc.session_id as ip_address,
+            CONCAT('Type: ', cc.message_type, ', Message: ', cc.message) as action_details
+        FROM chatbot_conversations cc
+        LEFT JOIN users u ON cc.user_id = u.id
+        ORDER BY cc.timestamp DESC
+        LIMIT 500
+    ");
+    $chatLogs = $chatStmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Merge and sort logs
+    $allLogs = array_merge($logs, $chatLogs);
+    usort($allLogs, function($a, $b) {
+        return strtotime($b['timestamp']) - strtotime($a['timestamp']);
+    });
+    
+    echo json_encode(['success' => true, 'logs' => array_slice($allLogs, 0, 1000)]);
+}
+
+function handleSettings($pdo) {
+    $stmt = $pdo->query("SELECT config_key, config_value FROM system_config");
+    $settingsData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    $settings = [];
+    foreach ($settingsData as $row) {
+        $settings[$row['config_key']] = $row['config_value'];
+    }
+    
+    echo json_encode(['success' => true, 'settings' => $settings]);
+}
+
+function handleSaveSettings($pdo, $input) {
+    $settings = $input['settings'];
+    
+    foreach ($settings as $key => $value) {
+        $stmt = $pdo->prepare("
+            INSERT INTO system_config (config_key, config_value) 
+            VALUES (?, ?) 
+            ON DUPLICATE KEY UPDATE config_value = VALUES(config_value)
+        ");
+        $stmt->execute([$key, $value]);
+    }
+    
+    echo json_encode(['success' => true]);
+}
+
+// UPDATED: Save user function to include manager assignment
+function handleSaveUser($pdo, $input) {
+    try {
+        $isUpdate = $input['action'] === 'update_user';
+        $userId = $input['user_id'] ?? null;
+        $username = $input['username'];
+        $fullName = $input['full_name'];
+        $email = $input['email'];
+        $role = $input['role'];
+        $isActive = $input['is_active'];
+        $password = $input['password'] ?? '';
+        $managerId = $input['manager_id'] ?? null; // New field
+        
+        if ($isUpdate && $userId) {
+            // Update user
+            if (!empty($password)) {
+                $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+                $stmt = $pdo->prepare("
+                    UPDATE users 
+                    SET username = ?, full_name = ?, email = ?, role = ?, is_active = ?, 
+                        password_hash = ?, manager_id = ?, updated_at = NOW() 
+                    WHERE id = ?
+                ");
+                $stmt->execute([$username, $fullName, $email, $role, $isActive, $passwordHash, $managerId, $userId]);
+            } else {
+                $stmt = $pdo->prepare("
+                    UPDATE users 
+                    SET username = ?, full_name = ?, email = ?, role = ?, is_active = ?, 
+                        manager_id = ?, updated_at = NOW() 
+                    WHERE id = ?
+                ");
+                $stmt->execute([$username, $fullName, $email, $role, $isActive, $managerId, $userId]);
+            }
+        } else {
+            // Create user
+            if (empty($password)) {
+                echo json_encode(['success' => false, 'message' => 'Password is required for new users']);
+                return;
+            }
+            
+            $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+            $stmt = $pdo->prepare("
+                INSERT INTO users (username, full_name, email, role, is_active, password_hash, manager_id, created_at, created_by) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?)
+            ");
+            $stmt->execute([$username, $fullName, $email, $role, $isActive, $passwordHash, $managerId, $input['created_by'] ?? null]);
+        }
+        
+        echo json_encode(['success' => true]);
+        
+    } catch (PDOException $e) {
+        if ($e->getCode() == 23000) { // Integrity constraint violation
+            echo json_encode(['success' => false, 'message' => 'Username or email already exists']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+        }
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
+function handleDeleteUser($pdo, $input) {
+    $userId = $input['user_id'];
+    
+    // Don't allow deleting the admin user
+    $stmt = $pdo->prepare("SELECT role FROM users WHERE id = ?");
+    $stmt->execute([$userId]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($user && $user['role'] === 'admin') {
+        echo json_encode(['success' => false, 'message' => 'Cannot delete admin user']);
+        return;
+    }
+    
+    $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
+    $stmt->execute([$userId]);
+    
+    echo json_encode(['success' => true]);
+}
+
+function handleResetPassword($pdo, $input) {
+    $userId = $input['user_id'];
+    $newPassword = $input['new_password'] ?? null;
+    
+    if (!$newPassword) {
+        // Generate random password if none provided (backwards compatibility)
+        $newPassword = 'temp' . substr(str_shuffle('0123456789abcdefghijklmnopqrstuvwxyz'), 0, 8);
+    }
+    
+    $passwordHash = password_hash($newPassword, PASSWORD_DEFAULT);
+    
+    $stmt = $pdo->prepare("UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?");
+    $stmt->execute([$passwordHash, $userId]);
+    
+    echo json_encode(['success' => true, 'message' => 'Password updated successfully']);
+}
+
+function handleDeleteSession($pdo, $input) {
+    $sessionId = $input['session_id'];
+    
+    // Start transaction
+    $pdo->beginTransaction();
+    
+    try {
+        // Delete related records first
+        $stmt = $pdo->prepare("DELETE FROM command_log WHERE session_id = ?");
+        $stmt->execute([$sessionId]);
+        
+        $stmt = $pdo->prepare("DELETE FROM session_contexts WHERE session_id = ?");
+        $stmt->execute([$sessionId]);
+        
+        $stmt = $pdo->prepare("DELETE FROM chatbot_conversations WHERE session_id = ?");
+        $stmt->execute([$sessionId]);
+        
+        $stmt = $pdo->prepare("DELETE FROM session_feedback WHERE session_id = ?");
+        $stmt->execute([$sessionId]);
+        
+        // Delete the session
+        $stmt = $pdo->prepare("DELETE FROM remote_sessions WHERE session_id = ?");
+        $stmt->execute([$sessionId]);
+        
+        $pdo->commit();
+        echo json_encode(['success' => true]);
+    } catch (Exception $e) {
+        $pdo->rollback();
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
+// Create session_feedback table if it doesn't exist
+try {
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS session_feedback (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            session_id VARCHAR(64) NOT NULL,
+            user_id INT NOT NULL,
+            overall_score INT DEFAULT NULL,
+            instructor_feedback TEXT DEFAULT NULL,
+            command_feedback LONGTEXT DEFAULT NULL,
+            rating TINYINT DEFAULT NULL,
+            graded_by INT DEFAULT NULL,
+            graded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (graded_by) REFERENCES users(id) ON DELETE SET NULL,
+            FOREIGN KEY (session_id) REFERENCES remote_sessions(session_id) ON DELETE CASCADE
+        )
+    ");
+} catch (Exception $e) {
+    // Table might already exist, continue
+}
+
+// Handle user grades
+function handleUserGrades($pdo, $userId) {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT sf.*, rs.session_id, rs.start_time
+            FROM session_feedback sf 
+            JOIN remote_sessions rs ON sf.session_id = rs.session_id
+            WHERE sf.user_id = ? 
+            ORDER BY sf.graded_at DESC
+        ");
+        $stmt->execute([$userId]);
+        $grades = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode(['success' => true, 'grades' => $grades]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
+// NEW: Handle managers list for user creation/editing
+function handleManagersList($pdo) {
+    try {
+        $stmt = $pdo->query("
+            SELECT id, full_name, role 
+            FROM users 
+            WHERE role IN ('manager', 'admin') AND is_active = 1 
+            ORDER BY role DESC, full_name ASC
+        ");
+        $managers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode(['success' => true, 'managers' => $managers]);
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }

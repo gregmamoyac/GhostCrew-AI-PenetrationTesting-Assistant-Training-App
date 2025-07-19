@@ -482,7 +482,7 @@ function getExpectedTableStructures() {
                 'overall_score' => ['type' => 'int(11)', 'null' => 'YES'],
                 'instructor_feedback' => ['type' => 'text', 'null' => 'YES'],
                 'command_feedback' => ['type' => 'longtext', 'null' => 'YES'],
-                'rating' => ['type' => 'tinyint(4)', 'null' => 'YES'],
+                'rating' => ['type' => 'tinyint', 'null' => 'YES'],
                 'graded_by' => ['type' => 'int(11)', 'null' => 'YES'],
                 'graded_at' => ['type' => 'timestamp', 'null' => 'NO', 'default' => 'current_timestamp()'],
                 'created_at' => ['type' => 'timestamp', 'null' => 'NO', 'default' => 'current_timestamp()']

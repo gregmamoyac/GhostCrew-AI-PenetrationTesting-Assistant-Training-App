@@ -2240,3 +2240,603 @@ function copyToClipboard(elementId, buttonElement) {
         }
     }
 }
+
+// Enhanced Chat Module for AWS AI Integration
+// Add this to your enhanced_terminal.js or create a separate chat.js file
+
+// Global chat variables
+let currentConversationId = null;
+let chatContext = [];
+let awsAiEndpoint = 'https://your-aws-ai-endpoint.amazonaws.com/chat'; // Configure this
+
+// ===========================================
+// ENHANCED CHAT FUNCTIONS
+// ===========================================
+
+// Enhanced Chat functionality with AWS AI
+function sendChatMessage() {
+    const message = $('#chat-input').val().trim();
+    
+    if (message === '') {
+        return;
+    }
+    
+    // Clear input and reset height
+    $('#chat-input').val('').height('auto');
+    
+    // Add user message to chat
+    addChatMessage('user', message);
+    
+    // Show enhanced typing indicator
+    showEnhancedTypingIndicator();
+    
+    // Prepare conversation ID
+    if (!currentConversationId) {
+        currentConversationId = generateConversationId();
+    }
+    
+    // Send to server (which will forward to AWS AI)
+    $.ajax({
+        url: 'api.php',
+        type: 'POST',
+        data: {
+            action: 'chat_message',
+            session_id: currentRemoteSessionId || 'welcome',
+            conversation_id: currentConversationId,
+            message: message,
+            csrf_token: CSRF_TOKEN
+        },
+        dataType: 'json',
+        timeout: 45000, // 45 second timeout for AI responses
+        success: function(response) {
+            hideTypingIndicator();
+            
+            if (response.status === 'success') {
+                // Add bot response with enhanced features
+                addEnhancedChatMessage('bot', response.bot_response, {
+                    messageId: response.bot_message_id,
+                    suggestedCommand: response.suggested_command,
+                    commandDescription: response.command_description,
+                    conversationId: response.conversation_id,
+                    responseTime: response.response_time,
+                    modelUsed: response.model_used,
+                    hasCommand: response.has_command
+                });
+                
+                // Update conversation ID if new
+                if (response.conversation_id) {
+                    currentConversationId = response.conversation_id;
+                }
+                
+                // Show command notification if command was detected
+                if (response.has_command) {
+                    showCommandNotification(response.suggested_command);
+                }
+                
+            } else {
+                addChatMessage('bot', response.message || 'Sorry, I encountered an error processing your request.');
+            }
+        },
+        error: function(xhr, status, error) {
+            hideTypingIndicator();
+            
+            let errorMessage = 'Sorry, I\'m having trouble connecting to the AI service right now.';
+            
+            if (status === 'timeout') {
+                errorMessage = 'The AI service is taking too long to respond. Please try a shorter message.';
+            } else if (xhr.status === 401) {
+                window.location.href = 'login.php';
+                return;
+            }
+            
+            addChatMessage('bot', errorMessage);
+            console.error('Chat error:', status, error);
+        }
+    });
+}
+
+// Enhanced function to add chat messages with AWS AI features
+function addEnhancedChatMessage(type, message, options = {}) {
+    const $chatMessages = $('#chat-messages');
+    
+    // Remove welcome message if it exists
+    $chatMessages.find('.chat-welcome').remove();
+    
+    const timestamp = new Date().toLocaleTimeString();
+    const messageId = options.messageId || Date.now();
+    
+    let messageHtml = `<div class="chat-message ${type}" data-message-id="${messageId}" data-timestamp="${timestamp}">`;
+    
+    if (type === 'bot') {
+        // Enhanced formatting for bot messages
+        message = formatBotMessage(message);
+        messageHtml += `<div class="message-content">${message}</div>`;
+        
+        // Add command suggestion if present
+        if (options.suggestedCommand) {
+            messageHtml += createCommandSuggestionHTML(options.suggestedCommand, options.commandDescription, messageId);
+        }
+        
+        // Add AI response metadata
+        if (options.responseTime || options.modelUsed) {
+            messageHtml += `<div class="ai-metadata">
+                <small class="ai-info">
+                    ${options.modelUsed ? `<span class="model-info"><i class="fas fa-robot"></i> ${options.modelUsed}</span>` : ''}
+                    ${options.responseTime ? `<span class="response-time"><i class="fas fa-clock"></i> ${(options.responseTime * 1000).toFixed(0)}ms</span>` : ''}
+                </small>
+            </div>`;
+        }
+        
+        // Enhanced rating and feedback system
+        messageHtml += createFeedbackHTML(messageId, options.conversationId);
+        
+    } else {
+        // User message
+        messageHtml += `<div class="message-content">${escapeHtml(message)}</div>`;
+        messageHtml += `<span class="message-time">${timestamp}</span>`;
+    }
+    
+    messageHtml += '</div>';
+    
+    $chatMessages.append(messageHtml);
+    scrollChatToBottom();
+    
+    // Animate message appearance
+    const $newMessage = $chatMessages.children().last();
+    $newMessage.hide().fadeIn(300);
+    
+    // Auto-focus terminal if command was suggested
+    if (type === 'bot' && options.suggestedCommand) {
+        setTimeout(() => {
+            if (!$('#terminal-input').is(':focus')) {
+                showCommandHighlight();
+            }
+        }, 2000);
+    }
+}
+
+function createCommandSuggestionHTML(command, description, messageId) {
+    const escapedCommand = escapeHtml(command);
+    const escapedDescription = escapeHtml(description || 'Suggested command from AI');
+    
+    return `<div class="command-suggestion-enhanced">
+        <div class="suggestion-header">
+            <i class="fas fa-terminal"></i>
+            <span class="suggestion-title">Suggested Command</span>
+            <span class="suggestion-badge">AI</span>
+        </div>
+        <div class="suggestion-command">
+            <code class="command-code">${escapedCommand}</code>
+            <div class="command-actions">
+                <button class="send-to-terminal-btn" 
+                        data-command="${escapedCommand}" 
+                        data-message-id="${messageId}"
+                        title="Send to terminal input">
+                    <i class="fas fa-arrow-right"></i>
+                    Send to Terminal
+                </button>
+                <button class="copy-command-btn" 
+                        data-command="${escapedCommand}"
+                        title="Copy to clipboard">
+                    <i class="fas fa-copy"></i>
+                </button>
+            </div>
+        </div>
+        <div class="suggestion-description">${escapedDescription}</div>
+    </div>`;
+}
+
+function createFeedbackHTML(messageId, conversationId) {
+    return `<div class="message-feedback">
+        <div class="feedback-actions">
+            <button class="feedback-btn helpful" 
+                    data-message-id="${messageId}" 
+                    data-conversation-id="${conversationId}"
+                    data-feedback="helpful" 
+                    title="This response was helpful">
+                <i class="fas fa-thumbs-up"></i>
+            </button>
+            <button class="feedback-btn not-helpful" 
+                    data-message-id="${messageId}" 
+                    data-conversation-id="${conversationId}"
+                    data-feedback="not_helpful" 
+                    title="This response was not helpful">
+                <i class="fas fa-thumbs-down"></i>
+            </button>
+            <button class="feedback-btn report" 
+                    data-message-id="${messageId}" 
+                    data-conversation-id="${conversationId}"
+                    data-feedback="incorrect" 
+                    title="Report as incorrect">
+                <i class="fas fa-flag"></i>
+            </button>
+        </div>
+        <span class="message-time">${new Date().toLocaleTimeString()}</span>
+    </div>`;
+}
+
+// Enhanced typing indicator with AI branding
+function showEnhancedTypingIndicator() {
+    const $chatMessages = $('#chat-messages');
+    const typingHtml = `<div class="typing-indicator enhanced" id="typing-indicator">
+        <div class="ai-avatar">
+            <i class="fas fa-robot"></i>
+        </div>
+        <div class="typing-content">
+            <div class="typing-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <span class="typing-text">AI is thinking...</span>
+        </div>
+    </div>`;
+    $chatMessages.append(typingHtml);
+    scrollChatToBottom();
+}
+
+// Event handlers for enhanced chat functionality
+$(document).ready(function() {
+    
+    // Send to Terminal button handler
+    $(document).on('click', '.send-to-terminal-btn', function() {
+        const command = $(this).data('command');
+        const messageId = $(this).data('message-id');
+        
+        if (!activeHostId || !currentRemoteSessionId) {
+            showNotification('No active terminal session available', 'warning');
+            return;
+        }
+        
+        // Load command into terminal input
+        $('#terminal-input').val(command).focus();
+        
+        // Mark command as used
+        markCommandAsUsed(messageId);
+        
+        // Update button state
+        $(this).removeClass('send-to-terminal-btn')
+               .addClass('command-sent-btn')
+               .html('<i class="fas fa-check"></i> Sent')
+               .prop('disabled', true);
+        
+        // Show notification
+        showNotification('Command loaded into terminal. Press Enter to execute.', 'success');
+        
+        // Highlight terminal input briefly
+        $('#terminal-input').addClass('command-highlight');
+        setTimeout(() => {
+            $('#terminal-input').removeClass('command-highlight');
+        }, 2000);
+        
+        // Auto-scroll to terminal if needed
+        scrollToTerminal();
+    });
+    
+    // Copy command button handler
+    $(document).on('click', '.copy-command-btn', function() {
+        const command = $(this).data('command');
+        const button = this;
+        
+        navigator.clipboard.writeText(command).then(() => {
+            const originalHTML = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-check"></i>';
+            button.classList.add('copied');
+            
+            setTimeout(() => {
+                button.innerHTML = originalHTML;
+                button.classList.remove('copied');
+            }, 2000);
+            
+            showNotification('Command copied to clipboard', 'success');
+        }).catch(() => {
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = command;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            
+            showNotification('Command copied to clipboard', 'success');
+        });
+    });
+    
+    // Feedback button handlers
+    $(document).on('click', '.feedback-btn', function() {
+        const messageId = $(this).data('message-id');
+        const conversationId = $(this).data('conversation-id');
+        const feedbackType = $(this).data('feedback');
+        const $button = $(this);
+        
+        // Disable all feedback buttons for this message
+        $(`.feedback-btn[data-message-id="${messageId}"]`).prop('disabled', true);
+        
+        // Add visual feedback
+        $button.addClass('selected');
+        
+        // Handle special feedback types
+        if (feedbackType === 'incorrect') {
+            showFeedbackModal(messageId, conversationId, feedbackType);
+        } else {
+            submitFeedback(messageId, conversationId, feedbackType);
+        }
+    });
+    
+    // Enhanced chat input handling
+    $('#chat-input').on('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendChatMessage();
+        }
+    });
+    
+    // Auto-resize chat textarea
+    $('#chat-input').on('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+    
+});
+
+// Helper functions for enhanced chat
+
+function generateConversationId() {
+    const sessionPart = currentRemoteSessionId || 'welcome';
+    const timestamp = Date.now();
+    return `conv_${sessionPart}_${timestamp}`;
+}
+
+function markCommandAsUsed(messageId) {
+    $.ajax({
+        url: 'api.php',
+        type: 'POST',
+        data: {
+            action: 'mark_command_executed',
+            message_id: messageId,
+            csrf_token: CSRF_TOKEN
+        },
+        dataType: 'json',
+        success: function(response) {
+            console.log('Command marked as executed');
+        }
+    });
+}
+
+function submitFeedback(messageId, conversationId, feedbackType, feedbackText = null) {
+    $.ajax({
+        url: 'api.php',
+        type: 'POST',
+        data: {
+            action: 'submit_feedback',
+            message_id: messageId,
+            conversation_id: conversationId,
+            feedback_type: feedbackType,
+            feedback_text: feedbackText,
+            csrf_token: CSRF_TOKEN
+        },
+        dataType: 'json',
+        success: function(response) {
+            if (response.status === 'success') {
+                showNotification('Thank you for your feedback!', 'success');
+            } else {
+                showNotification('Failed to save feedback', 'error');
+                // Re-enable buttons on error
+                $(`.feedback-btn[data-message-id="${messageId}"]`).prop('disabled', false);
+            }
+        },
+        error: function() {
+            showNotification('Failed to save feedback', 'error');
+            // Re-enable buttons on error
+            $(`.feedback-btn[data-message-id="${messageId}"]`).prop('disabled', false);
+        }
+    });
+}
+
+function showFeedbackModal(messageId, conversationId, feedbackType) {
+    const modal = $(`
+        <div class="feedback-modal-overlay">
+            <div class="feedback-modal">
+                <div class="feedback-modal-header">
+                    <h3><i class="fas fa-flag"></i> Report Issue</h3>
+                    <button class="close-modal">&times;</button>
+                </div>
+                <div class="feedback-modal-body">
+                    <p>Help us improve by describing what was incorrect:</p>
+                    <textarea id="feedback-text" placeholder="What was wrong with this response?" rows="4"></textarea>
+                </div>
+                <div class="feedback-modal-footer">
+                    <button class="btn-cancel">Cancel</button>
+                    <button class="btn-submit">Submit Report</button>
+                </div>
+            </div>
+        </div>
+    `);
+    
+    $('body').append(modal);
+    
+    // Event handlers
+    modal.find('.close-modal, .btn-cancel').on('click', function() {
+        modal.remove();
+        // Re-enable feedback buttons
+        $(`.feedback-btn[data-message-id="${messageId}"]`).prop('disabled', false).removeClass('selected');
+    });
+    
+    modal.find('.btn-submit').on('click', function() {
+        const feedbackText = modal.find('#feedback-text').val().trim();
+        submitFeedback(messageId, conversationId, feedbackType, feedbackText);
+        modal.remove();
+    });
+    
+    // Focus textarea
+    modal.find('#feedback-text').focus();
+}
+
+function showCommandNotification(command) {
+    if (!command) return;
+    
+    const notification = $(`
+        <div class="command-notification">
+            <div class="notification-content">
+                <i class="fas fa-terminal"></i>
+                <span>AI suggested a command: <code>${escapeHtml(command)}</code></span>
+            </div>
+            <button class="notification-close">&times;</button>
+        </div>
+    `);
+    
+    $('body').append(notification);
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+        notification.fadeOut(300, () => notification.remove());
+    }, 5000);
+    
+    // Manual close
+    notification.find('.notification-close').on('click', () => {
+        notification.fadeOut(300, () => notification.remove());
+    });
+}
+
+function showCommandHighlight() {
+    const $terminalInput = $('#terminal-input');
+    $terminalInput.addClass('suggested-command-highlight');
+    
+    setTimeout(() => {
+        $terminalInput.removeClass('suggested-command-highlight');
+    }, 3000);
+}
+
+function scrollToTerminal() {
+    const terminalElement = $('.terminal-input-container')[0];
+    if (terminalElement) {
+        terminalElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+}
+
+// Enhanced chat history loading with AWS AI context
+function loadChatHistory(sessionId) {
+    if (!sessionId) return;
+    
+    $.ajax({
+        url: 'api.php',
+        type: 'POST',
+        data: {
+            action: 'get_chat_history',
+            session_id: sessionId,
+            conversation_id: currentConversationId,
+            limit: 50,
+            csrf_token: CSRF_TOKEN
+        },
+        dataType: 'json',
+        success: function(response) {
+            if (response.status === 'success' && response.messages.length > 0) {
+                const $chatMessages = $('#chat-messages');
+                $chatMessages.find('.chat-welcome').remove();
+                $chatMessages.empty();
+                
+                response.messages.forEach(function(msg) {
+                    if (msg.message_type === 'bot') {
+                        addEnhancedChatMessage('bot', msg.message, {
+                            messageId: msg.id,
+                            suggestedCommand: msg.suggested_command,
+                            commandDescription: 'Previously suggested command',
+                            conversationId: msg.conversation_id,
+                            responseTime: msg.response_time,
+                            modelUsed: msg.model_used,
+                            hasCommand: !!msg.suggested_command
+                        });
+                    } else {
+                        addChatMessage('user', msg.message);
+                    }
+                });
+                
+                // Set conversation ID from history
+                if (response.messages.length > 0) {
+                    currentConversationId = response.messages[0].conversation_id;
+                }
+            }
+        }
+    });
+}
+
+// Initialize enhanced chat system
+function initializeEnhancedChat() {
+    console.log('Initializing Enhanced Chat with AWS AI Integration');
+    
+    // Load chat history if we have a session
+    if (currentRemoteSessionId) {
+        loadChatHistory(currentRemoteSessionId);
+    }
+    
+    // Add welcome message with AWS AI branding
+    if (!chatInitialized) {
+        setTimeout(() => {
+            addEnhancedChatMessage('bot', 
+                'Hello! I\'m your **AWS-powered AI assistant**. I can help you with:\n\n' +
+                '• **Command suggestions** with terminal integration\n' +
+                '• **System administration** guidance\n' +
+                '• **Interactive session** support\n' +
+                '• **Real-time context** awareness\n\n' +
+                'Try asking: *"How do I check disk usage?"* or *"Help me troubleshoot network issues"*', 
+                {
+                    modelUsed: 'AWS AI',
+                    hasCommand: false
+                }
+            );
+            chatInitialized = true;
+        }, 1000);
+    }
+}
+
+// Override the original initialization
+$(document).ready(function() {
+    // Initialize enhanced chat when DOM is ready
+    initializeEnhancedChat();
+});
+
+// Function to handle session switching for chat context
+function switchChatSession(newSessionId) {
+    // Save current conversation state
+    if (currentConversationId) {
+        sessionStorage.setItem(`chat_conv_${currentRemoteSessionId}`, currentConversationId);
+    }
+    
+    // Load conversation for new session
+    currentConversationId = sessionStorage.getItem(`chat_conv_${newSessionId}`) || null;
+    
+    // Load chat history for new session
+    if (newSessionId && newSessionId !== 'welcome') {
+        loadChatHistory(newSessionId);
+    } else {
+        // Clear chat for welcome session
+        $('#chat-messages').empty();
+        initializeEnhancedChat();
+    }
+}
+
+// Enhanced error handling for AWS AI
+function handleAIError(error, context = {}) {
+    console.error('AWS AI Error:', error, context);
+    
+    let userMessage = 'I apologize, but I\'m experiencing technical difficulties.';
+    
+    if (error.includes('timeout')) {
+        userMessage = 'The AI service is taking too long to respond. Please try a shorter message.';
+    } else if (error.includes('rate limit')) {
+        userMessage = 'I\'m receiving too many requests right now. Please wait a moment and try again.';
+    } else if (error.includes('authentication')) {
+        userMessage = 'There\'s an authentication issue with the AI service. Please contact support.';
+    }
+    
+    addChatMessage('bot', userMessage);
+}
+
+// Export functions for global access
+window.ChatAI = {
+    sendMessage: sendChatMessage,
+    addMessage: addEnhancedChatMessage,
+    switchSession: switchChatSession,
+    loadHistory: loadChatHistory,
+    getCurrentConversation: () => currentConversationId
+};

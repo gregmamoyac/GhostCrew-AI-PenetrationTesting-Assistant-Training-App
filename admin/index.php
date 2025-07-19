@@ -9,7 +9,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
-    <link href="../assets/css/style.css" rel="stylesheet">
+    <link href="assets/css/style.css" rel="stylesheet">
 </head>
 <body>
     <!-- Login Screen -->
@@ -88,7 +88,7 @@
         <div class="container">
             <div class="header">
                 <div class="logo">
-                <img src="../assets/img/clippy.png" height="50px" width="50px"></span> GhostCrew Admin
+                <img src="assets/img/clippy.png" height="50px" width="50px"></span> GhostCrew Admin
                 </div>
                 <div class="user-info">
                     <span id="currentUser">Welcome, User</span>
@@ -615,52 +615,212 @@
             <div id="settings" class="content-section">
                 <div class="section-header">
                     <h2 class="section-title">System Settings</h2>
-                    <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">Session Timeout (seconds)</label>
-                    <input type="number" id="sessionTimeout" class="form-input" value="3600">
+                <!-- Settings Navigation Tabs -->
+                <div class="nav-tabs" style="margin-bottom: 30px;">
+                    <button class="nav-tab active" onclick="showSettingsTab('system', this)">🔧 System Settings</button>
+                    <button class="nav-tab" onclick="showSettingsTab('ai', this)">🤖 AI Configuration</button>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">Max Command History</label>
-                    <input type="number" id="maxCommandHistory" class="form-input" value="1000">
+                <!-- System Settings Tab -->
+                <div id="systemSettings" class="settings-tab-content active">
+                    <div class="settings-section">
+                        <h4>System Configuration</h4>
+                        <div class="form-group">
+                            <label class="form-label">Session Timeout (seconds)</label>
+                            <input type="number" id="sessionTimeout" class="form-input" value="3600">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Max Command History</label>
+                            <input type="number" id="maxCommandHistory" class="form-input" value="1000">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Audit Retention (days)</label>
+                            <input type="number" id="auditRetention" class="form-input" value="90">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Max Concurrent Sessions</label>
+                            <input type="number" id="maxConcurrentSessions" class="form-input" value="10">
+                        </div>
+
+                        <button class="btn btn-primary" onclick="saveSettings()">Save System Settings</button>
+                    </div>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">Audit Retention (days)</label>
-                    <input type="number" id="auditRetention" class="form-input" value="90">
-                </div>
+                <!-- AI Configuration Tab -->
+                <div id="aiSettings" class="settings-tab-content">
+                    <div class="settings-section">
+                        <h4><i class="fas fa-robot"></i> AWS AI Configuration</h4>
+                        <p class="text-muted">Configure and monitor your AWS AI integration</p>
 
-                <div class="form-group">
-                    <label class="form-label">Max Concurrent Sessions</label>
-                    <input type="number" id="maxConcurrentSessions" class="form-input" value="10">
+                        <!-- Performance Overview -->
+                        <div class="ai-stats-grid" style="margin-bottom: 30px;">
+                            <div id="aiPerformanceStats" class="ai-stats-container">
+                                <!-- Stats will be populated by JavaScript -->
+                            </div>
+                        </div>
+
+                        <!-- Connection Settings -->
+                        <div class="config-group">
+                            <h6><i class="fas fa-link"></i> Connection Settings</h6>
+                            <div class="form-row">
+                                <div class="form-group" style="flex: 2;">
+                                    <label class="form-label">AWS AI Endpoint URL</label>
+                                    <input type="url" class="form-input" id="aws_ai_endpoint" 
+                                           placeholder="https://api.anthropic.com/v1/messages" required>
+                                    <div class="form-text">The complete URL to your AWS AI service endpoint</div>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">Timeout (seconds)</label>
+                                    <input type="number" class="form-input" id="timeout_seconds" 
+                                           value="30" min="5" max="120">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">API Key</label>
+                                <div class="input-group">
+                                    <input type="password" class="form-input" id="aws_api_key" 
+                                           placeholder="Enter your API key" required>
+                                    <button type="button" class="btn btn-secondary" onclick="toggleApiKeyVisibility()">
+                                        <i class="fas fa-eye" id="apiKeyToggleIcon"></i>
+                                    </button>
+                                </div>
+                                <div class="form-text">Your AWS AI service authentication key</div>
+                            </div>
+                        </div>
+
+                        <!-- AI Behavior Settings -->
+                        <div class="config-group">
+                            <h6><i class="fas fa-brain"></i> AI Behavior Settings</h6>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Max Tokens</label>
+                                    <input type="number" class="form-input" id="max_tokens" 
+                                           value="1000" min="100" max="4000">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Temperature (0.0-1.0)</label>
+                                    <input type="number" class="form-input" id="temperature" 
+                                           value="0.7" min="0" max="1" step="0.1">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Context Messages</label>
+                                    <input type="number" class="form-input" id="context_messages" 
+                                           value="10" min="1" max="50">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">System Prompt</label>
+                                <textarea class="form-input" id="system_prompt" rows="3"
+                                          placeholder="You are a helpful AI assistant for command-line operations."></textarea>
+                                <div class="form-text">Instructions that guide the AI's behavior and responses</div>
+                            </div>
+                        </div>
+
+                        <!-- Advanced Settings -->
+                        <div class="config-group">
+                            <h6><i class="fas fa-cogs"></i> Advanced Settings</h6>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Retry Attempts</label>
+                                    <input type="number" class="form-input" id="retry_attempts" 
+                                           value="3" min="1" max="10">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Retry Delay (ms)</label>
+                                    <input type="number" class="form-input" id="retry_delay" 
+                                           value="1000" min="100" max="10000" step="100">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Max Context Length</label>
+                                    <input type="number" class="form-input" id="max_context_length" 
+                                           value="4000" min="1000" max="16000" step="500">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-check-label">
+                                    <input class="form-check-input" type="checkbox" id="command_detection" checked>
+                                    Command Detection
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="action-buttons">
+                            <button type="button" class="btn btn-primary" onclick="saveAiConfiguration()">
+                                <i class="fas fa-save"></i> Save AI Configuration
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="testAiConnection()">
+                                <i class="fas fa-satellite-dish"></i> Test Connection
+                            </button>
+                            <button type="button" class="btn btn-info" onclick="exportAiConfig()">
+                                <i class="fas fa-download"></i> Export Config
+                            </button>
+                            <button type="button" class="btn btn-warning" onclick="showImportAiConfigModal()">
+                                <i class="fas fa-upload"></i> Import Config
+                            </button>
+                        </div>
+
+                        <!-- AI Command Statistics -->
+                        <div class="config-group" style="margin-top: 30px;">
+                            <h6><i class="fas fa-terminal"></i> Top Command Suggestions</h6>
+                            <div id="aiCommandStats">
+                                <!-- Command stats will be populated by JavaScript -->
+                            </div>
+                        </div>
+
+                        <!-- Maintenance -->
+                        <div class="config-group">
+                            <h6><i class="fas fa-tools"></i> Maintenance</h6>
+                            <p>Clean up old AI performance logs and optimize database performance.</p>
+                            
+                            <div class="form-row" style="align-items: end;">
+                                <div class="form-group">
+                                    <label class="form-label">Keep logs for:</label>
+                                    <select id="aiCleanupDays" class="form-select">
+                                        <option value="7">7 days</option>
+                                        <option value="30" selected>30 days</option>
+                                        <option value="90">90 days</option>
+                                        <option value="365">1 year</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <button type="button" class="btn btn-warning" onclick="cleanupAiLogs()">
+                                        <i class="fas fa-broom"></i> Clean Up AI Logs
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Profile Section -->
-        <div id="profile" class="content-section">
-            <div class="section-header">
-                <h2 class="section-title">My Profile</h2>
-                <button class="btn btn-primary" onclick="showEditProfileModal()">Edit Profile</button>
-            </div>
+            <!-- Profile Section -->
+            <div id="profile" class="content-section">
+                <div class="section-header">
+                    <h2 class="section-title">My Profile</h2>
+                    <button class="btn btn-primary" onclick="showEditProfileModal()">Edit Profile</button>
+                </div>
             
-            <div class="profile-grid">
-                <div class="profile-info">
-                    <h3>User Information</h3>
-                    <div id="profileUserInfo"></div>
-                </div>
-                
-                <div class="profile-sessions">
-                    <h3>My Recent Sessions</h3>
-                    <div id="profileSessions"></div>
-                </div>
-                
-                <div class="profile-grades">
-                    <h3>My Grades</h3>
-                    <div id="profileGrades"></div>
+                <div class="profile-grid">
+                    <div class="profile-info">
+                        <h3>User Information</h3>
+                        <div id="profileUserInfo"></div>
+                    </div>
+                    
+                    <div class="profile-sessions">
+                        <h3>My Recent Sessions</h3>
+                        <div id="profileSessions"></div>
+                    </div>
+                    
+                    <div class="profile-grades">
+                        <h3>My Grades</h3>
+                        <div id="profileGrades"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -781,6 +941,6 @@
         </div>
     </div>
     <div class="clippy"></div>
-    <script src="js/main.js"></script>
+    <script src="assets/js/main.js"></script>
 </body>
 </html>

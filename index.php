@@ -1,6 +1,5 @@
 <?php
-
-/* index.php - Updated with chatbot integration */
+/* index.php - Updated with chatbot integration (Fixed) */
 
 require_once 'auth_config.php';
 require_once 'config.php';
@@ -22,6 +21,9 @@ $csrfToken = generateCSRFToken();
 $instanceToken = getCurrentInstanceToken();
 $WindowssetupCommand = 'curl -o "GhostCrew.ps1" "' . APP_URL . '/local/GhostCrew.ps1" && powershell -ExecutionPolicy Bypass -File GhostCrew.ps1 -ApiURL "' . APP_URL . '/api.php" -Token "' . $instanceToken . '"';
 $LinuxsetupCommand = 'curl -o "GhostCrew.ps1" "' . APP_URL . '/local/GhostCrew.ps1" && pwsh GhostCrew.ps1 -ApiURL "' . APP_URL . '/api.php" -Token "' . $instanceToken . '"';
+
+// Get AI status for frontend
+$aiStatus = getAiStatus();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -77,12 +79,6 @@ $LinuxsetupCommand = 'curl -o "GhostCrew.ps1" "' . APP_URL . '/local/GhostCrew.p
                         </div>
                     </div>
                     <div id="linux-tab" class="connection-tab-content">
-                        <!-- <p>Download setup script:</p>
-                        <div class="connection-download-section">
-                            <a href="local/autoconnect.py" download class="connection-download-button">
-                                <i class="fas fa-download"></i> autoconnect.py
-                            </a>
-                        </div> -->
                         <div class="connection-setup-command">
                             <code id="linux-command-text"><?php echo htmlspecialchars($LinuxsetupCommand); ?></code>
                             <button onclick="copyToClipboard('linux-command-text', this)" title="Copy to clipboard">
@@ -118,6 +114,19 @@ $LinuxsetupCommand = 'curl -o "GhostCrew.ps1" "' . APP_URL . '/local/GhostCrew.p
                                             <p>Connect a host using the setup command to begin.</p>
                                             <p>Your sessions are tracked and logged for security purposes.</p>
                                             <p>Use the AI assistant on the right for command help and suggestions.</p>
+                                            
+                                            <?php if ($aiStatus['configured']): ?>
+                                                <div class="ai-status-indicator configured">
+                                                    <i class="fas fa-robot"></i>
+                                                    <span>AI Assistant: 
+                                                        <?php if ($aiStatus['connected']): ?>
+                                                            <span class="status-connected">Connected</span>
+                                                        <?php else: ?>
+                                                            <span class="status-error">Connection Error</span>
+                                                        <?php endif; ?>
+                                                    </span>
+                                                </div>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
                                 </div>
@@ -132,12 +141,36 @@ $LinuxsetupCommand = 'curl -o "GhostCrew.ps1" "' . APP_URL . '/local/GhostCrew.p
                         
                         <div class="chat-section">
                             <div class="chat-header">
-                                <span>AI Command Assistant</span>
+                                <span>
+                                    <i class="fas fa-robot"></i>
+                                    AI Command Assistant
+                                    <?php if ($aiStatus['connected']): ?>
+                                        <span class="ai-status-badge connected" title="AI Connected">
+                                            <i class="fas fa-circle"></i>
+                                        </span>
+                                    <?php elseif ($aiStatus['configured']): ?>
+                                        <span class="ai-status-badge error" title="AI Error: <?php echo htmlspecialchars($aiStatus['message']); ?>">
+                                            <i class="fas fa-circle"></i>
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="ai-status-badge not-configured" title="AI Not Configured">
+                                            <i class="fas fa-circle"></i>
+                                        </span>
+                                    <?php endif; ?>
+                                </span>
                             </div>
                             <div class="chat-messages" id="chat-messages">
                                 <div class="chat-welcome">
-                                    Hello! I'm your AI command assistant.<br>
-                                    Ask me about Windows commands or request help with specific tasks!
+                                    <?php if ($aiStatus['connected']): ?>
+                                        Hello! I'm your AI assistant.<br>
+                                        Ask me about commands or request help with specific tasks!
+                                    <?php elseif ($aiStatus['configured']): ?>
+                                        Hello! I'm your AI assistant.<br>
+                                        <small class="text-warning">Note: AI is experiencing connection issues. I'll provide basic assistance.</small>
+                                    <?php else: ?>
+                                        Hello! I'm your AI assistant.<br>
+                                        <small class="text-muted">Note: Enhanced features require AI configuration.</small>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                             <div class="chat-input-container">
@@ -161,6 +194,7 @@ $LinuxsetupCommand = 'curl -o "GhostCrew.ps1" "' . APP_URL . '/local/GhostCrew.p
         const USER_ID = <?php echo $user['id']; ?>;
         const USERNAME = '<?php echo htmlspecialchars($user['username']); ?>';
         const SESSION_TIMEOUT = <?php echo SESSION_TIMEOUT; ?>;
+        const AI_STATUS = <?php echo json_encode($aiStatus); ?>;
         
         // Logout function
         function logout() {
@@ -273,7 +307,7 @@ $LinuxsetupCommand = 'curl -o "GhostCrew.ps1" "' . APP_URL . '/local/GhostCrew.p
                 }
                 promptElement.text(formattedPrompt);
             } else {
-                promptElement.text();
+                promptElement.text('$');
             }
         }
 
@@ -287,6 +321,9 @@ $LinuxsetupCommand = 'curl -o "GhostCrew.ps1" "' . APP_URL . '/local/GhostCrew.p
             const chatMessages = document.getElementById('chat-messages');
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
+
+        // Display AI status in console for debugging
+        console.log('AI Status:', AI_STATUS);
     </script>
     <div class="clippy"></div>
     <!-- Enhanced terminal.js will be loaded -->
