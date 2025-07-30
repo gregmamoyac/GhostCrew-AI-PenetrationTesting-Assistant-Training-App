@@ -110,10 +110,7 @@ function logout() {
     document.getElementById('loginError').setAttribute('style', 'display:none !important');
     
     // Destroy all charts
-    Object.values(charts).forEach(chart => {
-        if (chart) chart.destroy();
-    });
-    charts = {};
+    cleanupAllCharts();
 }
 
 function setupRoleBasedAccess(role) {
@@ -203,10 +200,8 @@ function setupRoleBasedAccess(role) {
 
 //Navigation
 function showSection(sectionId, clickedElement = null) {
-
     console.log(`sectionId:`, sectionId);
     console.log(`clickedElement:`, clickedElement);
-    console.log(`window.currentUserPermissions:`, window.currentUserPermissions);
     console.log(`window.currentUserPermissions:`, window.currentUserPermissions);
     console.log(`window.currentUserPermissions.includes(sectionId):`, window.currentUserPermissions.includes(sectionId));
 
@@ -218,7 +213,9 @@ function showSection(sectionId, clickedElement = null) {
     
     // Check if we're leaving the feedback section and reset it
     const currentActiveSection = document.querySelector('.content-section.active');
+
     if (currentActiveSection && currentActiveSection.id === 'feedback' && sectionId !== 'feedback') {
+        cleanupAllCharts();
         resetFeedbackSection();
     }
 
@@ -228,8 +225,8 @@ function showSection(sectionId, clickedElement = null) {
         section.classList.remove('active');
     });
     
-    // Remove active class from all tabs
-    document.querySelectorAll('.nav-tab').forEach(tab => {
+    // Remove active class from all main nav tabs
+    document.querySelectorAll('.nav-tabs .nav-tab').forEach(tab => {
         tab.classList.remove('active');
     });
     
@@ -268,6 +265,13 @@ function showSection(sectionId, clickedElement = null) {
             break;
         case 'reports':
             loadReports();
+            // Ensure Overview tab is selected by default
+            setTimeout(() => {
+                const overviewTab = document.querySelector('[onclick*="showReportTab(\'overview\'"]');
+                if (overviewTab) {
+                    showReportTab('overview', overviewTab);
+                }
+            }, 100);
             break;
         case 'logs':
             loadLogs();
@@ -279,6 +283,33 @@ function showSection(sectionId, clickedElement = null) {
             loadProfile();
             break;
     }
+}
+
+// Update the showReportTab function to maintain main nav selection
+function showReportTab(tabName, element) {
+    // Keep the main Reports tab active
+    document.querySelectorAll('.nav-tabs .nav-tab').forEach(tab => {
+        if (tab.textContent.includes('Reports')) {
+            tab.classList.add('active');
+        }
+    });
+    
+    // Remove active class from all REPORT tabs (not main nav tabs)
+    document.querySelectorAll('.report-nav-tabs .nav-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Remove active class from all report content
+    document.querySelectorAll('.report-tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    
+    // Add active class to clicked report tab and corresponding content
+    element.classList.add('active');
+    document.getElementById(tabName + 'Report').classList.add('active');
+    
+    // Load tab-specific content
+    loadTabContent(tabName);
 }
 
 // Add this new function to reset the feedback section
@@ -298,11 +329,12 @@ async function loadDashboard() {
         const data = await response.json();
         
         if (data.success) {
-            // Update statistics
-            document.getElementById('totalUsers').textContent = data.stats.total_users || 0;
-            document.getElementById('activeSessions').textContent = data.stats.active_sessions || 0;
-            document.getElementById('totalCommands').textContent = data.stats.total_commands || 0;
-            document.getElementById('avgExecutionTime').textContent = data.stats.avg_execution_time || 0;
+            // Update statistics - fix the variable reference
+            const dashboardStats = data.stats || {};
+            document.getElementById('totalUsers').textContent = dashboardStats.total_users || 0;
+            document.getElementById('activeSessions').textContent = dashboardStats.active_sessions || 0;
+            document.getElementById('totalCommands').textContent = dashboardStats.total_commands || 0;
+            document.getElementById('avgExecutionTime').textContent = dashboardStats.avg_execution_time || 0;
             
             // Create charts with error handling
             if (data.charts && data.charts.activity) {
@@ -372,26 +404,181 @@ function updateOverviewStats(stats) {
         document.getElementById('avgSessionLength').textContent = stats.overview.sessions.avg_duration ? 
             Math.round(stats.overview.sessions.avg_duration) + 'm' : '0m';
     }
+    
+    // Update system usage stats
+    if (document.getElementById('totalCommandsExecuted')) {
+        document.getElementById('totalCommandsExecuted').textContent = stats.system_usage?.total_commands_executed || 0;
+        document.getElementById('avgExecutionTime').textContent = stats.system_usage?.avg_execution_time ? 
+            Math.round(stats.system_usage.avg_execution_time * 1000) / 1000 + 's' : '0s';
+        document.getElementById('errorRate').textContent = Math.round(stats.system_usage?.error_rate || 0) + '%';
+        document.getElementById('activeSessions').textContent = stats.system_usage?.active_sessions_count || 0;
+    }
+}
+
+function cleanupAllCharts() {
+    // Destroy all existing charts
+    Object.keys(window.charts || {}).forEach(chartKey => {
+        const chart = window.charts[chartKey];
+        if (chart && typeof chart.destroy === 'function') {
+            try {
+                chart.destroy();
+                console.log(`Destroyed chart: ${chartKey}`);
+            } catch (e) {
+                console.warn(`Error destroying chart ${chartKey}:`, e);
+            }
+        }
+    });
+    
+    // Clear the entire charts object
+    window.charts = {};
 }
 
 function createAllCharts(charts) {
-    // Destroy existing charts
-    Object.values(window.charts || {}).forEach(chart => {
+    // Destroy existing charts more thoroughly
+    Object.keys(window.charts || {}).forEach(chartKey => {
+        const chart = window.charts[chartKey];
         if (chart && typeof chart.destroy === 'function') {
-            chart.destroy();
+            try {
+                chart.destroy();
+            } catch (e) {
+                console.warn('Error destroying chart:', chartKey, e);
+            }
         }
     });
+    
+    // Clear the charts object completely
     window.charts = {};
     
-    // Create new charts
-    createActivityChart(charts.activity);
-    createCommandChart(charts.command_usage);
-    createGradeDistributionChart(charts.grade_distribution);
-    createDurationTrendsChart(charts.duration_trends);
-    createPerformanceByRoleChart(charts.performance_by_role);
-    createChatbotEffectivenessChart(charts.chatbot_effectiveness);
-    createComprehensiveActivityChart(charts.activity);
-    createCommandSuccessChart(charts.command_usage);
+    // Create new charts with error handling
+    try {
+        createSessionDurationChart(charts.session_duration || { labels: ['No Data'], values: [0] });
+        createActiveHoursChart(charts.active_hours || { labels: [], values: [] });
+        createCommandChart(charts.command_usage || { labels: ['No Data'], usage: [0], success_rates: [0] });
+        createGradeDistributionChart(charts.grade_distribution || { labels: ['No Data'], values: [0] });
+        createDurationTrendsChart(charts.duration_trends || { labels: [], values: [] });
+        createPerformanceByRoleChart(charts.performance_by_role || { labels: ['No Data'], scores: [0], ratings: [0] });
+        createChatbotEffectivenessChart(charts.chatbot_effectiveness || { labels: [], suggestions: [], executed: [], effectiveness: [] });
+        createCommandSuccessChart(charts.command_usage || { labels: ['No Data'], success_rates: [0] });
+    } catch (error) {
+        console.error('Error creating charts:', error);
+    }
+}
+
+function createSessionDurationChart(data) {
+    const canvas = document.getElementById('activityChart'); // Reuse the existing canvas
+    if (!canvas) return;
+    
+    // Destroy existing chart if it exists
+    if (window.charts && window.charts.sessionDuration) {
+        try {
+            window.charts.sessionDuration.destroy();
+        } catch (e) {
+            console.warn('Error destroying session duration chart:', e);
+        }
+        delete window.charts.sessionDuration;
+    }
+    
+    // Ensure window.charts exists
+    if (!window.charts) {
+        window.charts = {};
+    }
+    
+    const ctx = canvas.getContext('2d');
+    window.charts.sessionDuration = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: data.labels || ['No Data'],
+            datasets: [{
+                data: data.values || [0],
+                backgroundColor: [
+                    '#3fb950', '#58a6ff', '#d29922', '#f85149', '#a9a7ff'
+                ],
+                borderColor: '#21262d',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { 
+                        color: '#f0f6fc',
+                        padding: 15,
+                        usePointStyle: true
+                    }
+                },
+                title: {
+                    display: true,
+                    text: 'Session Duration Distribution',
+                    color: '#f0f6fc',
+                    font: { size: 16 }
+                }
+            }
+        }
+    });
+}
+
+function createActiveHoursChart(data) {
+    const canvas = document.getElementById('comprehensiveActivityChart');
+    if (!canvas) return;
+    
+    // Destroy existing chart if it exists
+    if (window.charts && window.charts.activeHours) {
+        try {
+            window.charts.activeHours.destroy();
+        } catch (e) {
+            console.warn('Error destroying active hours chart:', e);
+        }
+        delete window.charts.activeHours;
+    }
+    
+    // Ensure window.charts exists
+    if (!window.charts) {
+        window.charts = {};
+    }
+    
+    const ctx = canvas.getContext('2d');
+    window.charts.activeHours = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.labels || [],
+            datasets: [{
+                label: 'Sessions Started',
+                data: data.values || [],
+                backgroundColor: 'rgba(88, 166, 255, 0.8)',
+                borderColor: '#58a6ff',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: { color: '#f0f6fc' }
+                },
+                title: {
+                    display: true,
+                    text: 'Most Active Hours (24hr format)',
+                    color: '#f0f6fc',
+                    font: { size: 16 }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#8b949e' },
+                    grid: { color: '#30363d' }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: '#8b949e' },
+                    grid: { color: '#30363d' }
+                }
+            }
+        }
+    });
 }
 
 function createActivityChart(data) {
@@ -404,7 +591,12 @@ function createActivityChart(data) {
     
     // Destroy existing chart if it exists
     if (window.charts && window.charts.activity) {
-        window.charts.activity.destroy();
+        try {
+            window.charts.activity.destroy();
+        } catch (e) {
+            console.warn('Error destroying activity chart:', e);
+        }
+        delete window.charts.activity;
     }
     
     // Ensure window.charts exists
@@ -498,6 +690,21 @@ function createCommandChart(data) {
     const canvas = document.getElementById('commandChart');
     if (!canvas) return;
     
+    // Destroy existing chart if it exists
+    if (window.charts && window.charts.commands) {
+        try {
+            window.charts.commands.destroy();
+        } catch (e) {
+            console.warn('Error destroying command chart:', e);
+        }
+        delete window.charts.commands;
+    }
+    
+    // Ensure window.charts exists
+    if (!window.charts) {
+        window.charts = {};
+    }
+    
     const ctx = canvas.getContext('2d');
     window.charts.commands = new Chart(ctx, {
         type: 'bar',
@@ -539,6 +746,21 @@ function createGradeDistributionChart(data) {
     const canvas = document.getElementById('gradeChart');
     if (!canvas) return;
     
+    // Destroy existing chart if it exists
+    if (window.charts && window.charts.grades) {
+        try {
+            window.charts.grades.destroy();
+        } catch (e) {
+            console.warn('Error destroying grade chart:', e);
+        }
+        delete window.charts.grades;
+    }
+    
+    // Ensure window.charts exists
+    if (!window.charts) {
+        window.charts = {};
+    }
+    
     const ctx = canvas.getContext('2d');
     window.charts.grades = new Chart(ctx, {
         type: 'doughnut',
@@ -567,6 +789,21 @@ function createGradeDistributionChart(data) {
 function createDurationTrendsChart(data) {
     const canvas = document.getElementById('durationChart');
     if (!canvas) return;
+    
+    // Destroy existing chart if it exists
+    if (window.charts && window.charts.duration) {
+        try {
+            window.charts.duration.destroy();
+        } catch (e) {
+            console.warn('Error destroying duration trends chart:', e);
+        }
+        delete window.charts.duration;
+    }
+    
+    // Ensure window.charts exists
+    if (!window.charts) {
+        window.charts = {};
+    }
     
     const ctx = canvas.getContext('2d');
     window.charts.duration = new Chart(ctx, {
@@ -609,6 +846,21 @@ function createDurationTrendsChart(data) {
 function createPerformanceByRoleChart(data) {
     const canvas = document.getElementById('performanceByRoleChart');
     if (!canvas) return;
+    
+    // Destroy existing chart if it exists
+    if (window.charts && window.charts.performance) {
+        try {
+            window.charts.performance.destroy();
+        } catch (e) {
+            console.warn('Error destroying performance chart:', e);
+        }
+        delete window.charts.performance;
+    }
+    
+    // Ensure window.charts exists
+    if (!window.charts) {
+        window.charts = {};
+    }
     
     const ctx = canvas.getContext('2d');
     window.charts.performance = new Chart(ctx, {
@@ -669,6 +921,21 @@ function createChatbotEffectivenessChart(data) {
     const canvas = document.getElementById('chatbotEffectivenessChart');
     if (!canvas) return;
     
+    // Destroy existing chart if it exists
+    if (window.charts && window.charts.chatbot) {
+        try {
+            window.charts.chatbot.destroy();
+        } catch (e) {
+            console.warn('Error destroying chatbot chart:', e);
+        }
+        delete window.charts.chatbot;
+    }
+    
+    // Ensure window.charts exists
+    if (!window.charts) {
+        window.charts = {};
+    }
+    
     const ctx = canvas.getContext('2d');
     window.charts.chatbot = new Chart(ctx, {
         type: 'line',
@@ -726,61 +993,24 @@ function createChatbotEffectivenessChart(data) {
     });
 }
 
-function createComprehensiveActivityChart(data) {
-    const canvas = document.getElementById('comprehensiveActivityChart');
-    if (!canvas) return;
-    
-    const ctx = canvas.getContext('2d');
-    window.charts.comprehensive = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: data.labels || [],
-            datasets: [{
-                label: 'Active Users',
-                data: data.datasets.active_users || [],
-                backgroundColor: 'rgba(88, 166, 255, 0.8)',
-                borderColor: '#58a6ff',
-                borderWidth: 1
-            }, {
-                label: 'Sessions',
-                data: data.datasets.sessions || [],
-                backgroundColor: 'rgba(169, 167, 255, 0.8)',
-                borderColor: '#a9a7ff',
-                borderWidth: 1
-            }, {
-                label: 'Commands',
-                data: data.datasets.commands || [],
-                backgroundColor: 'rgba(63, 185, 80, 0.8)',
-                borderColor: '#3fb950',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    labels: { color: '#f0f6fc' }
-                }
-            },
-            scales: {
-                x: {
-                    ticks: { color: '#8b949e' },
-                    grid: { color: '#30363d' }
-                },
-                y: {
-                    beginAtZero: true,
-                    ticks: { color: '#8b949e' },
-                    grid: { color: '#30363d' }
-                }
-            }
-        }
-    });
-}
-
 function createCommandSuccessChart(data) {
     const canvas = document.getElementById('commandSuccessChart');
     if (!canvas) return;
+    
+    // Destroy existing chart if it exists
+    if (window.charts && window.charts.commandSuccess) {
+        try {
+            window.charts.commandSuccess.destroy();
+        } catch (e) {
+            console.warn('Error destroying command success chart:', e);
+        }
+        delete window.charts.commandSuccess;
+    }
+    
+    // Ensure window.charts exists
+    if (!window.charts) {
+        window.charts = {};
+    }
     
     const ctx = canvas.getContext('2d');
     window.charts.commandSuccess = new Chart(ctx, {
@@ -822,20 +1052,6 @@ function createCommandSuccessChart(data) {
             }
         }
     });
-}
-
-// Report tab management
-function showReportTab(tabName, element) {
-    // Remove active class from all tabs and content
-    document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
-    document.querySelectorAll('.report-tab-content').forEach(content => content.classList.remove('active'));
-    
-    // Add active class to clicked tab and corresponding content
-    element.classList.add('active');
-    document.getElementById(tabName + 'Report').classList.add('active');
-    
-    // Load tab-specific content
-    loadTabContent(tabName);
 }
 
 async function loadTabContent(tabName) {
@@ -1260,37 +1476,67 @@ function exportToPDF(title, data) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     
-    doc.setFontSize(16);
-    doc.text(title, 20, 20);
-    doc.setFontSize(10);
-    doc.text(`Generated on: ${new Date().toLocaleString()}`, 20, 30);
+    // Header
+    doc.setFontSize(20);
+    doc.setTextColor(40, 40, 40);
+    doc.text(title, 20, 25);
+    
+    // Subtitle
+    doc.setFontSize(12);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 35);
+    
+    // Line separator
+    doc.setDrawColor(200, 200, 200);
+    doc.line(20, 40, 190, 40);
     
     let y = 50;
-    const pageHeight = doc.internal.pageSize.height;
+    const pageHeight = doc.internal.pageSize.height - 20;
     
     if (data.length > 0) {
         const headers = Object.keys(data[0]);
-        const colWidth = 180 / headers.length;
+        const colWidth = 170 / headers.length;
         
-        // Headers
+        // Table headers
+        doc.setFontSize(10);
+        doc.setTextColor(255, 255, 255);
+        doc.setFillColor(60, 60, 60);
+        doc.rect(20, y - 5, 170, 10, 'F');
+        
         headers.forEach((header, index) => {
-            doc.text(header, 20 + (index * colWidth), y);
+            doc.text(header, 22 + (index * colWidth), y);
         });
         y += 10;
         
-        // Data rows
-        data.forEach(row => {
-            if (y > pageHeight - 20) {
+        // Table rows
+        doc.setTextColor(40, 40, 40);
+        data.forEach((row, rowIndex) => {
+            if (y > pageHeight) {
                 doc.addPage();
                 y = 20;
             }
             
+            // Alternate row colors
+            if (rowIndex % 2 === 0) {
+                doc.setFillColor(245, 245, 245);
+                doc.rect(20, y - 3, 170, 8, 'F');
+            }
+            
             headers.forEach((header, index) => {
-                const value = String(row[header] || '').substring(0, 20);
-                doc.text(value, 20 + (index * colWidth), y);
+                const value = String(row[header] || '').substring(0, 25);
+                doc.text(value, 22 + (index * colWidth), y);
             });
-            y += 10;
+            y += 8;
         });
+    }
+    
+    // Footer
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(`Page ${i} of ${pageCount}`, 170, doc.internal.pageSize.height - 10);
     }
     
     doc.save(`${title.toLowerCase().replace(/\s+/g, '_')}.pdf`);
@@ -1381,9 +1627,21 @@ function exportSessionToExcel(sessionId, data) {
 }
 
 // Utility Functions
-function formatDate(dateString) {
+function formatDate(dateString, showLocal = false) {
     if (!dateString) return '-';
-    return new Date(dateString).toLocaleString();
+    
+    const date = new Date(dateString + (dateString.includes('Z') ? '' : 'Z')); // Ensure UTC
+    
+    if (showLocal) {
+        return date.toLocaleString(); // Show in user's local time
+    } else {
+        return date.toISOString(); // Keep as UTC for database operations
+    }
+}
+
+// Update all database insert/update operations to use UTC
+function getCurrentUTCTimestamp() {
+    return new Date().toISOString();
 }
 
 function calculateDuration(startTime, endTime) {
@@ -1623,14 +1881,19 @@ function createStatusChart(data) {
         return;
     }
     
+    // Destroy existing chart if it exists
+    if (window.charts && window.charts.status) {
+        try {
+            window.charts.status.destroy();
+        } catch (e) {
+            console.warn('Error destroying status chart:', e);
+        }
+        delete window.charts.status;
+    }
+    
     // Ensure window.charts exists
     if (!window.charts) {
         window.charts = {};
-    }
-    
-    // Destroy existing chart if it exists
-    if (window.charts.status) {
-        window.charts.status.destroy();
     }
     
     const ctx = canvas.getContext('2d');
@@ -1798,6 +2061,184 @@ function filterUsers() {
     }
     
     return filtered;
+}
+
+function formatChatMessage(message) {
+    // Handle AI Session Summary formatting
+    if (message.includes('PENETRATION TESTING SESSION SUMMARY') || message.includes('**RECONNAISSANCE PHASE')) {
+        return formatAISessionSummary(message);
+    }
+    
+    // Handle Bot Response formatting
+    return formatBotResponse(message);
+}
+
+function formatAISessionSummary(message) {
+    let formatted = message;
+    
+    // Convert newlines to HTML breaks first
+    formatted = formatted.replace(/\\n/g, '<br>');
+    formatted = formatted.replace(/\n/g, '<br>');
+    
+    // Format main title
+    formatted = formatted.replace(/\*\*PENETRATION TESTING SESSION SUMMARY\*\*/g, 
+        '<h4 class="ai-summary-title">🔍 PENETRATION TESTING SESSION SUMMARY</h4>');
+    
+    // Format section headers
+    formatted = formatted.replace(/\*\*([^*]+PHASE[^*]*)\*\*/g, 
+        '<h5 class="phase-header">📋 $1</h5>');
+    
+    // Format assessment and recommendations sections
+    formatted = formatted.replace(/\*\*(OVERALL ASSESSMENT|RECOMMENDATIONS):\*\*/g, 
+        '<h6 class="summary-section"><strong>$1:</strong></h6>');
+    
+    // Fix the checkmark and bold text formatting issue
+    formatted = formatted.replace(/✅<br>\*\*([^*]+):\*\*/g, '✅ <strong>$1:</strong>');
+    
+    // Format other bold sections
+    formatted = formatted.replace(/\*\*([^*]+):\*\*/g, 
+        '<h6 class="summary-section"><strong>$1:</strong></h6>');
+    
+    // Format checkmarks and bullet points
+    formatted = formatted.replace(/- \\u2713 /g, '• ✅ ');
+    formatted = formatted.replace(/\\u2713 /g, '✅ ');
+    formatted = formatted.replace(/\\u26a0 /g, '⚠️ ');
+    
+    // Format bullet points with proper spacing
+    formatted = formatted.replace(/^- (.+)$/gm, '<div style="margin-left: 12px;">• $1</div>');
+    formatted = formatted.replace(/<br>- (.+)/g, '<br><div style="margin-left: 12px;">• $1</div>');
+    
+    // Clean up any double breaks
+    formatted = formatted.replace(/<br><br>/g, '<br>');
+    
+    // Wrap in summary container
+    return `<div class="ai-session-summary">${formatted}</div>`;
+}
+
+function formatBotResponse(message) {
+    // Convert newlines to HTML breaks first
+    let formatted = message.replace(/\n/g, '');
+    
+    // Split into parts and process sequentially to maintain state
+    const parts = [];
+    let currentPos = 0;
+    let hasOpenSection = false;
+    let inStepSection = false;
+    
+    // Find all formatting patterns with their positions
+    const patterns = [
+        { regex: /\*\*Step (\d+): ([^*]+)\*\*/g, type: 'step' },
+        { regex: /\*\*Command:\*\* `([^`]+)`/g, type: 'command' },
+        { regex: /\*\*Explanation:\*\*/g, type: 'explanation' },
+        { regex: /\*\*Reading Output:\*\*/g, type: 'reading' },
+        { regex: /\*\*Expected Actions:\*\*/g, type: 'expected' },
+        { regex: /\*\*Risks:\*\*/g, type: 'risks' }
+    ];
+    
+    const matches = [];
+    
+    patterns.forEach(pattern => {
+        let match;
+        pattern.regex.lastIndex = 0; // Reset regex
+        while ((match = pattern.regex.exec(formatted)) !== null) {
+            matches.push({
+                type: pattern.type,
+                match: match,
+                start: match.index,
+                end: match.index + match[0].length
+            });
+        }
+    });
+    
+    // Sort matches by position
+    matches.sort((a, b) => a.start - b.start);
+    
+    let result = '';
+    let pos = 0;
+    
+    matches.forEach(({ type, match, start, end }) => {
+        // Add text before this match
+        result += formatted.substring(pos, start);
+        
+        // Helper functions
+        const closeSection = () => hasOpenSection ? '</p></div>' : '';
+        const closeStepSection = () => inStepSection ? '</div>' : '';
+        
+        // Process the match based on type
+        switch (type) {
+            case 'step':
+                result += closeSection() + closeStepSection() + 
+                         `<div class="step-section"><h6>📝 Step ${match[1]}: ${match[2]}</h6>`;
+                hasOpenSection = false;
+                inStepSection = true;
+                break;
+                
+            case 'command':
+                if (inStepSection) {
+                    result += closeSection() + 
+                             `<div class="command-subsection"><h6>💻 Command:</h6><code class="command-code">${match[1]}</code></div>`;
+                } else {
+                    result += closeSection() + 
+                             `<div class="command-section"><h6>💻 Command:</h6><code class="command-code">${match[1]}</code></div>`;
+                }
+                hasOpenSection = false;
+                break;
+                
+            case 'explanation':
+                if (inStepSection) {
+                    result += closeSection() + 
+                             '<div class="explanation-subsection"><h6>📖 Explanation:</h6><p>';
+                } else {
+                    result += closeSection() + 
+                             '<div class="explanation-section"><h6>📖 Explanation:</h6><p>';
+                }
+                hasOpenSection = true;
+                break;
+                
+            case 'reading':
+                if (inStepSection) {
+                    result += closeSection() + 
+                             '<div class="reading-output-subsection"><h6>👁️ Reading Output:</h6><p>';
+                } else {
+                    result += closeSection() + 
+                             '<div class="reading-output-section"><h6>👁️ Reading Output:</h6><p>';
+                }
+                hasOpenSection = true;
+                break;
+                
+            case 'expected':
+                result += closeSection() + closeStepSection() + 
+                         '<div class="expected-actions-section"><h6>🎯 Expected Actions:</h6><p>';
+                hasOpenSection = true;
+                inStepSection = false;
+                break;
+                
+            case 'risks':
+                result += closeSection() + closeStepSection() + 
+                         '<div class="risks-section"><h6>⚠️ Risks:</h6><p>';
+                hasOpenSection = true;
+                inStepSection = false;
+                break;
+        }
+        
+        pos = end;
+    });
+    
+    // Add remaining text
+    result += formatted.substring(pos);
+    
+    // Format inline code
+    result = result.replace(/`([^`]+)`/g, '<code>$1</code>');
+    
+    // Format bullet points
+    result = result.replace(/- (.+)/g, '• $1');
+    
+    // Close any remaining open sections
+    const closeSection = () => hasOpenSection ? '</p></div>' : '';
+    const closeStepSection = () => inStepSection ? '</div>' : '';
+    result += closeSection() + closeStepSection();
+    
+    return `<div class="bot-response-formatted">${result}</div>`;
 }
 
 async function loadManagersList() {
@@ -2000,10 +2441,23 @@ function populateSessionFilters() {
     const userFilter = document.getElementById('sessionUserFilter');
     userFilter.innerHTML = '<option value="">All Users</option>';
     
-    currentData.users.forEach(user => {
+    // Show all users for admins and managers, including themselves
+    let usersToShow = [];
+    
+    if (currentUser.role === 'operator') {
+        usersToShow = [currentUser];
+    } else if (currentUser.role === 'manager') {
+        // Managers see operators and themselves
+        usersToShow = currentData.users.filter(u => u.role === 'operator' || u.id == currentUser.id);
+    } else {
+        // Admins see everyone
+        usersToShow = currentData.users;
+    }
+    
+    usersToShow.forEach(user => {
         const option = document.createElement('option');
         option.value = user.id;
-        option.textContent = user.full_name;
+        option.textContent = user.full_name + (user.id == currentUser.id ? ' (You)' : '');
         userFilter.appendChild(option);
     });
 }
@@ -2176,17 +2630,27 @@ async function viewSessionDetail(sessionId) {
                 
                 ${conversations.length > 0 ? `
                 <div class="commands-section">
-                    <h4>Chatbot Conversations</h4>
-                    <div class="timeline">
+                    <h4>🤖 Ghosty's Conversations</h4>
+                    <div class="chat-timeline">
                         ${conversations.map(conv => `
-                            <div class="chat-message ${conv.message_type}">
-                                <strong>${conv.message_type === 'user' ? 'User' : 'Bot'}:</strong>
-                                <p>${conv.message}</p>
-                                <small>${formatDate(conv.timestamp)}</small>
+                            <div class="chat-message-container ${conv.message_type}">
+                                <div class="chat-header">
+                                    <strong>${conv.message_type === 'user' ? '👤 User' : '🤖 Ghosty the AI Guide'}:</strong>
+                                    <small class="chat-timestamp">${formatDate(conv.timestamp)}</small>
+                                </div>
+                                <div class="chat-content">
+                                    ${conv.message_type === 'bot' ? formatChatMessage(conv.message) : `<p>${conv.message}</p>`}
+                                </div>
+                                ${conv.suggested_command ? `
+                                    <div class="suggested-command">
+                                        <strong>💡 Suggested Command:</strong>
+                                        <code>${conv.suggested_command}</code>
+                                    </div>
+                                ` : ''}
                             </div>
                         `).join('')}
                     </div>
-                </div>
+                </div>  
                 ` : ''}
                 
                 ${feedback ? `
@@ -2295,8 +2759,8 @@ function populateGradingFilters() {
         // Managers see operators and themselves
         usersToShow = currentData.users.filter(u => u.role === 'operator' || u.id == currentUser.id);
     } else {
-        // Admins see everyone (except other admins for grading purposes)
-        usersToShow = currentData.users.filter(u => u.role === 'operator' || u.role === 'manager');
+        // Admins see everyone
+        usersToShow = currentData.users;
     }
     
     usersToShow.forEach(user => {
@@ -2317,6 +2781,7 @@ function gradeSession(sessionId) {
     // Store the session ID for potential use after saving
     window.currentGradingSessionId = sessionId;
     
+    // Go to feedback section but maintain that we're grading
     showSection('feedback');
     
     const session = currentData.sessions.find(s => s.session_id === sessionId);
@@ -2423,16 +2888,20 @@ async function loadGradingContent(sessionId) {
             const content = `
                 <div class="grading-form">
                     <h3>${isOperatorViewing ? 'Viewing' : 'Grading'} Session: ${sessionId}</h3>
-                    <p><strong>${isOperatorViewing ? 'Your Session' : 'Student'}:</strong> ${user ? user.full_name : 'Unknown'}</p>
-                    <p><strong>Session Date:</strong> ${formatDate(session.start_time)}</p>
-                    <p><strong>Commands Executed:</strong> ${commands.length}</p>
-                    <p><strong>Chat Interactions:</strong> ${conversations.length}</p>
+                    
+                    <div class="session-info">
+                        <h4>Session Information</h4>
+                        <p><strong>${isOperatorViewing ? 'Your Session' : 'Student'}:</strong> ${user ? user.full_name : 'Unknown'}</p>
+                        <p><strong>Session Date:</strong> ${formatDate(session.start_time)}</p>
+                        <p><strong>Commands Executed:</strong> ${commands.length}</p>
+                        <p><strong>Chat Interactions:</strong> ${conversations.length}</p>
+                    </div>
                     
                     ${data.ai_summary ? `
                     <div class="ai-summary-section">
                         <h4>Session Summary</h4>
                         <div class="ai-summary-content">
-                            <div class="ai-summary-text">${data.ai_summary.ai_summary}</div>
+                            ${formatAISessionSummary(data.ai_summary.ai_summary)}
                             <div class="ai-summary-meta">
                                 <small>Generated on ${formatDate(data.ai_summary.summary_generated_at)} | 
                                 Commands analyzed: ${data.ai_summary.command_count} | 
@@ -2465,51 +2934,51 @@ async function loadGradingContent(sessionId) {
                     <div class="grading-timeline">
                         <h4>${isOperatorViewing ? 'Your Session Timeline' : 'Session Timeline (Commands & Conversations)'}</h4>
                         ${timeline.map(item => {
-                            if (item.type === 'command') {
-                                return `
-                                    <div class="grading-timeline-item command-item">
-                                        <div class="timeline-time">${formatDate(item.timestamp)}</div>
-                                        <div class="timeline-content">
-                                            <h5>Command: <code>${item.data.command}</code></h5>
-                                            <p><strong>Status:</strong> <span class="status-badge status-${item.data.status}">${item.data.status}</span></p>
-                                            <p><strong>Execution Time:</strong> ${item.data.execution_time ? item.data.execution_time + 's' : 'N/A'}</p>
-                                            ${item.data.output ? `
-                                                <div class="command-output-full">
-                                                    <strong>Output:</strong>
-                                                    <pre>${item.data.output}</pre>
-                                                </div>
-                                            ` : ''}
-                                            ${existingFeedback?.command_feedback?.[item.data.command] ? `
-                                                <div class="instructor-feedback">
-                                                    <strong>💬 Instructor Feedback:</strong>
-                                                    <p>${existingFeedback.command_feedback[item.data.command]}</p>
-                                                </div>
-                                            ` : ''}
-                                            ${canGrade ? `
-                                                <div class="form-group">
-                                                    <label class="form-label">Feedback for this command:</label>
-                                                    <input type="text" class="form-input" id="cmd_${item.data.id}" 
-                                                           value="${existingFeedback?.command_feedback?.[item.data.command] || ''}" 
-                                                           placeholder="Enter feedback for this command">
-                                                </div>
-                                            ` : ''}
-                                        </div>
-                                    </div>
-                                `;
-                            } else {
-                                return `
-                                    <div class="grading-timeline-item conversation-item">
-                                        <div class="timeline-time">${formatDate(item.timestamp)}</div>
-                                        <div class="timeline-content">
-                                            <h5>${item.data.message_type === 'user' ? (isOperatorViewing ? 'Your Question' : 'Student Question') : 'Bot Response'}</h5>
-                                            <div class="chat-message ${item.data.message_type}">
-                                                ${item.data.message}
+                        if (item.type === 'command') {
+                            return `
+                                <div class="grading-timeline-item command-item">
+                                    <div class="timeline-time">${formatDate(item.timestamp)}</div>
+                                    <div class="timeline-content">
+                                        <h5>Command: <code>${item.data.command}</code></h5>
+                                        <p><strong>Status:</strong> <span class="status-badge status-${item.data.status}">${item.data.status}</span></p>
+                                        <p><strong>Execution Time:</strong> ${item.data.execution_time ? item.data.execution_time + 's' : 'N/A'}</p>
+                                        ${item.data.output ? `
+                                            <div class="command-output-full">
+                                                <strong>Output:</strong>
+                                                <pre>${item.data.output}</pre>
                                             </div>
+                                        ` : ''}
+                                        ${existingFeedback?.command_feedback?.[item.data.command] ? `
+                                            <div class="instructor-feedback">
+                                                <strong>💬 Instructor Feedback:</strong>
+                                                <p>${existingFeedback.command_feedback[item.data.command]}</p>
+                                            </div>
+                                        ` : ''}
+                                        ${canGrade ? `
+                                            <div class="form-group">
+                                                <label class="form-label">Feedback for this command:</label>
+                                                <input type="text" class="form-input" id="cmd_${item.data.id}" 
+                                                    value="${existingFeedback?.command_feedback?.[item.data.command] || ''}" 
+                                                    placeholder="Enter feedback for this command">
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            `;
+                        } else {
+                            return `
+                                <div class="grading-timeline-item conversation-item">
+                                    <div class="timeline-time">${formatDate(item.timestamp)}</div>
+                                    <div class="timeline-content">
+                                        <h5>${item.data.message_type === 'user' ? (isOperatorViewing ? 'Your Question' : 'Operator Prompt') : 'Ghosty\'s Response'}</h5>
+                                        <div class="chat-message ${item.data.message_type}">
+                                            ${formatChatMessage(item.data.message)}
                                         </div>
                                     </div>
-                                `;
-                            }
-                        }).join('')}
+                                </div>
+                            `;
+                        }
+                    }).join('')}
                     </div>
                     
                     ${canGrade ? `
@@ -2677,15 +3146,25 @@ function updateReportStats(stats) {
 
 
 function createCommandUsageChart(data) {
-    // Destroy existing chart if it exists
-    if (charts.commandUsage) {
-        charts.commandUsage.destroy();
-    }
-    
     const canvas = document.getElementById('commandUsageChart');
     if (!canvas) {
         console.warn('Command usage chart canvas not found');
         return;
+    }
+    
+    // Destroy existing chart if it exists
+    if (window.charts && window.charts.commandUsage) {
+        try {
+            window.charts.commandUsage.destroy();
+        } catch (e) {
+            console.warn('Error destroying command usage chart:', e);
+        }
+        delete window.charts.commandUsage;
+    }
+    
+    // Ensure window.charts exists
+    if (!window.charts) {
+        window.charts = {};
     }
     
     const ctx = canvas.getContext('2d');
@@ -2735,15 +3214,25 @@ function createCommandUsageChart(data) {
 }
 
 function createDurationChart(data) {
-    // Destroy existing chart if it exists
-    if (charts.duration) {
-        charts.duration.destroy();
-    }
-    
     const canvas = document.getElementById('durationChart');
     if (!canvas) {
         console.warn('Duration chart canvas not found');
         return;
+    }
+    
+    // Destroy existing chart if it exists
+    if (window.charts && window.charts.duration) {
+        try {
+            window.charts.duration.destroy();
+        } catch (e) {
+            console.warn('Error destroying duration chart:', e);
+        }
+        delete window.charts.duration;
+    }
+    
+    // Ensure window.charts exists
+    if (!window.charts) {
+        window.charts = {};
     }
     
     const ctx = canvas.getContext('2d');
@@ -2792,6 +3281,10 @@ function createDurationChart(data) {
 
 // Session Detail Page View
 async function viewSessionDetailPage(sessionId) {
+    // Store which section we came from
+    const currentSection = document.querySelector('.nav-tab.active');
+    const fromSection = currentSection ? currentSection.textContent.trim() : 'sessions';
+    
     try {
         const response = await fetch(`${API_BASE}?action=session_detail&session_id=${sessionId}`);
         const data = await response.json();
@@ -2842,20 +3335,6 @@ async function viewSessionDetailPage(sessionId) {
             const viewerLabel = isOwnSession ? 'Your' : (user ? user.full_name + "'s" : 'Unknown User');
             
             const content = `
-                ${aiSummary ? `
-                <div class="ai-summary-section">
-                    <h4>🤖 AI Session Summary</h4>
-                    <div class="ai-summary-content">
-                        <div class="ai-summary-text">${aiSummary.ai_summary}</div>
-                        <div class="ai-summary-meta">
-                            <small>Generated on ${formatDate(aiSummary.summary_generated_at)} | 
-                            Commands analyzed: ${aiSummary.command_count} | 
-                            Duration: ${Math.round(aiSummary.session_duration || 0)} minutes</small>
-                        </div>
-                    </div>
-                </div>
-                ` : ''}
-                
                 <div class="session-info">
                     <h4>${viewerLabel} Session Information</h4>
                     <p><strong>Session ID:</strong> ${session.session_id}</p>
@@ -2867,6 +3346,20 @@ async function viewSessionDetailPage(sessionId) {
                     <p><strong>Status:</strong> ${session.status}</p>
                     <p><strong>OS Info:</strong> ${session.os_info || 'Not available'}</p>
                 </div>
+
+                ${aiSummary ? `
+                <div class="ai-summary-section">
+                    <h4>Session Summary</h4>
+                    <div class="ai-summary-content">
+                        ${formatAISessionSummary(aiSummary.ai_summary)}
+                        <div class="ai-summary-meta">
+                            <small>Generated on ${formatDate(aiSummary.summary_generated_at)} | 
+                            Commands analyzed: ${aiSummary.command_count} | 
+                            Duration: ${Math.round(aiSummary.session_duration || 0)} minutes</small>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
                 
                 <div class="grading-timeline">
                     <h4>${viewerLabel} Session Timeline (${timeline.length} Events)</h4>
@@ -2893,9 +3386,9 @@ async function viewSessionDetailPage(sessionId) {
                                 <div class="grading-timeline-item conversation-item">
                                     <div class="timeline-time">${formatDate(item.timestamp)}</div>
                                     <div class="timeline-content">
-                                        <h5>${item.data.message_type === 'user' ? (isOwnSession ? 'Your Question' : 'Student Question') : 'Bot Response'}</h5>
+                                        <h5>${item.data.message_type === 'user' ? (isOwnSession ? 'Your Question' : 'Operator Prompt') : 'Ghosty\'s Response'}</h5>
                                         <div class="chat-message ${item.data.message_type}">
-                                            ${item.data.message}
+                                            ${item.data.message_type === 'bot' ? formatBotResponse(item.data.message) : `<p>${item.data.message}</p>`}
                                         </div>
                                     </div>
                                 </div>
@@ -2921,6 +3414,8 @@ async function viewSessionDetailPage(sessionId) {
             
             // Show session view
             showSection('sessionView');
+
+            showSessionView('sessionView', fromSection);
         }
     } catch (error) {
         console.error('Session detail error:', error);
@@ -2930,6 +3425,9 @@ async function viewSessionDetailPage(sessionId) {
 
 // Grade View Page
 async function viewGradePage(sessionId) {
+    // Always highlight Feedback & Grading since this is grade-related
+    const fromSection = 'Feedback & Grading';
+    
     try {
         const response = await fetch(`${API_BASE}?action=grading_data&session_id=${sessionId}`);
         const data = await response.json();
@@ -3062,7 +3560,7 @@ async function viewGradePage(sessionId) {
                                 <div class="grading-timeline-item conversation-item">
                                     <div class="timeline-time">${formatDate(item.timestamp)}</div>
                                     <div class="timeline-content">
-                                        <h5>${item.data.message_type === 'user' ? (isOwnSession ? 'Your Question' : 'Student Question') : 'Bot Response'}</h5>
+                                        <h5>${item.data.message_type === 'user' ? (isOwnSession ? 'Your Question' : 'Operator Prompt') : 'Ghosty\'s Response'}</h5>
                                         <div class="chat-message ${item.data.message_type}">
                                             ${item.data.message}
                                         </div>
@@ -3090,12 +3588,44 @@ async function viewGradePage(sessionId) {
             
             // Show grade view
             showSection('gradeView');
+
+            // Show grade view and maintain proper nav highlighting
+            showSessionView('gradeView', fromSection);
         }
     } catch (error) {
         console.error('Grade view error:', error);
         showAlert('Error loading grade details', 'danger');
     }
 }
+
+// New function to handle session/grade view navigation
+function showSessionView(viewId, fromSection) {
+    // Hide all sections
+    document.querySelectorAll('.content-section').forEach(section => {
+        section.classList.remove('active');
+    });
+    
+    // Remove active class from all main nav tabs
+    document.querySelectorAll('.nav-tabs .nav-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Show the view
+    document.getElementById(viewId).classList.add('active');
+    
+    // Highlight the appropriate nav tab based on where we came from
+    const navTabs = document.querySelectorAll('.nav-tabs .nav-tab');
+    navTabs.forEach(tab => {
+        const tabText = tab.textContent.trim();
+        if ((fromSection.includes('Session') && tabText.includes('Session Review')) ||
+            (fromSection.includes('Feedback') && tabText.includes('Feedback')) ||
+            (fromSection === 'Session Review' && tabText.includes('Session Review')) ||
+            (fromSection === 'Feedback & Grading' && tabText.includes('Feedback'))) {
+            tab.classList.add('active');
+        }
+    });
+}
+
 
 // Grade editing functions
 function enableGradeEditing() {
@@ -3193,7 +3723,13 @@ async function saveGradeEdits() {
 }
 
 function backToSessions() {
-    showSection('sessions');
+    const wasFromGrading = document.getElementById('gradeView').classList.contains('active');
+    
+    if (wasFromGrading) {
+        showSection('feedback');
+    } else {
+        showSection('sessions');
+    }
 }
 
 function togglePassword() {
@@ -3783,315 +4319,41 @@ async function testReportsData() {
 
 // AI Configuration Management
 async function loadAiConfiguration() {
-    try {
-        const response = await fetch(`${API_BASE}?action=ai_config`);
-        const data = await response.json();
-        
-        if (data.success) {
-            currentData.aiConfig = data.config;
-            populateAiConfigForm(data.config);
-            await loadAiStats();
-        }
-    } catch (error) {
-        console.error('AI config load error:', error);
-        showAlert('Error loading AI configuration', 'danger');
-    }
+
 }
 
 function populateAiConfigForm(config) {
-    // Populate AI configuration form fields
-    const fields = [
-        'aws_ai_endpoint', 'aws_api_key', 'timeout_seconds', 'max_tokens',
-        'temperature', 'context_messages', 'system_prompt', 'retry_attempts',
-        'retry_delay', 'max_context_length'
-    ];
-    
-    fields.forEach(field => {
-        const element = document.getElementById(field);
-        if (element) {
-            element.value = config[field] || '';
-        }
-    });
-    
-    // Handle checkbox
-    const commandDetection = document.getElementById('command_detection');
-    if (commandDetection) {
-        commandDetection.checked = config.command_detection === '1';
-    }
+
 }
 
 async function loadAiStats() {
-    try {
-        // Load performance stats
-        const perfResponse = await fetch(`${API_BASE}?action=ai_performance_stats&days=7`);
-        const perfData = await perfResponse.json();
-        
-        if (perfData.success) {
-            updateAiPerformanceStats(perfData.stats);
-        }
-        
-        // Load command stats
-        const cmdResponse = await fetch(`${API_BASE}?action=ai_command_stats&limit=10`);
-        const cmdData = await cmdResponse.json();
-        
-        if (cmdData.success) {
-            updateAiCommandStats(cmdData.stats);
-        }
-    } catch (error) {
-        console.error('AI stats load error:', error);
-    }
 }
 
 function updateAiPerformanceStats(stats) {
-    const statsContainer = document.getElementById('aiPerformanceStats');
-    if (!statsContainer) return;
-    
-    const totalRequests = stats.reduce((sum, stat) => sum + (stat.total_requests || 0), 0);
-    const successfulRequests = stats.reduce((sum, stat) => sum + (stat.successful_requests || 0), 0);
-    const avgResponseTime = stats.length > 0 ? 
-        stats.reduce((sum, stat) => sum + (stat.avg_response_time || 0), 0) / stats.length : 0;
-    const successRate = totalRequests > 0 ? (successfulRequests / totalRequests) * 100 : 0;
-    
-    statsContainer.innerHTML = `
-        <div class="ai-stat-item">
-            <div class="ai-stat-value">${totalRequests}</div>
-            <div class="ai-stat-label">Total Requests (7d)</div>
-        </div>
-        <div class="ai-stat-item">
-            <div class="ai-stat-value">${Math.round(avgResponseTime)}ms</div>
-            <div class="ai-stat-label">Avg Response Time</div>
-        </div>
-        <div class="ai-stat-item">
-            <div class="ai-stat-value">${Math.round(successRate)}%</div>
-            <div class="ai-stat-label">Success Rate</div>
-        </div>
-    `;
+
 }
 
 function updateAiCommandStats(stats) {
-    const statsContainer = document.getElementById('aiCommandStats');
-    if (!statsContainer) return;
-    
-    statsContainer.innerHTML = `
-        <div class="table-container">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Command</th>
-                        <th>Suggested</th>
-                        <th>Executed</th>
-                        <th>Success Rate</th>
-                        <th>Last Used</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${stats.map(stat => `
-                        <tr>
-                            <td><code>${stat.command ? stat.command.substring(0, 30) + '...' : 'N/A'}</code></td>
-                            <td>${stat.suggested_count || 0}</td>
-                            <td>${stat.executed_count || 0}</td>
-                            <td>${Math.round(stat.success_rate || 0)}%</td>
-                            <td>${stat.last_executed ? formatDate(stat.last_executed) : 'Never'}</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        </div>
-    `;
+
 }
 
 async function saveAiConfiguration() {
-    try {
-        const config = {
-            aws_ai_endpoint: document.getElementById('aws_ai_endpoint').value,
-            aws_api_key: document.getElementById('aws_api_key').value,
-            timeout_seconds: document.getElementById('timeout_seconds').value,
-            max_tokens: document.getElementById('max_tokens').value,
-            temperature: document.getElementById('temperature').value,
-            context_messages: document.getElementById('context_messages').value,
-            system_prompt: document.getElementById('system_prompt').value,
-            retry_attempts: document.getElementById('retry_attempts').value,
-            retry_delay: document.getElementById('retry_delay').value,
-            max_context_length: document.getElementById('max_context_length').value,
-            command_detection: document.getElementById('command_detection').checked ? '1' : '0'
-        };
-        
-        const response = await fetch(API_BASE, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                action: 'save_ai_config',
-                config: config
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            showAlert('AI configuration saved successfully!', 'success');
-            // Reload AI stats after saving
-            await loadAiStats();
-        } else {
-            showAlert('Error saving AI configuration: ' + data.message, 'danger');
-        }
-    } catch (error) {
-        console.error('Save AI config error:', error);
-        showAlert('Error saving AI configuration', 'danger');
-    }
+    
 }
 
 async function testAiConnection() {
-    try {
-        const response = await fetch(API_BASE, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                action: 'test_ai_connection'
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            showAlert('AI connection test successful!', 'success');
-        } else {
-            showAlert('AI connection test failed: ' + data.message, 'danger');
-        }
-    } catch (error) {
-        console.error('Test AI connection error:', error);
-        showAlert('Error testing AI connection', 'danger');
-    }
-}
-
-async function cleanupAiLogs() {
-    const days = document.getElementById('aiCleanupDays').value || 30;
     
-    if (!confirm(`Are you sure you want to clean up AI performance logs older than ${days} days?`)) {
-        return;
-    }
-    
-    try {
-        const response = await fetch(API_BASE, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                action: 'cleanup_ai_logs',
-                days: parseInt(days)
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            showAlert(data.message, 'success');
-            await loadAiStats(); // Refresh stats
-        } else {
-            showAlert('Error cleaning up logs: ' + data.message, 'danger');
-        }
-    } catch (error) {
-        console.error('Cleanup AI logs error:', error);
-        showAlert('Error cleaning up logs', 'danger');
-    }
 }
 
 async function exportAiConfig() {
-    try {
-        const response = await fetch(API_BASE, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                action: 'export_ai_config'
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            const blob = new Blob([data.config], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `aws-ai-config-${new Date().toISOString().split('T')[0]}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            showAlert('AI configuration exported successfully!', 'success');
-        } else {
-            showAlert('Error exporting AI configuration: ' + data.message, 'danger');
-        }
-    } catch (error) {
-        console.error('Export AI config error:', error);
-        showAlert('Error exporting AI configuration', 'danger');
-    }
+    
 }
 
 function showImportAiConfigModal() {
-    const modal = document.createElement('div');
-    modal.className = 'modal';
-    modal.style.display = 'block';
-    modal.innerHTML = `
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Import AI Configuration</h3>
-                <button class="close-btn" onclick="this.closest('.modal').remove()">&times;</button>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Configuration JSON:</label>
-                <textarea class="form-input" id="importAiConfigData" rows="10" 
-                          placeholder="Paste your exported AI configuration JSON here..."></textarea>
-            </div>
-            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
-                <button type="button" class="btn btn-secondary" onclick="this.closest('.modal').remove()">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="importAiConfig(this.closest('.modal'))">Import</button>
-            </div>
-        </div>
-    `;
     
-    document.body.appendChild(modal);
 }
 
 async function importAiConfig(modal) {
-    const configData = document.getElementById('importAiConfigData').value.trim();
-    
-    if (!configData) {
-        showAlert('Please paste configuration data', 'danger');
-        return;
-    }
-    
-    try {
-        const response = await fetch(API_BASE, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                action: 'import_ai_config',
-                config_data: configData
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            showAlert(`Successfully imported ${data.imported} of ${data.total} AI configuration settings`, 'success');
-            modal.remove();
-            await loadAiConfiguration(); // Reload configuration
-        } else {
-            showAlert('Error importing AI configuration: ' + data.message, 'danger');
-        }
-    } catch (error) {
-        console.error('Import AI config error:', error);
-        showAlert('Error importing AI configuration', 'danger');
-    }
 }
 
 // Settings tab navigation (new function)
@@ -4119,20 +4381,6 @@ function showSettingsTab(tabName, element) {
         if (currentUser && currentUser.role === 'admin') {
             loadAiConfiguration();
         }
-    }
-}
-
-// API Key visibility toggle (new function)
-function toggleApiKeyVisibility() {
-    const input = document.getElementById('aws_api_key');
-    const icon = document.getElementById('apiKeyToggleIcon');
-    
-    if (input.type === 'password') {
-        input.type = 'text';
-        icon.className = 'fas fa-eye-slash';
-    } else {
-        input.type = 'password';
-        icon.className = 'fas fa-eye';
     }
 }
 

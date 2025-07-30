@@ -19,6 +19,8 @@ define('DB_NAME', 'terminal_app');
 define('APP_URL', 'http://192.168.1.171/GhostCrew');
 define('LOCAL_LISTENER_URL', 'http://192.168.1.171/GhostCrew/local');
 
+date_default_timezone_set('UTC');
+
 // Create database connection
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 

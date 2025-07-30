@@ -308,32 +308,23 @@
                     </div>
                     <div class="stat-card">
                         <div class="stat-number" id="chatbotInteractions">0</div>
-                        <div class="stat-label">Chatbot Interactions</div>
+                        <div class="stat-label">Ghosty Interactions</div>
                     </div>
                 </div>
                 
                 <!-- Detailed Statistics Tabs -->
-                <div class="nav-tabs" style="margin-top: 30px;">
+                <div class="report-nav-tabs" style="margin-top: 30px;">
                     <button class="nav-tab active" onclick="showReportTab('overview', this)">📊 Overview</button>
                     <button class="nav-tab" onclick="showReportTab('performance', this)">🏆 Performance</button>
                     <button class="nav-tab" onclick="showReportTab('grading', this)">📝 Grading</button>
-                    <button class="nav-tab" onclick="showReportTab('chatbot', this)">🤖 Chatbot</button>
+                    <button class="nav-tab" onclick="showReportTab('chatbot', this)">🤖 Ghosty the AI Guide</button>
                     <button class="nav-tab" onclick="showReportTab('activity', this)">📈 Activity</button>
                 </div>
                 
                 <!-- Overview Tab -->
                 <div id="overviewReport" class="report-tab-content active">
                     <div class="reports-grid">
-                        <!-- User Activity Chart -->
-                        <div class="report-card">
-                            <div class="report-header">
-                                <h3>📈 Daily Activity (Last 14 Days)</h3>
-                                <button class="btn btn-small btn-secondary" onclick="exportChart('activity')">Export</button>
-                            </div>
-                            <div class="report-content">
-                                <canvas id="activityChart" height="200"></canvas>
-                            </div>
-                        </div>
+                        <!-- Session Duration Chart -->
                         
                         <!-- Command Usage Chart -->
                         <div class="report-card">
@@ -446,7 +437,7 @@
                     <div class="reports-grid">
                         <div class="report-card full-width">
                             <div class="report-header">
-                                <h3>🤖 Chatbot Analytics</h3>
+                                <h3>🤖 Ghosty the AI Guide Analytics</h3>
                                 <div class="export-options">
                                     <button class="btn btn-small btn-secondary" onclick="exportDetailedReport('chatbot_analytics', 'excel')">Export Excel</button>
                                     <button class="btn btn-small btn-secondary" onclick="exportDetailedReport('chatbot_analytics', 'pdf')">Export PDF</button>
@@ -459,7 +450,7 @@
                         
                         <div class="report-card">
                             <div class="report-header">
-                                <h3>📈 Chatbot Effectiveness</h3>
+                                <h3>📈 Ghosty the AI Guide Effectiveness</h3>
                             </div>
                             <div class="report-content">
                                 <canvas id="chatbotEffectivenessChart" height="200"></canvas>
@@ -468,7 +459,7 @@
                         
                         <div class="report-card">
                             <div class="report-header">
-                                <h3>📊 Chatbot Statistics</h3>
+                                <h3>📊 Ghosty the AI Guide Statistics</h3>
                             </div>
                             <div class="report-content">
                                 <div id="chatbotStats" class="report-stats">
@@ -499,14 +490,13 @@
                     <div class="reports-grid">
                         <div class="report-card full-width">
                             <div class="report-header">
-                                <h3>📈 Comprehensive Activity Timeline</h3>
-                                <button class="btn btn-small btn-secondary" onclick="exportChart('comprehensive_activity')">Export</button>
+                                <h3>🕐 Most Active Hours</h3>
+                                <button class="btn btn-small btn-secondary" onclick="exportChart('activeHours')">Export</button>
                             </div>
                             <div class="report-content">
                                 <canvas id="comprehensiveActivityChart" height="300"></canvas>
                             </div>
-                        </div>
-                        
+                        </div>                        
                         <div class="report-card">
                             <div class="report-header">
                                 <h3>👤 User Login Activity</h3>
@@ -531,17 +521,7 @@
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                        
-                        <div class="report-card">
-                            <div class="report-header">
-                                <h3>⚡ Command Success Rates</h3>
-                            </div>
-                            <div class="report-content">
-                                <canvas id="commandSuccessChart" height="200"></canvas>
-                            </div>
-                        </div>
-                        
+                        </div>                        
                         <div class="report-card">
                             <div class="report-header">
                                 <h3>📊 System Usage Metrics</h3>
@@ -601,7 +581,7 @@
                                 <th>Timestamp</th>
                                 <th>User</th>
                                 <th>Action</th>
-                                <th>IP Address</th>
+                                <th>Source</th>
                                 <th>Details</th>
                             </tr>
                         </thead>
@@ -613,22 +593,11 @@
 
             <!-- Settings Section -->
             <div id="settings" class="content-section">
-                <div class="section-header">
-                    <h2 class="section-title">System Settings</h2>
-                </div>
-
-                <!-- Settings Navigation Tabs -->
-                <div class="nav-tabs" style="margin-bottom: 30px;">
-                    <button class="nav-tab active" onclick="showSettingsTab('system', this)">🔧 System Settings</button>
-                    <button class="nav-tab" onclick="showSettingsTab('ai', this)">🤖 AI Configuration</button>
-                </div>
-
-                <!-- System Settings Tab -->
                 <div id="systemSettings" class="settings-tab-content active">
+                    <div class="section-header">
+                        <h2 class="section-title">System Logs</h2>
+</div>
                     <div class="settings-section">
-                        <h4><i class="fas fa-gears"></i> System Settings</h4>
-                        <p class="text-muted">Configure GhostCrew settings</p>
-                        
                         <div class="config-group">
                             <h6><i class="fas fa-gears"></i> General</h6>
                             <div class="form-group">
@@ -653,153 +622,6 @@
                         </div>
 
                         <button class="btn btn-primary" onclick="saveSettings()">Save System Settings</button>
-                    </div>
-                </div>
-
-                <!-- AI Configuration Tab -->
-                <div id="aiSettings" class="settings-tab-content">
-                    <div class="settings-section">
-                        <h4><i class="fas fa-robot"></i> AI Configuration</h4>
-                        <p class="text-muted">Configure and monitor your AI integration</p>
-
-                        <!-- Performance Overview
-                        <div class="ai-stats-grid" style="margin-bottom: 30px;">
-                            <div id="aiPerformanceStats" class="ai-stats-container">
-                                
-                            </div>
-                        </div>-->
-
-                        <!-- Connection Settings -->
-                        <div class="config-group">
-                            <h6><i class="fas fa-link"></i> Connection Settings</h6>
-                            <div class="form-row">
-                                <div class="form-group" style="flex: 2;">
-                                    <label class="form-label"> AI Endpoint URL</label>
-                                    <input type="url" class="form-input" id="aws_ai_endpoint" 
-                                           placeholder="https://api.anthropic.com/v1/messages" required>
-                                    <div class="form-text">The complete URL to your AI service endpoint</div>
-                                </div>
-                                <div class="form-group" style="flex: 1;">
-                                    <label class="form-label">Timeout (seconds)</label>
-                                    <input type="number" class="form-input" id="timeout_seconds" 
-                                           value="30" min="5" max="120">
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">API Key</label>
-                                <div class="input-group">
-                                    <input type="password" class="form-input" id="aws_api_key" 
-                                           placeholder="Enter your API key" required>
-                                    <button type="button" class="btn btn-secondary" onclick="toggleApiKeyVisibility()">
-                                        <i class="fas fa-eye" id="apiKeyToggleIcon"></i>
-                                    </button>
-                                </div>
-                                <div class="form-text">Your AI service authentication key</div>
-                            </div>
-                        </div>
-
-                        <!-- AI Behavior Settings -->
-                        <div class="config-group">
-                            <h6><i class="fas fa-brain"></i> AI Behavior Settings</h6>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label">Max Tokens</label>
-                                    <input type="number" class="form-input" id="max_tokens" 
-                                           value="1000" min="100" max="4000">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Temperature (0.0-1.0)</label>
-                                    <input type="number" class="form-input" id="temperature" 
-                                           value="0.7" min="0" max="1" step="0.1">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Context Messages</label>
-                                    <input type="number" class="form-input" id="context_messages" 
-                                           value="10" min="1" max="50">
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">System Prompt</label>
-                                <textarea class="form-input" id="system_prompt" rows="3"
-                                          placeholder="You are a helpful AI assistant for command-line operations."></textarea>
-                                <div class="form-text">Instructions that guide the AI's behavior and responses</div>
-                            </div>
-                        </div>
-
-                        <!-- Advanced Settings -->
-                        <div class="config-group">
-                            <h6><i class="fas fa-cogs"></i> Advanced Settings</h6>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label">Retry Attempts</label>
-                                    <input type="number" class="form-input" id="retry_attempts" 
-                                           value="3" min="1" max="10">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Retry Delay (ms)</label>
-                                    <input type="number" class="form-input" id="retry_delay" 
-                                           value="1000" min="100" max="10000" step="100">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Max Context Length</label>
-                                    <input type="number" class="form-input" id="max_context_length" 
-                                           value="4000" min="1000" max="16000" step="500">
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-check-label">
-                                    <input class="form-check-input" type="checkbox" id="command_detection" checked>
-                                    Command Detection
-                                </label>
-                            </div>
-                        </div>
-
-                        <!-- Action Buttons -->
-                        <div class="action-buttons">
-                            <button type="button" class="btn btn-primary" onclick="saveAiConfiguration()">
-                                <i class="fas fa-save"></i> Save AI Configuration
-                            </button>
-                            <button type="button" class="btn btn-secondary" onclick="testAiConnection()">
-                                <i class="fas fa-satellite-dish"></i> Test Connection
-                            </button>
-                            <button type="button" class="btn btn-info" onclick="exportAiConfig()">
-                                <i class="fas fa-download"></i> Export Config
-                            </button>
-                            <button type="button" class="btn btn-warning" onclick="showImportAiConfigModal()">
-                                <i class="fas fa-upload"></i> Import Config
-                            </button>
-                        </div>
-
-                        <!-- AI Command Statistics
-                        <div class="config-group" style="margin-top: 30px;">
-                            <h6><i class="fas fa-terminal"></i> Top Command Suggestions</h6>
-                            <div id="aiCommandStats">
-                                
-                            </div>
-                        </div>-->
-
-                        <!-- Maintenance -->
-                        <div class="config-group">
-                            <h6><i class="fas fa-tools"></i> Maintenance</h6>
-                            <p>Clean up old AI performance logs and optimize database performance.</p>
-                            
-                            <div class="form-row" style="align-items: end;">
-                                <div class="form-group">
-                                    <label class="form-label">Keep logs for:</label>
-                                    <select id="aiCleanupDays" class="form-select">
-                                        <option value="7">7 days</option>
-                                        <option value="30" selected>30 days</option>
-                                        <option value="90">90 days</option>
-                                        <option value="365">1 year</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <button type="button" class="btn btn-warning" onclick="cleanupAiLogs()">
-                                        <i class="fas fa-broom"></i> Clean Up AI Logs
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -829,40 +651,40 @@
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Session View Section -->
-    <div id="sessionView" class="content-section">
-        <div class="section-header">
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <button class="btn btn-secondary" onclick="backToSessions()">← Back to Sessions</button>
-                <h2 class="section-title" id="sessionViewTitle">Session Details</h2>
+        <!-- Session View Section -->
+        <div id="sessionView" class="content-section">
+            <div class="section-header">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <button class="btn btn-secondary" onclick="backToSessions()">← Back to Sessions</button>
+                    <h2 class="section-title" id="sessionViewTitle">Session Details</h2>
+                </div>
+                <div class="export-options">
+                    <button class="btn btn-secondary btn-small" id="sessionExportPDF">Export PDF</button>
+                    <button class="btn btn-secondary btn-small" id="sessionExportExcel">Export Excel</button>
+                </div>
             </div>
-            <div class="export-options">
-                <button class="btn btn-secondary btn-small" id="sessionExportPDF">Export PDF</button>
-                <button class="btn btn-secondary btn-small" id="sessionExportExcel">Export Excel</button>
+            <div id="sessionViewContent">
+                <!-- Content will be populated by JavaScript -->
             </div>
         </div>
-        <div id="sessionViewContent">
-            <!-- Content will be populated by JavaScript -->
-        </div>
-    </div>
 
-    <!-- Grade View Section -->
-    <div id="gradeView" class="content-section">
-        <div class="section-header">
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <button class="btn btn-secondary" onclick="backToSessions()">← Back to Sessions</button>
-                <h2 class="section-title" id="gradeViewTitle">Grade Review</h2>
+        <!-- Grade View Section -->
+        <div id="gradeView" class="content-section">
+            <div class="section-header">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <button class="btn btn-secondary" onclick="backToSessions()">← Back to Sessions</button>
+                    <h2 class="section-title" id="gradeViewTitle">Grade Review</h2>
+                </div>
+                <div id="gradeEditControls" style="display: none;">
+                    <button class="btn btn-primary" onclick="enableGradeEditing()">Edit Grade</button>
+                    <button class="btn btn-success" onclick="saveGradeEdits()" style="display: none;" id="saveGradeBtn">Save Changes</button>
+                    <button class="btn btn-secondary" onclick="cancelGradeEditing()" style="display: none;" id="cancelGradeBtn">Cancel</button>
+                </div>
             </div>
-            <div id="gradeEditControls" style="display: none;">
-                <button class="btn btn-primary" onclick="enableGradeEditing()">Edit Grade</button>
-                <button class="btn btn-success" onclick="saveGradeEdits()" style="display: none;" id="saveGradeBtn">Save Changes</button>
-                <button class="btn btn-secondary" onclick="cancelGradeEditing()" style="display: none;" id="cancelGradeBtn">Cancel</button>
+            <div id="gradeViewContent">
+                <!-- Content will be populated by JavaScript -->
             </div>
-        </div>
-        <div id="gradeViewContent">
-            <!-- Content will be populated by JavaScript -->
         </div>
     </div>
 
@@ -946,6 +768,7 @@
         </div>
     </div>
     <div class="clippy"></div>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="assets/js/main.js"></script>
 </body>
 </html>

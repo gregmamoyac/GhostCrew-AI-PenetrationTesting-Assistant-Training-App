@@ -5,6 +5,8 @@ ini_set('log_errors', 1);
 ini_set('error_log', 'php_errors.log');
 error_reporting(E_ALL);
 
+//date_default_timezone_set('CST');
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
@@ -1090,71 +1092,65 @@ function handleEnhancedReports($pdo, $params = []) {
             'chatbot' => $chatbotStats,
             'logins' => $loginStats
         ];
+
+        // System usage statistics
+        $stmt = $pdo->prepare("
+            SELECT 
+                COUNT(*) as total_commands_executed,
+                AVG(execution_time) as avg_execution_time,
+                COUNT(CASE WHEN status = 'failed' THEN 1 END) * 100.0 / NULLIF(COUNT(*), 0) as error_rate
+            FROM command_log 
+            WHERE DATE(timestamp) BETWEEN ? AND ?
+        ");
+        $stmt->execute([$startDate, $endDate]);
+        $systemUsage = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        // Get active sessions count
+        $activeSessionsStmt = $pdo->query("SELECT COUNT(*) as active_sessions_count FROM remote_sessions WHERE status = 'active'");
+        $activeSessionsResult = $activeSessionsStmt->fetch(PDO::FETCH_ASSOC);
+        $systemUsage['active_sessions_count'] = $activeSessionsResult['active_sessions_count'];
+
+        $stats['system_usage'] = $systemUsage;
         
         // ============ CHART DATA ============
         
-        // User activity over time (last 14 days) - Fixed
-        $actualStartDate = date('Y-m-d', strtotime($endDate . ' -14 days'));
-        error_log("Activity query date range: " . $actualStartDate . " to " . $endDate);
-
         $stmt = $pdo->prepare("
             SELECT 
-                DATE(start_time) as date,
-                COUNT(DISTINCT user_id) as active_users,
-                COUNT(*) as sessions
+                CASE 
+                    WHEN TIMESTAMPDIFF(MINUTE, start_time, COALESCE(end_time, NOW())) < 5 THEN 'Under 5 min'
+                    WHEN TIMESTAMPDIFF(MINUTE, start_time, COALESCE(end_time, NOW())) < 15 THEN '5-15 min'
+                    WHEN TIMESTAMPDIFF(MINUTE, start_time, COALESCE(end_time, NOW())) < 30 THEN '15-30 min'
+                    WHEN TIMESTAMPDIFF(MINUTE, start_time, COALESCE(end_time, NOW())) < 60 THEN '30-60 min'
+                    ELSE 'Over 1 hour'
+                END as duration_range,
+                COUNT(*) as session_count
             FROM remote_sessions 
             WHERE DATE(start_time) BETWEEN ? AND ?
-            GROUP BY DATE(start_time)
-            ORDER BY date
+            GROUP BY duration_range
+            ORDER BY 
+                CASE duration_range
+                    WHEN 'Under 5 min' THEN 1
+                    WHEN '5-15 min' THEN 2
+                    WHEN '15-30 min' THEN 3
+                    WHEN '30-60 min' THEN 4
+                    ELSE 5
+                END
         ");
-        $stmt->execute([$actualStartDate, $endDate]);
-        $sessionActivityData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmt->execute([$startDate, $endDate]);
+        $sessionDurationData = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Get command counts for the same period
+        // Most Active Hours chart data
         $stmt = $pdo->prepare("
             SELECT 
-                DATE(cl.timestamp) as date,
-                COUNT(*) as commands
-            FROM command_log cl
-            WHERE DATE(cl.timestamp) BETWEEN ? AND ?
-            GROUP BY DATE(cl.timestamp)
-            ORDER BY date
+                HOUR(start_time) as hour,
+                COUNT(*) as session_count
+            FROM remote_sessions 
+            WHERE DATE(start_time) BETWEEN ? AND ?
+            GROUP BY HOUR(start_time)
+            ORDER BY hour
         ");
-        $stmt->execute([$actualStartDate, $endDate]);
-        $commandActivityData = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // Create complete dataset for all 14 days
-        $activityData = [];
-        for ($i = 13; $i >= 0; $i--) {
-            $date = date('Y-m-d', strtotime($endDate . " -$i days"));
-            $activityData[$date] = [
-                'date' => $date,
-                'active_users' => 0,
-                'sessions' => 0,
-                'commands' => 0
-            ];
-        }
-
-        // Fill in session data
-        foreach ($sessionActivityData as $row) {
-            $date = $row['date'];
-            if (isset($activityData[$date])) {
-                $activityData[$date]['active_users'] = (int)$row['active_users'];
-                $activityData[$date]['sessions'] = (int)$row['sessions'];
-            }
-        }
-
-        // Fill in command data
-        foreach ($commandActivityData as $row) {
-            $date = $row['date'];
-            if (isset($activityData[$date])) {
-                $activityData[$date]['commands'] = (int)$row['commands'];
-            }
-        }
-
-        // Convert to indexed array and sort
-        $activityData = array_values($activityData);
-        error_log("Final activity data: " . json_encode($activityData));
+        $stmt->execute([$startDate, $endDate]);
+        $activeHoursData = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         // Grade distribution
         $stmt = $pdo->prepare("
@@ -1249,7 +1245,8 @@ function handleEnhancedReports($pdo, $params = []) {
         
         // Prepare chart data
         $charts = [
-            'activity' => prepareActivityChart($activityData),
+            'session_duration' => prepareSessionDurationChart($sessionDurationData),
+            'active_hours' => prepareActiveHoursChart($activeHoursData),
             'grade_distribution' => prepareGradeDistributionChart($gradeDistribution),
             'command_usage' => prepareCommandUsageChart($commandUsage),
             'duration_trends' => prepareDurationTrendsChart($durationTrends),
@@ -1263,6 +1260,36 @@ function handleEnhancedReports($pdo, $params = []) {
         error_log("Enhanced reports error: " . $e->getMessage());
         echo json_encode(['success' => false, 'message' => 'Error loading reports: ' . $e->getMessage()]);
     }
+}
+
+function prepareSessionDurationChart($data) {
+    if (empty($data)) {
+        return ['labels' => ['No Data'], 'values' => [0]];
+    }
+    
+    return [
+        'labels' => array_column($data, 'duration_range'),
+        'values' => array_map('intval', array_column($data, 'session_count'))
+    ];
+}
+
+function prepareActiveHoursChart($data) {
+    // Fill in all 24 hours
+    $hourlyData = array_fill(0, 24, 0);
+    
+    foreach ($data as $row) {
+        $hourlyData[(int)$row['hour']] = (int)$row['session_count'];
+    }
+    
+    $labels = [];
+    for ($i = 0; $i < 24; $i++) {
+        $labels[] = sprintf('%02d:00', $i);
+    }
+    
+    return [
+        'labels' => $labels,
+        'values' => $hourlyData
+    ];
 }
 
 function prepareActivityChart($data) {
@@ -1435,16 +1462,17 @@ function handleDetailedReport($pdo, $type, $params = []) {
                     SELECT 
                         u.full_name as user_name,
                         COUNT(CASE WHEN cc.message_type = 'user' THEN 1 END) as questions_asked,
-                        COUNT(CASE WHEN cc.suggested_command IS NOT NULL THEN 1 END) as suggestions_received,
+                        COUNT(CASE WHEN cc.suggested_command IS NOT NULL AND cc.suggested_command != '' THEN 1 END) as suggestions_received,
                         COUNT(CASE WHEN cc.command_executed = 1 THEN 1 END) as suggestions_executed,
                         AVG(cc.response_time) as avg_response_time,
                         COUNT(CASE WHEN cc.rating = 1 THEN 1 END) as helpful_ratings,
                         COUNT(CASE WHEN cc.rating = 0 THEN 1 END) as unhelpful_ratings
-                    FROM chatbot_conversations cc
-                    JOIN remote_sessions rs ON cc.session_id = rs.session_id
-                    JOIN users u ON cc.user_id = u.id
-                    WHERE DATE(cc.timestamp) BETWEEN ? AND ?
-                    GROUP BY cc.user_id, u.full_name
+                    FROM users u
+                    LEFT JOIN chatbot_conversations cc ON u.id = cc.user_id 
+                        AND DATE(cc.timestamp) BETWEEN ? AND ?
+                    WHERE u.is_active = 1
+                    GROUP BY u.id, u.full_name
+                    HAVING questions_asked > 0 OR suggestions_received > 0
                     ORDER BY questions_asked DESC
                 ");
                 $stmt->execute([$startDate, $endDate]);

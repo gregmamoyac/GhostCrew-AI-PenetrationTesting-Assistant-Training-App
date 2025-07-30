@@ -294,7 +294,7 @@ class ChatbotEngine {
         // Greeting responses
         if (preg_match('/^(hi|hello|hey|greetings)/i', $message)) {
             return [
-                'message' => "Hello! I'm your AI command assistant. I can help you with Windows commands, explain how to perform tasks, and suggest useful commands.\n\nWhat would you like to do?",
+                'message' => "Hello! I'm Ghosty the AI Guide. I can help you with Windows commands, explain how to perform tasks, and suggest useful commands.\n\nWhat would you like to do?",
                 'category' => 'greeting',
                 'context' => ['response_type' => 'greeting']
             ];

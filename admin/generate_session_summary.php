@@ -4,6 +4,8 @@
 ini_set('log_errors', 1);
 ini_set('error_log', 'php_errors.log');
 error_reporting(E_ALL);
+date_default_timezone_set('UTC');
+
 
 class SessionSummaryGenerator {
     private $pdo;

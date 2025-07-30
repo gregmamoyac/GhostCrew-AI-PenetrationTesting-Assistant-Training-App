@@ -362,7 +362,7 @@ function handleHostGracefulDisconnection(hostId) {
     }
 }
 
-// Fixed function to format bot messages with proper code block handling
+// Updated function to format bot messages with proper command ID handling (UPDATED)
 function formatBotMessage(message, suggestedCommands = []) {
     if (!message || typeof message !== 'string') {
         return 'Invalid message received.';
@@ -406,7 +406,7 @@ function formatBotMessage(message, suggestedCommands = []) {
     // Convert numbered lists
     message = message.replace(/^(\d+)\. (.+)$/gm, '<div class="numbered-point">$1. $2</div>');
     
-    // Restore code blocks with load buttons
+    // Restore code blocks with load buttons - UPDATED to use proper message IDs
     for (let i = 0; i < codeBlocks.length; i++) {
         const placeholder = `__CODEBLOCK_${i}__`;
         const codeContent = codeBlocks[i].replace(/<br>/g, '\n');
@@ -422,7 +422,11 @@ function formatBotMessage(message, suggestedCommands = []) {
                     <div class="code-block">
                         <pre><code>${codeContent}</code></pre>
                     </div>
-                    <button class="inline-load-btn" data-command="${escapeHtml(matchingCommand.command)}" data-cmd-id="${matchingCommand.id}" title="${escapeHtml(matchingCommand.description)}">
+                    <button class="inline-load-btn" 
+                            data-command="${escapeHtml(matchingCommand.command)}" 
+                            data-cmd-id="${matchingCommand.message_id || matchingCommand.id}" 
+                            data-suggestion-id="${matchingCommand.message_id || matchingCommand.id}"
+                            title="${escapeHtml(matchingCommand.description)}">
                         <i class="fas fa-download"></i> Load
                     </button>
                 </div>`);
@@ -446,6 +450,7 @@ function formatBotMessage(message, suggestedCommands = []) {
     return message;
 }
 
+// Updated function to process inline commands with proper message IDs (UPDATED)
 function processInlineCommands(message, suggestedCommands) {
     // Find inline code patterns and replace with command + load button if applicable
     return message.replace(/`([^`\n]+)`/g, function(match, content) {
@@ -459,7 +464,11 @@ function processInlineCommands(message, suggestedCommands) {
         if (matchingCommand) {
             return `<span class="inline-command-container">
                 <code class="inline-code">${content}</code>
-                <button class="inline-load-btn small" data-command="${escapeHtml(matchingCommand.command)}" data-cmd-id="${matchingCommand.id}" title="${escapeHtml(matchingCommand.description)}">
+                <button class="inline-load-btn small" 
+                        data-command="${escapeHtml(matchingCommand.command)}" 
+                        data-cmd-id="${matchingCommand.message_id || matchingCommand.id}"
+                        data-suggestion-id="${matchingCommand.message_id || matchingCommand.id}"
+                        title="${escapeHtml(matchingCommand.description)}">
                     <i class="fas fa-download"></i>
                 </button>
             </span>`;
@@ -2794,7 +2803,7 @@ function sendCommandContextToChat(command) {
     }
 }
 
-// Function to load suggested command into terminal input
+// Function to load suggested command into terminal input (UPDATED)
 function loadSuggestedCommand(suggestionId, command) {
     if (!activeHostId || !currentRemoteSessionId) {
         showNotification('No active session available', 'warning');
@@ -2804,10 +2813,10 @@ function loadSuggestedCommand(suggestionId, command) {
     // Load the command into terminal input
     $('#terminal-input').val(command).focus();
     
-    // Mark suggestion as used (but not executed)
+    // Mark suggestion as used in database via AJAX call
     markSuggestionAsUsed(suggestionId);
     
-    // Update button state
+    // Update button state immediately for user feedback
     $(`.load-suggestion-btn[data-suggestion-id="${suggestionId}"]`)
         .removeClass('load-suggestion-btn')
         .addClass('loaded-btn')
@@ -2818,17 +2827,29 @@ function loadSuggestedCommand(suggestionId, command) {
     addChatMessage('bot', `📝 **Command Loaded**\n\nLoaded command into terminal: **${command}**\n\nPress Enter or click Send to execute it.`);
 }
 
-// Helper function to mark suggestion as used
+// Enhanced function to mark suggestion as used (UPDATED)
 function markSuggestionAsUsed(suggestionId) {
+    // Make AJAX call to mark the command as executed in the database
     $.ajax({
         url: 'api.php',
         type: 'POST',
         data: {
-            action: 'mark_suggestion_used',
-            suggestion_id: suggestionId,
+            action: 'mark_command_executed',
+            message_id: suggestionId, // Use message_id since that's what the PHP function expects
             csrf_token: CSRF_TOKEN
         },
-        dataType: 'json'
+        dataType: 'json',
+        success: function(response) {
+            if (response.status === 'success') {
+                console.log('Command marked as executed in database:', suggestionId);
+            } else {
+                console.warn('Failed to mark command as executed:', response.message);
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error marking command as executed:', error);
+            // Still continue with the UI update even if database update fails
+        }
     });
 }
 
@@ -3593,7 +3614,7 @@ $(document).ready(function() {
     // Initialize scroll monitoring
     initializeChatScrollMonitor();
 
-    // Send to Terminal button handler
+    // Updated send to terminal button handler (UPDATED)
     $(document).on('click', '.send-to-terminal-btn', function() {
         const command = $(this).data('command');
         const messageId = $(this).data('message-id');
@@ -3606,14 +3627,16 @@ $(document).ready(function() {
         // Load command into terminal input
         $('#terminal-input').val(command).focus();
         
-        // Mark command as used
-        markCommandAsUsed(messageId);
+        // Mark command as used in database
+        if (messageId) {
+            markSuggestionAsUsed(messageId);
+        }
         
         // Update button state
         $(this).removeClass('send-to-terminal-btn')
-               .addClass('command-sent-btn')
-               .html('<i class="fas fa-check"></i> Sent')
-               .prop('disabled', true);
+            .addClass('command-sent-btn')
+            .html('<i class="fas fa-check"></i> Sent')
+            .prop('disabled', true);
         
         // Show notification
         showNotification('Command loaded into terminal. Press Enter to execute.', 'success');
@@ -3770,7 +3793,7 @@ $(document).ready(function() {
         loadSuggestedCommand(suggestionId, command);
     });
 
-    // Inline load button handler
+    // Updated inline load button handler (UPDATED)
     $(document).on('click', '.inline-load-btn', function(e) {
         e.preventDefault();
         e.stopPropagation();
@@ -3785,6 +3808,11 @@ $(document).ready(function() {
         
         // Load command into terminal input
         $('#terminal-input').val(command).focus();
+        
+        // Mark command as used in database if we have a command ID
+        if (cmdId) {
+            markSuggestionAsUsed(cmdId);
+        }
         
         // Update button state
         $(this).removeClass('inline-load-btn')

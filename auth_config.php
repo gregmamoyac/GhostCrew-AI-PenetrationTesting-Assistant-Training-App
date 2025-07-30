@@ -22,6 +22,8 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+date_default_timezone_set('UTC');
+
 /*
 // Admin database configuration
 if (!defined('ADMIN_DB_HOST')) {

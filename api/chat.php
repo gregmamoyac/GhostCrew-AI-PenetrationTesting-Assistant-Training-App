@@ -42,7 +42,7 @@ switch ($action) {
         echo json_encode(['status' => 'error', 'message' => 'Invalid chat action']);
 }
 
-// Add this function to api/chat.php
+// Updated function to store chatbot conversation with message ID tracking (UPDATED)
 function storeChatbotConversation($userId, $sessionId, $conversationId, $messageType, $message, $contextData = [], $responseTime = null, $suggestedCommand = null) {
     $adminDb = getAdminDB();
     
@@ -53,14 +53,19 @@ function storeChatbotConversation($userId, $sessionId, $conversationId, $message
     
     $stmt = $adminDb->prepare("
         INSERT INTO chatbot_conversations 
-        (user_id, session_id, conversation_id, message_type, message, context_data, response_time, suggested_command) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        (user_id, session_id, conversation_id, message_type, message, context_data, response_time, suggested_command, command_executed) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
     ");
     
     $stmt->bind_param("isssssds", $userId, $dbSessionId, $conversationId, $messageType, $message, $contextJson, $responseTime, $suggestedCommand);
     $stmt->execute();
     
-    return $adminDb->insert_id;
+    $messageId = $adminDb->insert_id;
+    
+    // Log the conversation storage for debugging
+    error_log("Stored chatbot conversation - ID: $messageId, Type: $messageType, Has Command: " . (!empty($suggestedCommand) ? 'Yes' : 'No'));
+    
+    return $messageId;
 }
 
 function storeChatbotFeedback($conversationId, $messageId, $userId, $feedbackType, $feedbackText = null) {
@@ -173,6 +178,7 @@ function getCommandSuggestions() {
     }
 }
 
+// Updated function to handle enhanced chat messages with multiple commands (UPDATED)
 function handleEnhancedChatMessage() {
     $sessionId = sanitize($_REQUEST['session_id'] ?? '');
     $message = sanitize($_REQUEST['message'] ?? '');
@@ -235,13 +241,33 @@ function handleEnhancedChatMessage() {
         $userMessageId = storeChatbotConversation($userId, $dbSessionId, $conversationId, 'user', $message);
         
         // Store bot response with proper session handling
-        $botMessageId = storeChatbotConversation($userId, $dbSessionId, $conversationId, 'bot', $processedResponse['message'], ['ai_generated' => $isAIResponse, 'chat_history_length' => strlen($chatHistory)], null, $processedResponse['suggested_commands'][0]['command'] ?? null);
+        // For multiple commands, we'll store the first command as the main suggested_command
+        $primaryCommand = !empty($processedResponse['suggested_commands']) ? $processedResponse['suggested_commands'][0]['command'] : null;
+        $botMessageId = storeChatbotConversation(
+            $userId, 
+            $dbSessionId, 
+            $conversationId, 
+            'bot', 
+            $processedResponse['message'], 
+            [
+                'ai_generated' => $isAIResponse, 
+                'chat_history_length' => strlen($chatHistory),
+                'command_count' => count($processedResponse['suggested_commands'])
+            ], 
+            null, 
+            $primaryCommand
+        );
+
+        // UPDATE: Add message_id to each suggested command for proper tracking
+        foreach ($processedResponse['suggested_commands'] as &$command) {
+            $command['message_id'] = $botMessageId;
+        }
 
         echo json_encode([
             'status' => 'success',
             'message' => $processedResponse['message'],
             'bot_response' => $processedResponse['message'],
-            'suggested_commands' => $processedResponse['suggested_commands'], // Changed to array
+            'suggested_commands' => $processedResponse['suggested_commands'], // Now includes message_id
             'category' => $processedResponse['category'],
             'bot_message_id' => $botMessageId,
             'conversation_id' => $conversationId,
@@ -256,11 +282,24 @@ function handleEnhancedChatMessage() {
         try {
             $fallbackResponse = generateBotResponse($message, [], $userId, $dbSessionId);
             
-            // Convert old format to new format
+            // Convert old format to new format with message_id
             $suggestedCommands = [];
             if (!empty($fallbackResponse['suggested_command'])) {
+                // Store fallback response to get message ID
+                $fallbackMessageId = storeChatbotConversation(
+                    $userId, 
+                    $dbSessionId, 
+                    $conversationId, 
+                    'bot', 
+                    $fallbackResponse['message'], 
+                    ['fallback_used' => true], 
+                    null, 
+                    $fallbackResponse['suggested_command']
+                );
+                
                 $suggestedCommands[] = [
                     'id' => 'fallback_cmd_0',
+                    'message_id' => $fallbackMessageId, // UPDATED: Include message_id
                     'command' => $fallbackResponse['suggested_command'],
                     'description' => $fallbackResponse['command_description'] ?? 'Fallback command suggestion',
                     'type' => 'fallback'
@@ -290,7 +329,7 @@ function handleEnhancedChatMessage() {
 function callAIEndpointWithHistory($userMessage, $chatHistory = '', $sessionContext = '') {
     try {
         // Build the system prompt
-        $systemPrompt = "You are GHOSTCREW, an AI-powered decision-support assistant for junior to mid-level Red Team operators. Your role is to provide real-time, scenario-based guidance during simulated offensive cybersecurity operations. For each user query, clarify the operator's question or action, then suggest 1-3 specific Courses of Action (COAs) based on the provided scenario context, including likely outcomes, risk levels, and stealth effectiveness. Responses should be concise, actionable, and aligned with red team tactics, techniques, and procedures (TTPs). Include a brief explanation of why each COA is recommended, referencing common tools (e.g., Metasploit, Nmap) or techniques where applicable. Maintain a professional, neutral tone and prioritize operational realism and educational value.";
+        $systemPrompt = "You are Ghosty the AI Guide, an AI-powered decision-support assistant for junior to mid-level Red Team operators. Your role is to provide real-time, scenario-based guidance during simulated offensive cybersecurity operations. For each user query, clarify the operator's question or action, then suggest 1-3 specific Courses of Action (COAs) based on the provided scenario context, including likely outcomes, risk levels, and stealth effectiveness. Responses should be concise, actionable, and aligned with red team tactics, techniques, and procedures (TTPs). Include a brief explanation of why each COA is recommended, referencing common tools (e.g., Metasploit, Nmap) or techniques where applicable. Maintain a professional, neutral tone and prioritize operational realism and educational value.";
         
         if (!empty($sessionContext)) {
             $systemPrompt .= "\n\nSession Context:" . $sessionContext;
@@ -473,6 +512,7 @@ function submitEnhancedChatFeedback() {
     }
 }
 
+// Fixed function to mark command as executed (REMOVED executed_at reference)
 function markCommandExecuted() {
     $user = getCurrentUser();
     if (!$user) {
@@ -481,27 +521,62 @@ function markCommandExecuted() {
     }
     
     $messageId = isset($_POST['message_id']) ? (int)$_POST['message_id'] : 0;
-    $suggestionId = isset($_POST['suggestion_id']) ? (int)$_POST['suggestion_id'] : $messageId;
+    // Keep backwards compatibility with suggestion_id
+    if ($messageId <= 0) {
+        $messageId = isset($_POST['suggestion_id']) ? (int)$_POST['suggestion_id'] : 0;
+    }
     
-    if ($messageId <= 0 && $suggestionId <= 0) {
-        echo json_encode(['status' => 'error', 'message' => 'Message ID or suggestion ID is required']);
+    if ($messageId <= 0) {
+        echo json_encode(['status' => 'error', 'message' => 'Message ID is required']);
         return;
     }
     
     try {
         $adminDb = getAdminDB();
         
-        // Use messageId if available, otherwise use suggestionId
-        $idToUpdate = $messageId > 0 ? $messageId : $suggestionId;
+        // Check current status and get command info
+        $stmt = $adminDb->prepare("
+            SELECT command_executed, suggested_command, message 
+            FROM chatbot_conversations 
+            WHERE id = ? AND user_id = ? AND message_type = 'bot'
+        ");
+        $stmt->bind_param("ii", $messageId, $user['id']);
+        $stmt->execute();
+        $result = $stmt->get_result();
         
-        $stmt = $adminDb->prepare("UPDATE chatbot_conversations SET command_executed = 1 WHERE id = ? AND user_id = ?");
-        $stmt->bind_param("ii", $idToUpdate, $user['id']);
+        if ($result->num_rows === 0) {
+            echo json_encode(['status' => 'error', 'message' => 'Message not found']);
+            return;
+        }
+        
+        $conversation = $result->fetch_assoc();
+        
+        // Update the command_executed flag (REMOVED executed_at reference)
+        $stmt = $adminDb->prepare("
+            UPDATE chatbot_conversations 
+            SET command_executed = 1 
+            WHERE id = ? AND user_id = ? AND message_type = 'bot'
+        ");
+        $stmt->bind_param("ii", $messageId, $user['id']);
         $stmt->execute();
         
         if ($stmt->affected_rows > 0) {
-            echo json_encode(['status' => 'success', 'message' => 'Command marked as executed']);
+            // Log the execution for audit purposes
+            logDetailedAuditEvent($user['id'], 'command_suggestion_executed', [
+                'message_id' => $messageId,
+                'suggested_command' => $conversation['suggested_command'],
+                'was_previously_executed' => $conversation['command_executed'],
+                'execution_timestamp' => date('Y-m-d H:i:s') // Add timestamp to audit log instead
+            ]);
+            
+            echo json_encode([
+                'status' => 'success', 
+                'message' => 'Command marked as executed',
+                'message_id' => $messageId,
+                'was_previously_executed' => (bool)$conversation['command_executed']
+            ]);
         } else {
-            echo json_encode(['status' => 'error', 'message' => 'Message not found or already marked']);
+            echo json_encode(['status' => 'error', 'message' => 'Failed to update execution status']);
         }
         
     } catch (Exception $e) {
@@ -552,6 +627,7 @@ function processAIResponse($aiResponse) {
     return $processedResponse;
 }
 
+// Updated function to extract all commands with proper indexing (UPDATED)
 function extractAllCommands($text) {
     $commands = [];
     $commandIndex = 0;
@@ -566,13 +642,14 @@ function extractAllCommands($text) {
                     'id' => 'cmd_' . $commandIndex++,
                     'command' => $potentialCommand,
                     'description' => 'Command from code block',
-                    'type' => 'code_block'
+                    'type' => 'code_block',
+                    'message_id' => null // Will be set by calling function
                 ];
             }
         }
     }
     
-    // Pattern 2: **Command:** pattern (FIXED TO CAPTURE PROPERLY)
+    // Pattern 2: **Command:** pattern
     $commandPattern = '/\*\*Command:\*\*\s*`([^`]+)`/i';
     if (preg_match_all($commandPattern, $text, $matches)) {
         foreach ($matches[1] as $match) {
@@ -591,7 +668,8 @@ function extractAllCommands($text) {
                     'id' => 'cmd_' . $commandIndex++,
                     'command' => $potentialCommand,
                     'description' => 'Step command',
-                    'type' => 'step'
+                    'type' => 'step',
+                    'message_id' => null // Will be set by calling function
                 ];
             }
         }
@@ -616,7 +694,8 @@ function extractAllCommands($text) {
                     'id' => 'cmd_' . $commandIndex++,
                     'command' => $potentialCommand,
                     'description' => 'Inline command suggestion',
-                    'type' => 'inline'
+                    'type' => 'inline',
+                    'message_id' => null // Will be set by calling function
                 ];
             }
         }
@@ -693,7 +772,7 @@ function callAIEndpoint($prompt, $customPreamble = null, $sessionId = null) {
 }
 
 function getDefaultPreamble($commandContext = '', $sessionId = null) {
-    $preamble = "You are GHOSTCREW, an AI-powered decision-support assistant for junior to mid-level Red Team operators. Your role is to provide real-time, scenario-based guidance during simulated offensive cybersecurity operations. For each user query, clarify the operator's question or action, then suggest 1-3 specific Courses of Action (COAs) based on the provided scenario context, including likely outcomes, risk levels, and stealth effectiveness. Responses should be concise, actionable, and aligned with red team tactics, techniques, and procedures (TTPs). Include a brief explanation of why each COA is recommended, referencing common tools (e.g., Metasploit, Nmap) or techniques where applicable. Maintain a professional, neutral tone and prioritize operational realism and educational value.";
+    $preamble = "You are Ghosty the AI Guide, an AI-powered decision-support assistant for junior to mid-level Red Team operators. Your role is to provide real-time, scenario-based guidance during simulated offensive cybersecurity operations. For each user query, clarify the operator's question or action, then suggest 1-3 specific Courses of Action (COAs) based on the provided scenario context, including likely outcomes, risk levels, and stealth effectiveness. Responses should be concise, actionable, and aligned with red team tactics, techniques, and procedures (TTPs). Include a brief explanation of why each COA is recommended, referencing common tools (e.g., Metasploit, Nmap) or techniques where applicable. Maintain a professional, neutral tone and prioritize operational realism and educational value.";
     
     // Get detailed command history if session is provided
     if ($sessionId) {
