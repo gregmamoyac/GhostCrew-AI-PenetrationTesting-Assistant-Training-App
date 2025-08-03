@@ -135,7 +135,7 @@ GhostCrew addresses these challenges by providing an AI-powered platform that si
    ```
    
    **admin/api.php**
-  ```php
+   ```php
    define('ADMIN_DB_HOST', 'localhost');
    define('ADMIN_DB_USER', 'ghostcrew_admin');
    define('ADMIN_DB_PASS', 'your_secure_password');
@@ -240,4 +240,4 @@ For technical support or questions about this project, please refer to the [UC B
 
 ---
 
-**Developed by UC Berkeley School of Information - MICS Capstone Summer 2025**
+**Developed for the UC Berkeley School of Information MICS Capstone Summer 2025 Project**
