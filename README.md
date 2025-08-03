@@ -144,20 +144,22 @@ GhostCrew addresses these challenges by providing an AI-powered platform that si
 
 ### AI Integration Setup
 
-> **Note**: Complete AI setup instructions will be provided in future releases.
-
 1. **Configure AI Endpoint**
+
+   >  **Note**: It is recommended to use the default AI models developed by the GhostCrew team, but if you chose to create your own, you will need to modify the files below to reflect your endpoint URL. Additional configuration may be required to ensure correct payload and response.
    
    Once your AI service is configured and tested:
    
    **api/chat.php**
    ```php
    $endpoint = 'https://your-ai-service.com/api/chat';
+   // Default: https://vtwi9xccxj.execute-api.us-east-2.amazonaws.com/default/invokeRAG
    ```
    
    **admin/generate_session_summary.php**
    ```php
    $ai_endpoint = 'https://your-ai-service.com/api/summary';
+   // Default: https://zl47lm7yy1.execute-api.us-east-2.amazonaws.com/invoke
    ```
 
 2. **Setup Automated Session Summaries**
