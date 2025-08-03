@@ -38,6 +38,12 @@ switch ($action) {
     case 'analyze_command_result':   // ADDED
         analyzeCommandResult();
         break;
+    case 'get_command_guidance':
+        getCommandGuidance();
+        break;
+    case 'get_interactive_command_guidance':
+        getInteractiveCommandGuidance();
+        break;
     default:
         echo json_encode(['status' => 'error', 'message' => 'Invalid chat action']);
 }
@@ -351,7 +357,7 @@ function callAIEndpointWithHistory($userMessage, $chatHistory = '', $sessionCont
         
         // Prepare the request payload - chat_history must be a string
         $requestData = [
-            'mode' => 'operator',
+            //'mode' => 'operator',
             'input' => $userMessage,
             'chat_history' => $chatHistoryString, // Send as string, not array
             //'system_prompt' => $systemPrompt,
@@ -362,8 +368,7 @@ function callAIEndpointWithHistory($userMessage, $chatHistory = '', $sessionCont
         error_log("AI Request payload: " . json_encode($requestData));
         
         // AI endpoint configuration
-        //$endpoint = 'https://zl47lm7yy1.execute-api.us-east-2.amazonaws.com/invoke';
-        $endpoint = 'http://192.168.1.171:8090';
+        $endpoint = 'https://vtwi9xccxj.execute-api.us-east-2.amazonaws.com/default/invokeRAG';
         $headers = [
             'Content-Type: application/json',
             'User-Agent: GhostCrew-Terminal/1.0'
@@ -385,25 +390,24 @@ function callAIEndpointWithHistory($userMessage, $chatHistory = '', $sessionCont
         $error = curl_error($ch);
         curl_close($ch);
         
-        error_log("AI Response - HTTP: $httpCode, Error: $error, Response length: " . strlen($response));
+        error_log("AI Response - HTTP: $httpCode, Error: $error, Response: $response");
         
         if ($error) {
             error_log("AI API cURL error: " . $error);
             return null;
         }
         
-        if ($httpCode === 200 && $response) {
+       if ($httpCode === 200 && $response) {
             $decoded = json_decode($response, true);
-            if (json_last_error() === JSON_ERROR_NONE) {
+            if (json_last_error() === JSON_ERROR_NONE && isset($decoded['answer'])) {
                 error_log("AI Response successfully decoded as JSON");
-                return $decoded;
-            } else {
-                // AI returned a plain string, not JSON - wrap it in expected format
-                error_log("AI Response is plain string, wrapping in expected format");
                 return [
-                    'generated_text' => trim($response, '"'), // Remove surrounding quotes if present
+                    'generated_text' => $decoded['answer'],
                     'status' => 'success'
                 ];
+            } else {
+                error_log("AI Response invalid JSON format or missing 'answer' field");
+                return null;
             }
         } else {
             error_log("AI API HTTP error: $httpCode - Response: " . substr($response, 0, 500));
@@ -415,6 +419,81 @@ function callAIEndpointWithHistory($userMessage, $chatHistory = '', $sessionCont
         error_log("AI endpoint error: " . $e->getMessage());
         return null;
     }
+}
+
+/**
+ * Send silent query to AI for command guidance (not stored in chat history)
+ */
+function getCommandGuidanceFromAI($command, $sessionId = null) {
+    try {
+        // Build guidance prompt
+        $guidancePrompt = "Command: {$command}\n\n";
+        $guidancePrompt .= "Please provide brief guidance on:\n";
+        $guidancePrompt .= "1. What type of output to expect from this command\n";
+        $guidancePrompt .= "2. How to parse or interpret the output\n";
+        $guidancePrompt .= "3. Key elements to look for in the results\n";
+        $guidancePrompt .= "4. Common issues or errors that might occur\n\n";
+        $guidancePrompt .= "Keep response concise and technical. Focus on parsing and interpretation guidance.";
+        
+        // Get session context if available
+        $sessionContext = '';
+        if ($sessionId) {
+            $sessionContext = getDetailedSessionCommandContext($sessionId, 3);
+        }
+        
+        // Call AI endpoint with empty chat history (this is a standalone query)
+        $aiResponse = callAIEndpointWithHistory($guidancePrompt, '', $sessionContext);
+        
+        if ($aiResponse && isset($aiResponse['generated_text'])) {
+            return [
+                'status' => 'success',
+                'guidance' => $aiResponse['generated_text'],
+                'command' => $command,
+                'timestamp' => date('Y-m-d H:i:s')
+            ];
+        } else {
+            return [
+                'status' => 'fallback',
+                'guidance' => generateLocalCommandGuidance($command),
+                'command' => $command,
+                'timestamp' => date('Y-m-d H:i:s')
+            ];
+        }
+        
+    } catch (Exception $e) {
+        error_log("Silent AI guidance error: " . $e->getMessage());
+        return [
+            'status' => 'fallback',
+            'guidance' => generateLocalCommandGuidance($command),
+            'command' => $command,
+            'timestamp' => date('Y-m-d H:i:s')
+        ];
+    }
+}
+
+/**
+ * Generate local fallback guidance when AI is unavailable
+ */
+function generateLocalCommandGuidance($command) {
+    $commandBase = strtolower(trim(explode(' ', $command)[0]));
+    
+    $guidanceMap = [
+        'nmap' => 'Expect port scan results with open/closed/filtered ports. Look for service versions and OS detection. Parse for IP addresses, port numbers, and service names.',
+        'ping' => 'Expect packet transmission statistics. Look for packet loss percentage, round-trip times (min/avg/max), and connectivity status.',
+        'dir' => 'Expect file and directory listings. Parse for file sizes, timestamps, and permissions. Look for file count and total size.',
+        'ls' => 'Expect file and directory listings. Parse for permissions, owner, group, size, and modification dates.',
+        'netstat' => 'Expect network connection listings. Look for protocol types, local/remote addresses, connection states, and process IDs.',
+        'tasklist' => 'Expect running process information. Parse for process names, PIDs, memory usage, and session information.',
+        'ipconfig' => 'Expect network adapter configuration. Look for IP addresses, subnet masks, default gateways, and DNS servers.',
+        'systeminfo' => 'Expect comprehensive system information. Parse for OS version, hardware details, patches, and network configuration.',
+        'ssh' => 'Interactive session expected. Monitor for authentication prompts, connection status, and remote shell access.',
+        'telnet' => 'Interactive session expected. Look for connection establishment, login prompts, and remote system responses.',
+        'msfconsole' => 'Interactive Metasploit session. Expect framework initialization, module loading, and exploit interfaces.',
+        'mysql' => 'Interactive database session. Monitor for connection status, query results, and SQL prompt availability.',
+        'python' => 'Interactive Python interpreter. Expect Python prompt and code execution results.'
+    ];
+    
+    return $guidanceMap[$commandBase] ?? 'Monitor command output for completion status, error messages, and relevant data. Parse based on command-specific format and expected results.';
 }
 
 function submitChatFeedback() {
@@ -1019,6 +1098,172 @@ function analyzeCommandResult() {
     } catch (Exception $e) {
         error_log("Command analysis error: " . $e->getMessage());
         echo json_encode(['status' => 'error', 'message' => 'Analysis failed']);
+    }
+}
+
+function getCommandGuidance() {
+    $command = isset($_POST['command']) ? sanitize($_POST['command']) : '';
+    $sessionId = isset($_POST['session_id']) ? sanitize($_POST['session_id']) : null;
+    
+    if (empty($command)) {
+        echo json_encode(['status' => 'error', 'message' => 'Command is required']);
+        return;
+    }
+    
+    try {
+        $guidance = getCommandGuidanceFromAI($command, $sessionId);
+        echo json_encode($guidance);
+    } catch (Exception $e) {
+        error_log("Get command guidance error: " . $e->getMessage());
+        echo json_encode([
+            'status' => 'fallback',
+            'guidance' => generateLocalCommandGuidance($command),
+            'command' => $command,
+            'timestamp' => date('Y-m-d H:i:s')
+        ]);
+    }
+}
+
+function getInteractiveCommandGuidance() {
+    $command = isset($_POST['command']) ? sanitize($_POST['command']) : '';
+    $interactiveContext = isset($_POST['interactive_context']) ? $_POST['interactive_context'] : [];
+    $sessionId = isset($_POST['session_id']) ? sanitize($_POST['session_id']) : null;
+    $streamingCommandId = isset($_POST['streaming_command_id']) ? sanitize($_POST['streaming_command_id']) : null;
+    
+    if (empty($command)) {
+        echo json_encode(['status' => 'error', 'message' => 'Command is required']);
+        return;
+    }
+    
+    try {
+        $guidance = getInteractiveCommandGuidanceFromAI($command, $interactiveContext, $sessionId);
+        echo json_encode($guidance);
+    } catch (Exception $e) {
+        error_log("Get interactive command guidance error: " . $e->getMessage());
+        echo json_encode([
+            'status' => 'fallback',
+            'guidance' => generateLocalInteractiveCommandGuidance($command, $interactiveContext),
+            'command' => $command,
+            'timestamp' => date('Y-m-d H:i:s')
+        ]);
+    }
+}
+
+/**
+ * Get AI guidance for commands executed within interactive tools
+ */
+function getInteractiveCommandGuidanceFromAI($command, $interactiveContext, $sessionId = null) {
+    try {
+        // Extract context details
+        $tool = $interactiveContext['tool'] ?? 'unknown';
+        $originalCommand = $interactiveContext['command'] ?? '';
+        $details = $interactiveContext['details'] ?? [];
+        
+        // Build enhanced prompt for interactive context
+        $guidancePrompt = "Interactive Context: Currently executing commands within {$tool}\n";
+        $guidancePrompt .= "Original command that started session: {$originalCommand}\n";
+        
+        if (!empty($details)) {
+            $guidancePrompt .= "Session details: " . json_encode($details) . "\n";
+        }
+        
+        $guidancePrompt .= "\nCommand being executed within {$tool}: {$command}\n\n";
+        $guidancePrompt .= "Please provide brief guidance on:\n";
+        $guidancePrompt .= "1. What this command does within the {$tool} context\n";
+        $guidancePrompt .= "2. Expected output format and what to look for\n";
+        $guidancePrompt .= "3. How to interpret results within {$tool}\n";
+        $guidancePrompt .= "4. Common errors or issues specific to {$tool}\n";
+        $guidancePrompt .= "5. Next logical commands that might follow\n\n";
+        $guidancePrompt .= "Focus on {$tool}-specific behavior and output interpretation.";
+        
+        // Get session context
+        $sessionContext = '';
+        if ($sessionId) {
+            $sessionContext = getDetailedSessionCommandContext($sessionId, 3);
+            $guidancePrompt .= "\n\nRecent session context:\n" . $sessionContext;
+        }
+        
+        // Call AI endpoint
+        $aiResponse = callAIEndpointWithHistory($guidancePrompt, '', '');
+        
+        if ($aiResponse && isset($aiResponse['generated_text'])) {
+            return [
+                'status' => 'success',
+                'guidance' => $aiResponse['generated_text'],
+                'command' => $command,
+                'interactive_context' => $interactiveContext,
+                'timestamp' => date('Y-m-d H:i:s')
+            ];
+        } else {
+            return [
+                'status' => 'fallback',
+                'guidance' => generateLocalInteractiveCommandGuidance($command, $interactiveContext),
+                'command' => $command,
+                'interactive_context' => $interactiveContext,
+                'timestamp' => date('Y-m-d H:i:s')
+            ];
+        }
+        
+    } catch (Exception $e) {
+        error_log("Interactive AI guidance error: " . $e->getMessage());
+        return [
+            'status' => 'fallback',
+            'guidance' => generateLocalInteractiveCommandGuidance($command, $interactiveContext),
+            'command' => $command,
+            'interactive_context' => $interactiveContext,
+            'timestamp' => date('Y-m-d H:i:s')
+        ];
+    }
+}
+
+/**
+ * Generate local fallback guidance for interactive commands
+ */
+function generateLocalInteractiveCommandGuidance($command, $interactiveContext) {
+    $tool = $interactiveContext['tool'] ?? 'unknown';
+    $commandBase = strtolower(trim(explode(' ', $command)[0]));
+    
+    // Tool-specific guidance
+    switch ($tool) {
+        case 'ssh':
+            return "SSH Session - Command: {$command}. Expect remote system output. Look for command completion, file paths, permissions, and system responses. Monitor for connection stability and authentication requirements.";
+            
+        case 'telnet':
+            return "Telnet Session - Command: {$command}. Expect raw text output from remote system. Parse for service banners, login prompts, command responses. Watch for connection timeouts and character encoding issues.";
+            
+        case 'msfconsole':
+            $msfGuidance = [
+                'use' => 'Loading exploit/auxiliary module. Expect module information and available options.',
+                'show' => 'Displaying module information. Look for options, targets, payloads, and exploits.',
+                'set' => 'Setting module option. Expect confirmation of parameter assignment.',
+                'exploit' => 'Running exploit. Monitor for session creation, target response, and success indicators.',
+                'sessions' => 'Listing active sessions. Parse for session IDs, types, and target information.',
+                'search' => 'Searching modules. Expect list of matching exploits/auxiliaries with descriptions.'
+            ];
+            return "Metasploit Console - Command: {$command}. " . ($msfGuidance[$commandBase] ?? 'Metasploit framework command. Expect framework-specific output with module information and execution results.');
+            
+        case 'mysql':
+            $sqlGuidance = [
+                'show' => 'Displaying database objects. Expect table/database listings with metadata.',
+                'select' => 'Query execution. Parse for result sets, row counts, and column data.',
+                'use' => 'Switching database context. Expect confirmation of database selection.',
+                'describe' => 'Table structure display. Look for column definitions, types, and constraints.',
+                'insert' => 'Data insertion. Expect affected row counts and success confirmations.',
+                'update' => 'Data modification. Monitor affected row counts and warning messages.',
+                'delete' => 'Data removal. Check affected row counts and referential integrity.'
+            ];
+            return "MySQL Session - Command: {$command}. " . ($sqlGuidance[$commandBase] ?? 'SQL command execution. Expect query results, row counts, and database responses.');
+            
+        case 'python':
+        case 'python3':
+            return "Python Interpreter - Command: {$command}. Expect Python expression evaluation, error messages for syntax issues, object representations, and execution results. Monitor for import errors and variable assignments.";
+            
+        case 'nc':
+        case 'netcat':
+            return "Netcat Session - Command: {$command}. Expect raw network data exchange. Monitor for connection status, data transmission, and protocol-specific responses from target service.";
+            
+        default:
+            return "Interactive Session ({$tool}) - Command: {$command}. Monitor for tool-specific output format, command completion status, and context-appropriate responses.";
     }
 }
 

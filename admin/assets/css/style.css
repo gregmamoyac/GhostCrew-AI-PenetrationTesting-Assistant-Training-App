@@ -1873,9 +1873,10 @@ header h1::before {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 32px;
-    padding-bottom: 16px;
-    border-bottom: 2px solid var(--border-color);
+}
+
+.section-header .btn {
+    margin-bottom: 16px;
 }
 
 .section-title {
@@ -3848,6 +3849,10 @@ header h1::before {
     min-height: 200px;
 }
 
+#logs .btn {
+    margin-bottom: 16px;
+}
+
 /* Enhanced Statistics Grid */
 .report-stats {
     display: grid;
@@ -3950,6 +3955,7 @@ header h1::before {
     padding: 16px;
     border-radius: 12px;
     border: 1px solid var(--border-color);
+    margin-bottom: 16px;
 }
 
 .report-filters .form-input,

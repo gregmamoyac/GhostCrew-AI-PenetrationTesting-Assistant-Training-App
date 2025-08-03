@@ -9,8 +9,7 @@ date_default_timezone_set('UTC');
 
 class SessionSummaryGenerator {
     private $pdo;
-    //private $ai_endpoint = 'https://zl47lm7yy1.execute-api.us-east-2.amazonaws.com/invoke'; // Replace with actual endpoint
-    private $ai_endpoint = 'http://192.168.1.171:8090';
+    private $ai_endpoint = 'https://zl47lm7yy1.execute-api.us-east-2.amazonaws.com/invoke';
     
     public function __construct() {
         if (!defined('ADMIN_DB_HOST')) {
@@ -222,6 +221,16 @@ class SessionSummaryGenerator {
         }
         
         return trim($response);
+        
+        // Parse JSON response and extract the body field
+        /* $decoded = json_decode($response, true);
+        if (json_last_error() === JSON_ERROR_NONE && isset($decoded['body'])) {
+            $this->logWithTimestamp("Successfully extracted body from JSON response");
+            return trim($decoded['body']);
+        } else {
+            $this->logWithTimestamp("Invalid JSON response or missing 'body' field");
+            return false;
+        } */
     }
     
     private function insertSummary($session, $ai_summary, $command_count) {

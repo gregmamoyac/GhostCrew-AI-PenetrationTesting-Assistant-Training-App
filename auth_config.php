@@ -24,21 +24,6 @@ if (session_status() === PHP_SESSION_NONE) {
 
 date_default_timezone_set('UTC');
 
-/*
-// Admin database configuration
-if (!defined('ADMIN_DB_HOST')) {
-    define('ADMIN_DB_HOST', 'awseb-e-xfnrcu3bu7-stack-awsebrdsdatabase-56wwqfaxr67o.cyjo80kgwf8g.us-east-1.rds.amazonaws.com');
-}
-if (!defined('ADMIN_DB_USER')) {
-    define('ADMIN_DB_USER', 'gcadmin34yVbZL');
-}
-if (!defined('ADMIN_DB_PASS')) {
-    define('ADMIN_DB_PASS', 'Aof^Hy4Z%qgHk}CjXV0):Vy]xpcPJ=+');
-}
-if (!defined('ADMIN_DB_NAME')) {
-    define('ADMIN_DB_NAME', 'ghostcrew_admin');
-}
-    */
 
 if (!defined('ADMIN_DB_HOST')) {
     define('ADMIN_DB_HOST', '192.168.1.171');
@@ -692,14 +677,6 @@ if (!function_exists('validateCSRFToken')) {
     }
 }
 
-// Load AWS AI configuration after all functions are defined
-require_once __DIR__ . '/aws_ai_config.php';
-
-// Initialize AWS AI config now that all dependencies are available
-if (function_exists('getAdminDB')) {
-    initializeAwsAiConfig();
-}
-
 // Enhanced chatbot integration functions for backward compatibility
 if (!function_exists('generateBotResponse')) {
     function generateBotResponse($message, $context = [], $userId = null, $sessionId = null) {
@@ -708,44 +685,4 @@ if (!function_exists('generateBotResponse')) {
     }
 }
 
-// Function to check if AWS AI is properly configured
-if (!function_exists('isAwsAiConfigured')) {
-    function isAwsAiConfigured() {
-        $endpoint = getAiConfig('aws_ai_endpoint');
-        $apiKey = getAiConfig('aws_api_key');
-        
-        return !empty($endpoint) && 
-               !empty($apiKey) && 
-               $apiKey !== 'your-api-key-here' && 
-               AwsAiConfig::isInitialized();
-    }
-}
-
-// Function to get AI status for frontend
-if (!function_exists('getAiStatus')) {
-    function getAiStatus() {
-        if (!AwsAiConfig::isInitialized()) {
-            return [
-                'configured' => false,
-                'connected' => false,
-                'message' => 'AWS AI not initialized'
-            ];
-        }
-        
-        if (!isAwsAiConfigured()) {
-            return [
-                'configured' => false,
-                'connected' => false,
-                'message' => 'AWS AI not configured'
-            ];
-        }
-        
-        $connectionTest = testAwsAiConnection();
-        return [
-            'configured' => true,
-            'connected' => $connectionTest['valid'],
-            'message' => $connectionTest['valid'] ? $connectionTest['message'] : $connectionTest['error']
-        ];
-    }
-}
 ?>

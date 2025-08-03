@@ -2073,172 +2073,133 @@ function formatChatMessage(message) {
     return formatBotResponse(message);
 }
 
+function formatBotResponse(message) {
+    let formatted = message;
+    
+    // Convert newlines to HTML breaks
+    formatted = formatted.replace(/\n/g, '<br>');
+    
+    // Format code blocks (```code```)
+    formatted = formatted.replace(/```([^`]*?)```/g, 
+        '<pre class="code-block"><code>$1</code></pre>');
+    
+    // Format inline code (`code`)
+    formatted = formatted.replace(/`([^`]+)`/g, 
+        '<code class="inline-code">$1</code>');
+    
+    // Format bold text (**text**)
+    formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    
+    // Format italic text (*text*)
+    formatted = formatted.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    
+    // Format lettered points (a. b. c. etc.)
+    formatted = formatted.replace(/^([a-z])\.\s+(.+)$/gm, 
+        '<div class="lettered-item"><span class="letter-marker">$1.</span> $2</div>');
+    formatted = formatted.replace(/<br>([a-z])\.\s+(.+)/g, 
+        '<br><div class="lettered-item"><span class="letter-marker">$1.</span> $2</div>');
+    
+    // Format numbered points (1. 2. 3. etc.)
+    formatted = formatted.replace(/^(\d+)\.\s+(.+)$/gm, 
+        '<div class="numbered-item"><span class="number-marker">$1.</span> $2</div>');
+    formatted = formatted.replace(/<br>(\d+)\.\s+(.+)/g, 
+        '<br><div class="numbered-item"><span class="number-marker">$1.</span> $2</div>');
+    
+    // Format bullet points (* - • etc.)
+    formatted = formatted.replace(/^[\*\-•]\s+(.+)$/gm, 
+        '<div class="bullet-item">• $1</div>');
+    formatted = formatted.replace(/<br>[\*\-•]\s+(.+)/g, 
+        '<br><div class="bullet-item">• $1</div>');
+    
+    // Format section headers (lines ending with colon that might be headers)
+    formatted = formatted.replace(/<br>([^<]+:)(<br>|$)/g, function(match, header, ending) {
+        // Only treat as header if it's short enough and doesn't contain common sentence patterns
+        if (header.length < 80 && !header.includes(' and ') && !header.includes(' the ')) {
+            return `<br><h6 class="section-header">${header}</h6>${ending}`;
+        }
+        return match;
+    });
+    
+    // Handle lines that start with headers at beginning of text
+    formatted = formatted.replace(/^([^<]+:)(<br>|$)/g, function(match, header, ending) {
+        if (header.length < 80 && !header.includes(' and ') && !header.includes(' the ')) {
+            return `<h6 class="section-header">${header}</h6>${ending}`;
+        }
+        return match;
+    });
+    
+    // Clean up excessive breaks
+    formatted = formatted.replace(/<br><br><br>/g, '<br><br>');
+    formatted = formatted.replace(/(<h6[^>]*>[^<]*<\/h6>)<br><br>/g, '$1<br>');
+    
+    // Remove leading newlines or breaks
+    formatted = formatted.replace(/^(<br>)+/, '');
+    
+    return `<div class="bot-response-formatted">${formatted}</div>`;
+}
+
 function formatAISessionSummary(message) {
     let formatted = message;
     
     // Convert newlines to HTML breaks first
-    formatted = formatted.replace(/\\n/g, '<br>');
+    formatted = formatted.replace(/\\n/g, '\n');
     formatted = formatted.replace(/\n/g, '<br>');
     
-    // Format main title
-    formatted = formatted.replace(/\*\*PENETRATION TESTING SESSION SUMMARY\*\*/g, 
-        '<h4 class="ai-summary-title">🔍 PENETRATION TESTING SESSION SUMMARY</h4>');
+    // Format code blocks (```code```)
+    formatted = formatted.replace(/```([^`]*?)```/g, 
+        '<pre class="code-block"><code>$1</code></pre>');
     
-    // Format section headers
-    formatted = formatted.replace(/\*\*([^*]+PHASE[^*]*)\*\*/g, 
-        '<h5 class="phase-header">📋 $1</h5>');
+    // Format inline code (`code`)
+    formatted = formatted.replace(/`([^`]+)`/g, 
+        '<code class="inline-code">$1</code>');
     
-    // Format assessment and recommendations sections
-    formatted = formatted.replace(/\*\*(OVERALL ASSESSMENT|RECOMMENDATIONS):\*\*/g, 
-        '<h6 class="summary-section"><strong>$1:</strong></h6>');
+    // Format any **bold text** that isn't already processed
+    formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     
-    // Fix the checkmark and bold text formatting issue
-    formatted = formatted.replace(/✅<br>\*\*([^*]+):\*\*/g, '✅ <strong>$1:</strong>');
+    // Format *italic text*
+    formatted = formatted.replace(/\*([^*]+)\*/g, '<em>$1</em>');
     
-    // Format other bold sections
-    formatted = formatted.replace(/\*\*([^*]+):\*\*/g, 
-        '<h6 class="summary-section"><strong>$1:</strong></h6>');
+    // Format numbered lists (1. item, 2. item, etc.)
+    formatted = formatted.replace(/^(\d+)\.\s+(.+)$/gm, 
+        '<div class="numbered-item">$1. $2</div>');
+    formatted = formatted.replace(/<br>(\d+)\.\s+(.+)/g, 
+        '<br><div class="numbered-item">$1. $2</div>');
     
-    // Format checkmarks and bullet points
-    formatted = formatted.replace(/- \\u2713 /g, '• ✅ ');
-    formatted = formatted.replace(/\\u2713 /g, '✅ ');
-    formatted = formatted.replace(/\\u26a0 /g, '⚠️ ');
+    // Format bullet points (- item, • item, * item)
+    formatted = formatted.replace(/^[-•*]\s+(.+)$/gm, 
+        '<div class="bullet-item">• $1</div>');
+    formatted = formatted.replace(/<br>[-•*]\s+(.+)/g, 
+        '<br><div class="bullet-item">• $1</div>');
     
-    // Format bullet points with proper spacing
-    formatted = formatted.replace(/^- (.+)$/gm, '<div style="margin-left: 12px;">• $1</div>');
-    formatted = formatted.replace(/<br>- (.+)/g, '<br><div style="margin-left: 12px;">• $1</div>');
+    // Format headers - detect lines that are all caps or have specific patterns
+    // This handles various header styles AI might use
+    formatted = formatted.replace(/<br>([A-Z][A-Z\s]{2,}[A-Z])(<br>|$)/g, 
+        '<br><h4 class="ai-header">$1</h4><br>');
+    formatted = formatted.replace(/^([A-Z][A-Z\s]{2,}[A-Z])(<br>|$)/g, 
+        '<h4 class="ai-header">$1</h4><br>');
     
-    // Clean up any double breaks
-    formatted = formatted.replace(/<br><br>/g, '<br>');
+    // Format lines that start with strong text as potential headers
+    formatted = formatted.replace(/<br><strong>([^<]+)<\/strong>(<br>|$)/g, 
+        '<br><h5 class="ai-subheader">$1</h5><br>');
+    formatted = formatted.replace(/^<strong>([^<]+)<\/strong>(<br>|$)/g, 
+        '<h5 class="ai-subheader">$1</h5><br>');
     
-    // Wrap in summary container
-    return `<div class="ai-session-summary">${formatted}</div>`;
-}
-
-function formatBotResponse(message) {
-    // Convert newlines to HTML breaks first
-    let formatted = message.replace(/\n/g, '');
+    // Handle checkmarks and common symbols
+    formatted = formatted.replace(/✅/g, '<span class="check-mark">✅</span>');
+    formatted = formatted.replace(/❌/g, '<span class="x-mark">❌</span>');
+    formatted = formatted.replace(/⚠️/g, '<span class="warning">⚠️</span>');
+    formatted = formatted.replace(/🔍/g, '<span class="search">🔍</span>');
+    formatted = formatted.replace(/📝/g, '<span class="note">📝</span>');
     
-    // Split into parts and process sequentially to maintain state
-    const parts = [];
-    let currentPos = 0;
-    let hasOpenSection = false;
-    let inStepSection = false;
+    // Clean up excessive breaks
+    formatted = formatted.replace(/<br><br><br>/g, '<br><br>');
+    formatted = formatted.replace(/(<h[4-6][^>]*>[^<]*<\/h[4-6]>)<br><br>/g, '$1<br>');
     
-    // Find all formatting patterns with their positions
-    const patterns = [
-        { regex: /\*\*Step (\d+): ([^*]+)\*\*/g, type: 'step' },
-        { regex: /\*\*Command:\*\* `([^`]+)`/g, type: 'command' },
-        { regex: /\*\*Explanation:\*\*/g, type: 'explanation' },
-        { regex: /\*\*Reading Output:\*\*/g, type: 'reading' },
-        { regex: /\*\*Expected Actions:\*\*/g, type: 'expected' },
-        { regex: /\*\*Risks:\*\*/g, type: 'risks' }
-    ];
+    // Remove leading newlines or breaks
+    formatted = formatted.replace(/^(<br>)+/, '');
     
-    const matches = [];
-    
-    patterns.forEach(pattern => {
-        let match;
-        pattern.regex.lastIndex = 0; // Reset regex
-        while ((match = pattern.regex.exec(formatted)) !== null) {
-            matches.push({
-                type: pattern.type,
-                match: match,
-                start: match.index,
-                end: match.index + match[0].length
-            });
-        }
-    });
-    
-    // Sort matches by position
-    matches.sort((a, b) => a.start - b.start);
-    
-    let result = '';
-    let pos = 0;
-    
-    matches.forEach(({ type, match, start, end }) => {
-        // Add text before this match
-        result += formatted.substring(pos, start);
-        
-        // Helper functions
-        const closeSection = () => hasOpenSection ? '</p></div>' : '';
-        const closeStepSection = () => inStepSection ? '</div>' : '';
-        
-        // Process the match based on type
-        switch (type) {
-            case 'step':
-                result += closeSection() + closeStepSection() + 
-                         `<div class="step-section"><h6>📝 Step ${match[1]}: ${match[2]}</h6>`;
-                hasOpenSection = false;
-                inStepSection = true;
-                break;
-                
-            case 'command':
-                if (inStepSection) {
-                    result += closeSection() + 
-                             `<div class="command-subsection"><h6>💻 Command:</h6><code class="command-code">${match[1]}</code></div>`;
-                } else {
-                    result += closeSection() + 
-                             `<div class="command-section"><h6>💻 Command:</h6><code class="command-code">${match[1]}</code></div>`;
-                }
-                hasOpenSection = false;
-                break;
-                
-            case 'explanation':
-                if (inStepSection) {
-                    result += closeSection() + 
-                             '<div class="explanation-subsection"><h6>📖 Explanation:</h6><p>';
-                } else {
-                    result += closeSection() + 
-                             '<div class="explanation-section"><h6>📖 Explanation:</h6><p>';
-                }
-                hasOpenSection = true;
-                break;
-                
-            case 'reading':
-                if (inStepSection) {
-                    result += closeSection() + 
-                             '<div class="reading-output-subsection"><h6>👁️ Reading Output:</h6><p>';
-                } else {
-                    result += closeSection() + 
-                             '<div class="reading-output-section"><h6>👁️ Reading Output:</h6><p>';
-                }
-                hasOpenSection = true;
-                break;
-                
-            case 'expected':
-                result += closeSection() + closeStepSection() + 
-                         '<div class="expected-actions-section"><h6>🎯 Expected Actions:</h6><p>';
-                hasOpenSection = true;
-                inStepSection = false;
-                break;
-                
-            case 'risks':
-                result += closeSection() + closeStepSection() + 
-                         '<div class="risks-section"><h6>⚠️ Risks:</h6><p>';
-                hasOpenSection = true;
-                inStepSection = false;
-                break;
-        }
-        
-        pos = end;
-    });
-    
-    // Add remaining text
-    result += formatted.substring(pos);
-    
-    // Format inline code
-    result = result.replace(/`([^`]+)`/g, '<code>$1</code>');
-    
-    // Format bullet points
-    result = result.replace(/- (.+)/g, '• $1');
-    
-    // Close any remaining open sections
-    const closeSection = () => hasOpenSection ? '</p></div>' : '';
-    const closeStepSection = () => inStepSection ? '</div>' : '';
-    result += closeSection() + closeStepSection();
-    
-    return `<div class="bot-response-formatted">${result}</div>`;
+    // Wrap in container
+    return `<div class="ai-content-summary">${formatted}</div>`;
 }
 
 async function loadManagersList() {
@@ -2905,7 +2866,7 @@ async function loadGradingContent(sessionId) {
                             <div class="ai-summary-meta">
                                 <small>Generated on ${formatDate(data.ai_summary.summary_generated_at)} | 
                                 Commands analyzed: ${data.ai_summary.command_count} | 
-                                Duration: ${Math.round(data.ai_summary.session_duration || 0)} minutes</small>
+                                Duration: ${Math.round(data.ai_summary.session_duration || 0)} seconds</small>
                             </div>
                         </div>
                     </div>

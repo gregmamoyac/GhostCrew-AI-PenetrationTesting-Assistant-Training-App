@@ -193,11 +193,19 @@ function scrollToBottom(element) {
     }
 }
 
-// Function to check if user has scrolled up from bottom
+// Function to check if user has manually scrolled up from bottom
 function isUserScrolledUp(element) {
-    if (!element) return false;
+    return false; // Default to false for now
+    console.log('Checking if user is scrolled up...');
+    if (!element) {
+        console.warn('No element provided for scroll check');
+        return false;
+    }
     const threshold = 50; // pixels from bottom
-    return (element.scrollHeight - element.scrollTop - element.clientHeight) > threshold;
+    scrolldistance = (element.scrollHeight - element.scrollTop - element.clientHeight);
+    scrolledup = scrolldistance > threshold;
+    console.log('Scroll distance:', scrolldistance, 'Threshold:', threshold, 'scrolled up:', scrolledup);
+    return scrolledup;
 }
 
 function scrollChatToBottom() {
@@ -525,7 +533,7 @@ function observeChatChanges() {
                     if (addedNode.classList && addedNode.classList.contains('typing-indicator')) {
                         // Only scroll for typing indicator if user was near bottom
                         if (isUserNearBottom(200)) {
-                            setTimeout(() => scrollChatToShowUserMessage(), 50);
+                            setTimeout(() => scrollChatToShowLatestMessage(), 50);
                         }
                     }
                 }
@@ -643,6 +651,9 @@ function processStreamingUpdates(updates) {
     console.group('[STREAMING] Processing Updates');
     console.log('Number of updates:', updates.length);
     
+    let hasNewUpdates = false;
+    let contentUpdatePromises = [];
+    
     updates.forEach(function(update, index) {
         const commandId = update.command_id;
         const outputChunk = update.output_chunk;
@@ -688,6 +699,7 @@ function processStreamingUpdates(updates) {
             
             $terminal.append(entryHtml);
             $commandEntry = $terminal.find(`[data-command-id="${commandId}"]`);
+            hasNewUpdates = true;
         } else {
             console.log('Found existing command entry for:', commandId);
         }
@@ -700,7 +712,7 @@ function processStreamingUpdates(updates) {
             $pre = $commandEntry.find('.streaming-content');
         }
         
-        // Update content
+        // Update content and create a promise for content update
         if (outputChunk && outputChunk.length > 0) {
             const currentText = $pre.text();
             const newLength = outputChunk.length;
@@ -711,7 +723,18 @@ function processStreamingUpdates(updates) {
             // Only append if this chunk contains new content not already displayed
             if (!currentText.endsWith(outputChunk.slice(-Math.min(100, outputChunk.length)))) {
                 console.log('Updating streaming content');
-                $pre.text(outputChunk);
+                
+                // Create a promise that resolves after content is updated
+                const updatePromise = new Promise((resolve) => {
+                    $pre.text(outputChunk);
+                    // Use requestAnimationFrame to ensure DOM update is complete
+                    requestAnimationFrame(() => {
+                        setTimeout(resolve, 10); // Small delay for content to settle
+                    });
+                });
+                
+                contentUpdatePromises.push(updatePromise);
+                hasNewUpdates = true;
             } else {
                 console.log('Content already up to date, skipping update');
             }
@@ -733,13 +756,22 @@ function processStreamingUpdates(updates) {
             }
             
             disableStreamingMode();
-        }
-        
-        // Auto-scroll to bottom only if user hasn't scrolled up
-        if (!isUserScrolledUp($terminal[0])) {
-            scrollToBottom($terminal[0]);
+            hasNewUpdates = true;
         }
     });
+    
+    // FIXED: Wait for all content updates to complete before scrolling
+    if (hasNewUpdates && contentUpdatePromises.length > 0) {
+        Promise.all(contentUpdatePromises).then(() => {
+            console.log('All content updates completed, scrolling to bottom');
+            scrollTerminalToShowLatestCommand();
+        });
+    } else if (hasNewUpdates) {
+        // If no content promises but still has updates, scroll with delay
+        setTimeout(() => {
+            scrollTerminalToShowLatestCommand();
+        }, 100);
+    }
     
     console.groupEnd();
 }
@@ -1341,6 +1373,10 @@ function sendInteractiveInput(command) {
     console.log('Interactive command:', command);
     console.log('Current streaming command ID:', currentStreamingCommandId);
     
+    // Send silent AI guidance query for interactive command with context
+    console.log('📡 Sending silent AI guidance query for interactive command:', command);
+    sendSilentInteractiveCommandGuidanceQuery(command);
+    
     $.ajax({
         url: 'api.php',
         type: 'POST',
@@ -1403,6 +1439,10 @@ function sendRegularCommand(command) {
         console.log('🔄 Detected interactive command, notifying chat');
         addChatMessage('bot', `🔄 **Executing Interactive Command**\n\nDetected potentially interactive command: **${command}**\n\nIf this command requires input, you'll see interactive controls appear below the terminal.`);
     }
+    
+    // Send silent AI guidance query BEFORE executing the command
+    console.log('📡 Sending silent AI guidance query for command:', command);
+    sendSilentCommandGuidanceQuery(command);
     
     // Send the command to the server
     $.ajax({
@@ -1476,6 +1516,630 @@ function sendRegularCommand(command) {
     });
 }
 
+// Global variable to store command guidance
+let commandGuidanceCache = new Map();
+
+/**
+ * Send silent query to AI for command guidance
+ */
+function sendSilentCommandGuidanceQuery(command) {
+    console.group('[SILENT AI] Requesting Command Guidance');
+    console.log('Command:', command);
+    console.log('Session:', currentRemoteSessionId);
+    console.time('silent-guidance-request');
+    
+    $.ajax({
+        url: 'api.php',
+        type: 'POST',
+        data: {
+            action: 'get_command_guidance',
+            command: command,
+            session_id: currentRemoteSessionId,
+            csrf_token: CSRF_TOKEN
+        },
+        dataType: 'json',
+        timeout: 15000, // Shorter timeout for silent queries
+        success: function(response) {
+            console.timeEnd('silent-guidance-request');
+            console.log('✅ Silent guidance received:', response);
+            
+            if (response.status === 'success' || response.status === 'fallback') {
+                // Store guidance in cache for later use
+                const guidanceKey = `${command}_${currentRemoteSessionId}_${Date.now()}`;
+                commandGuidanceCache.set(guidanceKey, {
+                    command: command,
+                    guidance: response.guidance,
+                    sessionId: currentRemoteSessionId,
+                    timestamp: response.timestamp,
+                    source: response.status
+                });
+                
+                // Keep cache size manageable (last 50 entries)
+                if (commandGuidanceCache.size > 50) {
+                    const firstKey = commandGuidanceCache.keys().next().value;
+                    commandGuidanceCache.delete(firstKey);
+                }
+                
+                console.log('📝 Guidance cached:', response.guidance.substring(0, 100) + '...');
+                console.log('📊 Cache size:', commandGuidanceCache.size);
+                
+                // Show subtle UI indicator that guidance is available
+                showGuidanceIndicator(command, response.guidance);
+                
+                // ADD THIS: Show guidance in chat for regular commands
+                showRegularGuidanceInChat(command, response.guidance);
+            } else {
+                console.warn('⚠️ Failed to get guidance:', response.message || 'Unknown error');
+            }
+            console.groupEnd();
+        },
+        error: function(xhr, status, error) {
+            console.timeEnd('silent-guidance-request');
+            console.group('[SILENT AI] Guidance Request Error');
+            console.error('❌ Silent guidance request failed');
+            console.error('Status:', status, 'Error:', error);
+            console.error('HTTP Status:', xhr.status);
+            
+            // For silent queries, we don't show user-facing errors
+            // Just log and continue
+            if (status === 'timeout') {
+                console.warn('⏱️ Guidance request timed out (this is normal for silent queries)');
+            }
+            console.groupEnd();
+        }
+    });
+}
+
+/**
+ * Show regular command guidance in chat window
+ */
+function showRegularGuidanceInChat(command, guidance) {
+    // Format the guidance message
+    let chatMessage = `🤖 **Command Guidance**\n\n`;
+    chatMessage += `**Command:** \`${command}\`\n\n`;
+    chatMessage += `**AI Guidance:**\n${guidance}`;
+    
+    // Add to chat (this will scroll to show it)
+    addChatMessageWithoutScroll('bot', chatMessage, {
+        category: 'command_guidance'
+    });
+    
+    console.log('💬 Regular command guidance added to chat for:', command);
+}
+
+/**
+ * Determine if interactive guidance should be shown in chat
+ */
+function shouldShowInteractiveGuidanceInChat(command, interactiveContext) {
+    const tool = interactiveContext.tool;
+    
+    // Show guidance for help commands or complex tools
+    const helpCommands = ['help', '?', 'info', 'man', 'usage'];
+    const complexTools = ['msfconsole', 'mysql', 'psql', 'ssh'];
+    
+    return helpCommands.includes(command.toLowerCase()) || 
+           complexTools.includes(tool) ||
+           command.length > 10; // Show for longer, more complex commands
+}
+
+/**
+ * Show interactive guidance in chat window
+ */
+function showInteractiveGuidanceInChat(command, interactiveContext, guidance) {
+    const tool = interactiveContext.tool;
+    const toolName = tool.charAt(0).toUpperCase() + tool.slice(1);
+    
+    // Format the guidance message
+    let chatMessage = `🔄 **${toolName} Command Guidance**\n\n`;
+    chatMessage += `**Command:** \`${command}\`\n`;
+    chatMessage += `**Context:** ${toolName} interactive session\n\n`;
+    chatMessage += `**AI Guidance:**\n${guidance}`;
+    
+    // Add to chat (this will scroll to show it)
+    addChatMessageWithoutScroll('bot', chatMessage, {
+        category: 'interactive_guidance',
+        interactive_context: interactiveContext
+    });
+    
+    console.log('💬 Interactive guidance added to chat for:', tool, command);
+}
+
+/**
+ * Add chat message and scroll to show the latest message (bot or user)
+ */
+function addChatMessageWithoutScroll(type, message, options = {}) {
+    const $chatMessages = $('#chat-messages');
+    
+    // Remove welcome message if it exists
+    $chatMessages.find('.chat-welcome').remove();
+    
+    const timestamp = new Date().toLocaleTimeString();
+    let messageHtml = `<div class="chat-message ${type}" data-timestamp="${timestamp}">`;
+    
+    if (type === 'bot') {
+        // Enhanced formatting for bot messages with command support
+        const suggestedCommands = options.suggested_commands || [];
+        message = formatBotMessage(message, suggestedCommands);
+        messageHtml += `<div class="message-content">${message}</div>`;
+        
+        // Add special styling for guidance
+        if (options.category === 'interactive_guidance' || options.category === 'command_guidance') {
+            messageHtml = messageHtml.replace('chat-message bot', `chat-message bot ${options.category}`);
+        }
+        
+        // Add rating buttons for AI responses
+        const messageId = Date.now() + Math.random();
+        messageHtml += `<div class="message-actions">
+            <div class="rating-buttons">
+                <button class="rate-message-btn helpful" data-message-id="${messageId}" data-rating="helpful" title="This was helpful">
+                    <i class="fas fa-thumbs-up"></i>
+                </button>
+                <button class="rate-message-btn not-helpful" data-message-id="${messageId}" data-rating="not-helpful" title="This was not helpful">
+                    <i class="fas fa-thumbs-down"></i>
+                </button>
+            </div>
+            <span class="message-time">${timestamp}</span>
+        </div>`;
+    } else {
+        // User message
+        messageHtml += `<div class="message-content">${escapeHtml(message)}</div>`;
+        messageHtml += `<span class="message-time">${timestamp}</span>`;
+    }
+    
+    messageHtml += '</div>';
+    
+    $chatMessages.append(messageHtml);
+    
+    // Get the newly added message element
+    const $newMessage = $chatMessages.children().last();
+    
+    // Animate message appearance and then scroll to show the NEW message (not user message)
+    $newMessage.hide().fadeIn(300, function() {
+        // FIXED: Use centralized scroll to show the latest message (the one we just added)
+        scrollChatToShowLatestMessage();
+    });
+    
+    console.log('💬 Chat message added with centralized scroll to latest message:', type, options.category);
+}
+
+/**
+ * Scroll to show the last user message specifically (only when needed)
+ */
+function scrollChatToShowLastUserMessage() {
+    const chatMessages = document.getElementById('chat-messages');
+    if (!chatMessages) return;
+    
+    // Find the last user message
+    const userMessages = chatMessages.querySelectorAll('.chat-message.user');
+    if (userMessages.length > 0) {
+        const lastUserMessage = userMessages[userMessages.length - 1];
+        
+        // Scroll to show the user message with some context
+        lastUserMessage.scrollIntoView({ 
+            behavior: 'smooth',
+            block: 'start',
+            inline: 'nearest'
+        });
+        
+        console.log('📜 Scrolled chat to show last user message');
+    }
+}
+
+/**
+ * Get cached guidance for a command
+ */
+function getCachedCommandGuidance(command, sessionId = null) {
+    // Look for exact command match first
+    for (let [key, guidance] of commandGuidanceCache.entries()) {
+        if (guidance.command === command && 
+            (!sessionId || guidance.sessionId === sessionId)) {
+            return guidance;
+        }
+    }
+    
+    // Look for partial command match (base command)
+    const baseCommand = command.split(' ')[0];
+    for (let [key, guidance] of commandGuidanceCache.entries()) {
+        if (guidance.command.startsWith(baseCommand) && 
+            (!sessionId || guidance.sessionId === sessionId)) {
+            return guidance;
+        }
+    }
+    
+    return null;
+}
+
+/**
+ * Show subtle indicator that AI guidance is available
+ */
+function showGuidanceIndicator(command, guidance) {
+    // Add a small, unobtrusive indicator to the terminal input
+    const $terminalContainer = $('.terminal-input-container');
+    
+    // Remove any existing guidance indicator
+    $terminalContainer.find('.guidance-indicator').remove();
+    
+    // Add new guidance indicator
+    const indicator = $(`
+        <div class="guidance-indicator" title="AI guidance available for: ${command}">
+            <i class="fas fa-lightbulb"></i>
+            <span>AI guidance ready</span>
+        </div>
+    `);
+    
+    $terminalContainer.append(indicator);
+    
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+        indicator.fadeOut(500, () => indicator.remove());
+    }, 3000);
+    
+    console.log('💡 Guidance indicator shown for command:', command);
+}
+
+/**
+ * Send silent query to AI for interactive command guidance with context
+ */
+function sendSilentInteractiveCommandGuidanceQuery(command) {
+    console.group('[SILENT AI] Requesting Interactive Command Guidance');
+    console.log('Interactive command:', command);
+    console.log('Session:', currentRemoteSessionId);
+    console.log('Streaming command ID:', currentStreamingCommandId);
+    
+    // Get the interactive context (what tool we're running inside)
+    const interactiveContext = getInteractiveToolContext();
+    console.log('Interactive context:', interactiveContext);
+    console.time('silent-interactive-guidance-request');
+    
+    $.ajax({
+        url: 'api.php',
+        type: 'POST',
+        data: {
+            action: 'get_interactive_command_guidance',
+            command: command,
+            interactive_context: interactiveContext,
+            session_id: currentRemoteSessionId,
+            streaming_command_id: currentStreamingCommandId,
+            csrf_token: CSRF_TOKEN
+        },
+        dataType: 'json',
+        timeout: 15000,
+        success: function(response) {
+            console.timeEnd('silent-interactive-guidance-request');
+            console.log('✅ Silent interactive guidance received:', response);
+            
+            if (response.status === 'success' || response.status === 'fallback') {
+                // Store guidance in cache with interactive context
+                const guidanceKey = `interactive_${interactiveContext.tool}_${command}_${Date.now()}`;
+                commandGuidanceCache.set(guidanceKey, {
+                    command: command,
+                    guidance: response.guidance,
+                    sessionId: currentRemoteSessionId,
+                    timestamp: response.timestamp,
+                    source: response.status,
+                    interactive: true,
+                    context: interactiveContext
+                });
+                
+                // Keep cache size manageable
+                if (commandGuidanceCache.size > 50) {
+                    const firstKey = commandGuidanceCache.keys().next().value;
+                    commandGuidanceCache.delete(firstKey);
+                }
+                
+                console.log('📝 Interactive guidance cached:', response.guidance.substring(0, 100) + '...');
+                console.log('🔄 Context:', interactiveContext);
+                
+                // Show interactive guidance indicator
+                showInteractiveGuidanceIndicator(command, interactiveContext.tool, response.guidance);
+                
+                // FIX: Always show interactive guidance in chat
+                console.log('🔍 Checking if should show interactive guidance in chat...');
+                if (shouldShowInteractiveGuidanceInChat(command, interactiveContext)) {
+                    console.log('✅ Will show interactive guidance in chat');
+                    showInteractiveGuidanceInChat(command, interactiveContext, response.guidance);
+                } else {
+                    console.log('❌ Will NOT show interactive guidance in chat');
+                    // For debugging, show anyway for now
+                    console.log('🐛 DEBUG: Showing anyway for debugging');
+                    showInteractiveGuidanceInChat(command, interactiveContext, response.guidance);
+                }
+            } else {
+                console.warn('⚠️ Failed to get interactive guidance:', response.message || 'Unknown error');
+            }
+            console.groupEnd();
+        },
+        error: function(xhr, status, error) {
+            console.timeEnd('silent-interactive-guidance-request');
+            console.group('[SILENT AI] Interactive Guidance Request Error');
+            console.error('❌ Silent interactive guidance request failed');
+            console.error('Status:', status, 'Error:', error);
+            console.error('HTTP Status:', xhr.status);
+            
+            if (status === 'timeout') {
+                console.warn('⏱️ Interactive guidance request timed out');
+            }
+            console.groupEnd();
+        }
+    });
+}
+
+/**
+ * Determine if interactive guidance should be shown in chat
+ */
+function shouldShowInteractiveGuidanceInChat(command, interactiveContext) {
+    const tool = interactiveContext.tool;
+    
+    // Show guidance for help commands or complex tools
+    const helpCommands = ['help', '?', 'info', 'man', 'usage'];
+    const complexTools = ['msfconsole', 'mysql', 'psql', 'ssh'];
+    
+    return helpCommands.includes(command.toLowerCase()) || 
+           complexTools.includes(tool) ||
+           command.length > 10; // Show for longer, more complex commands
+}
+
+/**
+ * Show interactive guidance in chat window
+ */
+function showInteractiveGuidanceInChat(command, interactiveContext, guidance) {
+    const tool = interactiveContext.tool;
+    const toolName = tool.charAt(0).toUpperCase() + tool.slice(1);
+    
+    // Format the guidance message
+    let chatMessage = `🔄 **${toolName} Command Guidance**\n\n`;
+    chatMessage += `**Command:** \`${command}\`\n`;
+    chatMessage += `**Context:** ${toolName} interactive session\n\n`;
+    chatMessage += `**AI Guidance:**\n${guidance}`;
+    
+    // Add to chat without scrolling to show it (user might be focused on terminal)
+    addChatMessageWithoutScroll('bot', chatMessage, {
+        category: 'interactive_guidance',
+        interactive_context: interactiveContext
+    });
+    
+    console.log('💬 Interactive guidance added to chat for:', tool, command);
+}
+
+/**
+ * Centralized chat scrolling function - scrolls to show the most recent message
+ * This is the ONLY function that should be used for chat scrolling
+ */
+function scrollChatToShowLatestMessage() {
+    const chatMessages = document.getElementById('chat-messages');
+    if (!chatMessages) return;
+    
+    // Find the last message in the chat
+    const allMessages = chatMessages.querySelectorAll('.chat-message');
+    if (allMessages.length === 0) return;
+    
+    const lastMessage = allMessages[allMessages.length - 1];
+    
+    // Scroll to show the top of the most recent message
+    lastMessage.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'start',  // Show the start (top) of the message
+        inline: 'nearest'
+    });
+    
+    console.log('📜 Scrolled chat to show latest message');
+}
+
+/**
+ * Add chat message without forcing scroll to show it
+ */
+function addChatMessageWithoutScroll(type, message, options = {}) {
+    const $chatMessages = $('#chat-messages');
+    const chatMessages = $chatMessages[0];
+    
+    // Check if user was near bottom before adding message
+    const wasNearBottom = isUserNearBottom(150);
+    
+    // Remove welcome message if it exists
+    $chatMessages.find('.chat-welcome').remove();
+    
+    const timestamp = new Date().toLocaleTimeString();
+    let messageHtml = `<div class="chat-message ${type}" data-timestamp="${timestamp}">`;
+    
+    if (type === 'bot') {
+        // Enhanced formatting for bot messages with command support
+        const suggestedCommands = options.suggested_commands || [];
+        message = formatBotMessage(message, suggestedCommands);
+        messageHtml += `<div class="message-content">${message}</div>`;
+        
+        // Add special styling for interactive guidance
+        if (options.category === 'interactive_guidance') {
+            messageHtml = messageHtml.replace('chat-message bot', 'chat-message bot interactive-guidance');
+        }
+        
+        // Add rating buttons for AI responses
+        const messageId = Date.now() + Math.random();
+        messageHtml += `<div class="message-actions">
+            <div class="rating-buttons">
+                <button class="rate-message-btn helpful" data-message-id="${messageId}" data-rating="helpful" title="This was helpful">
+                    <i class="fas fa-thumbs-up"></i>
+                </button>
+                <button class="rate-message-btn not-helpful" data-message-id="${messageId}" data-rating="not-helpful" title="This was not helpful">
+                    <i class="fas fa-thumbs-down"></i>
+                </button>
+            </div>
+            <span class="message-time">${timestamp}</span>
+        </div>`;
+    } else {
+        // User message
+        messageHtml += `<div class="message-content">${escapeHtml(message)}</div>`;
+        messageHtml += `<span class="message-time">${timestamp}</span>`;
+    }
+    
+    messageHtml += '</div>';
+    
+    $chatMessages.append(messageHtml);
+    
+    // Get the newly added message element
+    const $newMessage = $chatMessages.children().last();
+    
+    // Animate message appearance without forced scrolling
+    $newMessage.hide().fadeIn(300, function() {
+        // Only scroll if user was already near bottom
+        if (wasNearBottom) {
+            setTimeout(() => {
+                scrollChatToShowLatestMessage();
+            }, 100);
+        }
+    });
+}
+
+/**
+ * Get the current interactive tool context
+ */
+function getInteractiveToolContext() {
+    if (!currentStreamingCommandId) {
+        return { tool: 'unknown', command: null, details: null };
+    }
+    
+    // Find the command entry for the current streaming command
+    const $commandEntry = $(`.command-entry[data-command-id="${currentStreamingCommandId}"]`);
+    if ($commandEntry.length === 0) {
+        return { tool: 'unknown', command: null, details: null };
+    }
+    
+    // Extract the original command that started the interactive session
+    const promptLine = $commandEntry.find('.prompt-line').text();
+    const commandMatch = promptLine.match(/>\s*(.+)$/);
+    
+    if (!commandMatch) {
+        return { tool: 'unknown', command: null, details: null };
+    }
+    
+    const originalCommand = commandMatch[1].trim();
+    const commandParts = originalCommand.split(/\s+/);
+    const baseTool = commandParts[0].toLowerCase();
+    
+    // Determine tool type and extract relevant details
+    let toolContext = {
+        tool: baseTool,
+        command: originalCommand,
+        details: null
+    };
+    
+    switch (baseTool) {
+        case 'ssh':
+            // Extract target host from ssh command
+            const sshTarget = commandParts.find(part => 
+                part.includes('@') || 
+                (part !== 'ssh' && !part.startsWith('-'))
+            );
+            toolContext.details = { target: sshTarget || 'unknown', protocol: 'ssh' };
+            break;
+            
+        case 'telnet':
+            // Extract target host and port from telnet command
+            const telnetHost = commandParts[1] || 'unknown';
+            const telnetPort = commandParts[2] || '23';
+            toolContext.details = { target: telnetHost, port: telnetPort, protocol: 'telnet' };
+            break;
+            
+        case 'msfconsole':
+            toolContext.details = { framework: 'metasploit', mode: 'console' };
+            break;
+            
+        case 'mysql':
+            // Extract database details
+            const mysqlArgs = originalCommand.match(/-h\s+(\S+)|-u\s+(\S+)|-p(\S+)?/g) || [];
+            toolContext.details = { 
+                database: 'mysql', 
+                args: mysqlArgs,
+                type: 'database'
+            };
+            break;
+            
+        case 'psql':
+            // Extract PostgreSQL details
+            const psqlArgs = originalCommand.match(/-h\s+(\S+)|-U\s+(\S+)|-d\s+(\S+)/g) || [];
+            toolContext.details = { 
+                database: 'postgresql', 
+                args: psqlArgs,
+                type: 'database'
+            };
+            break;
+            
+        case 'python':
+        case 'python3':
+            toolContext.details = { interpreter: 'python', mode: 'interactive' };
+            break;
+            
+        case 'nc':
+        case 'netcat':
+            // Extract netcat target and port
+            const ncHost = commandParts.find(part => 
+                !part.startsWith('-') && part !== 'nc' && part !== 'netcat'
+            );
+            const ncPort = commandParts[commandParts.length - 1];
+            toolContext.details = { 
+                target: ncHost || 'unknown', 
+                port: ncPort || 'unknown',
+                protocol: 'netcat'
+            };
+            break;
+            
+        default:
+            toolContext.details = { type: 'generic_interactive' };
+    }
+    
+    return toolContext;
+}
+
+/**
+ * Show indicator for interactive command guidance
+ */
+function showInteractiveGuidanceIndicator(command, tool, guidance) {
+    const $terminalContainer = $('.terminal-input-container');
+    
+    // Remove any existing guidance indicator
+    $terminalContainer.find('.guidance-indicator').remove();
+    
+    // Add interactive guidance indicator
+    const indicator = $(`
+        <div class="guidance-indicator interactive" title="AI guidance for ${tool} command: ${command}">
+            <i class="fas fa-exchange-alt"></i>
+            <span>Interactive guidance (${tool})</span>
+        </div>
+    `);
+    
+    $terminalContainer.append(indicator);
+    
+    // Auto-hide after 4 seconds (longer for interactive)
+    setTimeout(() => {
+        indicator.fadeOut(500, () => indicator.remove());
+    }, 4000);
+    
+    console.log('💡 Interactive guidance indicator shown for:', tool, command);
+}
+
+/**
+ * Access function for debugging - view cached guidance
+ */
+function debugCommandGuidance() {
+    console.group('[DEBUG] Command Guidance Cache');
+    console.log('Cache size:', commandGuidanceCache.size);
+    
+    for (let [key, guidance] of commandGuidanceCache.entries()) {
+        console.log(`${guidance.command}:`, {
+            guidance: guidance.guidance.substring(0, 200) + '...',
+            source: guidance.source,
+            timestamp: guidance.timestamp,
+            sessionId: guidance.sessionId
+        });
+    }
+    console.groupEnd();
+    
+    return Array.from(commandGuidanceCache.values());
+}
+
+// Make debug function available globally
+window.debugCommandGuidance = debugCommandGuidance;
+window.getCachedCommandGuidance = getCachedCommandGuidance;
+
 // Add command execution loading states
 function showCommandExecuting() {
     $('#terminal-input').prop('disabled', true);
@@ -1505,6 +2169,10 @@ function monitorCommandCompletion(commandId) {
                     const latestCommand = response.commands[0];
                     if (latestCommand.id == commandId && latestCommand.status === 'completed') {
                         hideCommandExecuting();
+                        // Trigger terminal scroll to show completed command
+                        setTimeout(() => {
+                            scrollTerminalToShowLatestCommand();
+                        }, 100);
                         return;
                     }
                 }
@@ -1522,6 +2190,7 @@ function monitorCommandCompletion(commandId) {
 }
 
 function sendCommandResultToAI(command, output, sessionId) {
+    /*
     if (!output || output.trim() === '') return;
     
     const contextMessage = `I just ran the command "${command}" and got this output:\n\n${output}\n\nCan you help me understand what this means and suggest what I should do next?`;
@@ -1532,6 +2201,8 @@ function sendCommandResultToAI(command, output, sessionId) {
         $('#chat-input').val(contextMessage);
         sendChatMessage();
     }, 2000);
+    */
+   return; // Disabled for now, can be re-enabled later
 }
 
 // Function to navigate command history
@@ -1609,6 +2280,8 @@ function updateTerminalWithHistory(sessionId, commands) {
     }
     
     let lastWorkingDir = '>';
+    let hasNewContent = false;
+    let contentLength = 0; // Track total content being added
     
     // Update working directory tracking for existing commands
     $terminal.find('.command-entry[data-command-id]').each(function() {
@@ -1628,6 +2301,9 @@ function updateTerminalWithHistory(sessionId, commands) {
         if (existingCommandIds.has(parseInt(cmd.id))) {
             return; // Skip this command
         }
+        
+        hasNewContent = true;
+        contentLength += (cmd.output ? cmd.output.length : 0);
         
         // Update working directory if available
         if (cmd.working_directory) {
@@ -1675,9 +2351,12 @@ function updateTerminalWithHistory(sessionId, commands) {
                 if (cmd.is_interactive && cmd.status === 'executing') {
                     $existingResult.html(`<pre>${escapeHtml(cmd.output || 'Interactive session running...')}</pre>`);
                     $existingEntry.addClass('streaming-command');
+                    contentLength += (cmd.output ? cmd.output.length : 0);
                 } else if (cmd.status === 'completed') {
                     $existingResult.html(`<pre>${escapeHtml(cmd.output)}</pre>`);
                     $existingEntry.removeClass('streaming-command').addClass('completed-command');
+                    hasNewContent = true;
+                    contentLength += (cmd.output ? cmd.output.length : 0);
                 }
             }
         }
@@ -1688,11 +2367,115 @@ function updateTerminalWithHistory(sessionId, commands) {
         updateTerminalPrompt(lastWorkingDir);
     }
     
-    // Only scroll to bottom if user hasn't manually scrolled up
-    if (sessionId === currentRemoteSessionId && !isUserScrolledUp($terminal[0])) {
-        scrollToBottom($terminal[0]);
+    // FIXED: Smart scrolling based on content size and timing
+    if (sessionId === currentRemoteSessionId && hasNewContent) {
+        if (contentLength > 5000) {
+            // Large content - wait longer for rendering
+            setTimeout(() => {
+                scrollTerminalToShowLatestCommand();
+            }, 200);
+        } else if (contentLength > 1000) {
+            // Medium content - moderate delay
+            setTimeout(() => {
+                scrollTerminalToShowLatestCommand();
+            }, 100);
+        } else {
+            // Small content - quick scroll
+            setTimeout(() => {
+                scrollTerminalToShowLatestCommand();
+            }, 50);
+        }
     }
 }
+
+/**
+ * Enhanced terminal scroll that waits for content to stabilize
+ */
+function scrollTerminalToShowLatestCommandEnhanced() {
+    if (!activeHostId || !currentRemoteSessionId) return;
+    
+    const $terminal = $(`#${activeHostId}-terminal .terminal-output`);
+    if (!$terminal.length) return;
+    
+    const terminalElement = $terminal[0];
+    
+    // Create a mutation observer to detect when content stops changing
+    let scrollTimeout;
+    let lastHeight = terminalElement.scrollHeight;
+    
+    const observer = new MutationObserver(() => {
+        // Clear existing timeout
+        if (scrollTimeout) {
+            clearTimeout(scrollTimeout);
+        }
+        
+        // Set a new timeout to scroll after content stabilizes
+        scrollTimeout = setTimeout(() => {
+            const currentHeight = terminalElement.scrollHeight;
+            
+            // Only scroll if height has stabilized
+            if (currentHeight === lastHeight) {
+                terminalElement.scrollTo({
+                    top: terminalElement.scrollHeight,
+                    behavior: 'smooth'
+                });
+                
+                console.log('📜 Scrolled terminal to bottom after content stabilized');
+                observer.disconnect(); // Stop observing
+            } else {
+                lastHeight = currentHeight;
+                // Content still changing, wait more
+                scrollTerminalToShowLatestCommandEnhanced();
+            }
+        }, 100); // Wait 100ms for content to stabilize
+    });
+    
+    // Start observing
+    observer.observe(terminalElement, {
+        childList: true,
+        subtree: true,
+        characterData: true
+    });
+    
+    // Fallback timeout to ensure we eventually scroll
+    setTimeout(() => {
+        observer.disconnect();
+        terminalElement.scrollTo({
+            top: terminalElement.scrollHeight,
+            behavior: 'smooth'
+        });
+        console.log('📜 Scrolled terminal to bottom (fallback)');
+    }, 2000); // Max wait time of 2 seconds
+}
+
+/**
+ * Centralized terminal scrolling function - scrolls to show the bottom of the latest command output
+ * This is the ONLY function that should be used for terminal scrolling
+ */
+function scrollTerminalToShowLatestCommand() {
+    if (!activeHostId || !currentRemoteSessionId) return;
+    
+    const $terminal = $(`#${activeHostId}-terminal .terminal-output`);
+    if (!$terminal.length) return;
+    
+    const terminalElement = $terminal[0];
+    
+    // Use requestAnimationFrame to ensure DOM has settled before scrolling
+    requestAnimationFrame(() => {
+        // Add a small delay to ensure content is fully rendered
+        setTimeout(() => {
+            terminalElement.scrollTo({
+                top: terminalElement.scrollHeight,
+                behavior: 'smooth'
+            });
+            
+            console.log('📜 Scrolled terminal to bottom after content settled');
+        }, 50); // Small delay to let content render
+    });
+}
+
+// Make terminal scroll function available globally
+window.scrollTerminalToShowLatestCommand = scrollTerminalToShowLatestCommand;
 
 // ===========================================
 // SESSION MANAGEMENT
@@ -1833,6 +2616,11 @@ function createNewSessionTab(hostId, host, sessionId) {
     // Load any existing command history for this session
     loadCommandHistory(sessionId);
     updatePageTitle(connectedHosts.length);
+    
+    // Initial scroll to show welcome message
+    setTimeout(() => {
+        scrollTerminalToShowLatestCommand();
+    }, 100);
 }
 
 // Function to initialize chat for a session
@@ -2130,7 +2918,6 @@ function createHistoricalSessionTab(session, commands) {
 // ===========================================
 
 // REPLACE the sendChatMessage function in enhanced_terminal.js
-
 function sendChatMessage() {
     // Enhanced debugging for the input field
     const $chatInput = $('#chat-input');
@@ -2138,61 +2925,39 @@ function sendChatMessage() {
     const message = rawValue ? rawValue.trim() : '';
     
     console.log('[CHAT DEBUG] Input field analysis:');
-    console.log('- Element found:', $chatInput.length > 0);
-    console.log('- Raw value:', JSON.stringify(rawValue));
-    console.log('- Raw value type:', typeof rawValue);
-    console.log('- Raw value length:', rawValue ? rawValue.length : 'null/undefined');
     console.log('- Trimmed message:', JSON.stringify(message));
     console.log('- Trimmed message length:', message.length);
-    console.log('- Input element:', $chatInput[0]);
     
     if (message === '' || message.length === 0) {
         console.warn('[CHAT] Empty message detected, not sending');
-        console.log('- Original value was:', JSON.stringify(rawValue));
-        console.log('- After trim was:', JSON.stringify(message));
-        
-        // Check if there's actually content but it's whitespace
-        if (rawValue && rawValue.length > 0) {
-            console.warn('[CHAT] Message contained only whitespace:', JSON.stringify(rawValue));
-        }
-        
-        // Re-focus the input field
         $chatInput.focus();
         return;
     }
     
-    // Collect chat history from the current session - FIXED: Don't JSON.stringify it
+    // Collect chat history from the current session
     const chatHistory = collectChatHistory();
     
     console.group('[CHAT] Sending Message');
     console.log('User message:', message);
-    console.log('Message length:', message.length);
-    console.log('Chat history (string):', chatHistory);
-    console.log('Chat history type:', typeof chatHistory);
-    console.log('Current session:', currentRemoteSessionId || 'welcome');
-    console.log('Conversation ID:', currentConversationId);
-    console.log('Active host:', activeHostId);
-    console.log('Streaming mode:', isStreamingMode);
     console.time('chat-response-time');
     
     // Clear input and reset height AFTER we've captured the value
     $chatInput.val('').height('auto');
-    console.log('Input cleared, new value:', JSON.stringify($chatInput.val()));
     
-    // Add user message to chat (this will handle scrolling to show user message)
+    // Add user message to chat (this will scroll to show it)
     addChatMessage('user', message);
     
-    // Show typing indicator without auto-scrolling
+    // Show typing indicator (this will also scroll to show it)
     showTypingIndicatorWithoutScroll();
     
-    // Send to PHP chat handler with chat history - FIXED: Send as string, not JSON
+    // Send to PHP chat handler with chat history
     $.ajax({
         url: 'api.php',
         type: 'POST',
         data: {
             action: 'chat_message',
             message: message,
-            chat_history: chatHistory, // This is already a string from collectChatHistory()
+            chat_history: chatHistory,
             session_id: currentRemoteSessionId || 'welcome',
             conversation_id: currentConversationId,
             csrf_token: CSRF_TOKEN
@@ -2207,14 +2972,11 @@ function sendChatMessage() {
             
             if (response.status === 'success') {
                 console.log('✅ Chat response successful');
-                console.log('Bot response length:', (response.bot_response || response.message).length);
-                console.log('Suggested commands:', response.suggested_commands || []);
-                console.log('Category:', response.category || 'general');
                 
                 // Ensure suggested_commands is always an array
                 const suggestedCommands = Array.isArray(response.suggested_commands) ? response.suggested_commands : [];
                 
-                // Add bot response with enhanced formatting and multiple commands
+                // FIXED: Add bot response (this will scroll to show the bot message, not user message)
                 addChatMessage('bot', response.bot_response || response.message, {
                     suggested_commands: suggestedCommands,
                     category: response.category || 'general',
@@ -2226,7 +2988,6 @@ function sendChatMessage() {
                 // Store conversation ID for future messages
                 if (response.conversation_id) {
                     currentConversationId = response.conversation_id;
-                    console.log('Updated conversation ID:', currentConversationId);
                 }
                 
                 console.log('✅ Chat message processed successfully');
@@ -2244,23 +3005,18 @@ function sendChatMessage() {
             console.error('❌ Chat request failed');
             console.error('Status:', status);
             console.error('Error:', error);
-            console.error('HTTP Status:', xhr.status);
-            console.error('Response Text:', xhr.responseText);
             console.groupEnd();
             
             let errorMessage = 'Sorry, I\'m having trouble processing your message right now.';
             
             if (status === 'timeout') {
                 errorMessage = 'The request is taking too long. Please try a shorter message.';
-                console.warn('[CHAT] Request timed out after 30 seconds');
             } else if (xhr.status === 401) {
                 errorMessage = 'Your session has expired. Please refresh the page.';
-                console.error('[CHAT] Authentication failed, redirecting to login');
                 window.location.href = 'login.php';
                 return;
             } else if (xhr.status >= 500) {
                 errorMessage = 'The service is temporarily unavailable. Please try again later.';
-                console.error('[CHAT] Server error:', xhr.status);
             }
             
             addChatMessage('bot', errorMessage);
@@ -2578,13 +3334,9 @@ function logChatInteraction(userMessage, aiResponse, processedResponse) {
     */
 }
 
-// Enhanced function to add chat messages (updated to handle AI responses better)
+// Enhanced function to add chat messages (updated to use centralized scrolling)
 function addChatMessage(type, message, options = {}) {
     const $chatMessages = $('#chat-messages');
-    const chatMessages = $chatMessages[0];
-    
-    // Check if user was near bottom before adding message
-    const wasNearBottom = isUserNearBottom(150);
     
     // Remove welcome message if it exists
     $chatMessages.find('.chat-welcome').remove();
@@ -2623,34 +3375,17 @@ function addChatMessage(type, message, options = {}) {
     
     // Get the newly added message element
     const $newMessage = $chatMessages.children().last();
-    const newMessageElement = $newMessage[0];
     
-    // Animate message appearance
+    // Animate message appearance and then scroll
     $newMessage.hide().fadeIn(300, function() {
-        // After animation completes, handle scrolling
-        if (type === 'user') {
-            // For user messages, always scroll to show them
-            scrollChatToShowMessage(newMessageElement, 'smooth');
-        } else if (type === 'bot') {
-            // For bot messages, smart scrolling based on context
-            if (wasNearBottom) {
-                // If user was reading recent messages, scroll to show their last message
-                setTimeout(() => {
-                    scrollChatToShowUserMessage();
-                }, 100);
-            }
-            // If user had scrolled up, don't auto-scroll at all
-        }
+        // Use the centralized scroll function
+        scrollChatToShowLatestMessage();
     });
 }
 
 // Function to show typing indicator
 function showTypingIndicatorWithoutScroll() {
     const $chatMessages = $('#chat-messages');
-    const chatMessages = $chatMessages[0];
-    
-    // Check current scroll position
-    const wasNearBottom = isUserNearBottom(150);
     
     const typingHtml = `<div class="typing-indicator" id="typing-indicator">
         <div class="typing-dots">
@@ -2663,12 +3398,17 @@ function showTypingIndicatorWithoutScroll() {
     
     $chatMessages.append(typingHtml);
     
-    // Only scroll if user was already near bottom
-    if (wasNearBottom) {
-        setTimeout(() => {
-            scrollChatToShowUserMessage();
-        }, 100);
-    }
+    // FIXED: Use centralized scroll to show the typing indicator (latest message)
+    scrollChatToShowLatestMessage();
+}
+
+// Function to hide typing indicator
+function hideTypingIndicator() {
+    $('#typing-indicator').fadeOut(200, function() {
+        $(this).remove();
+        // FIXED: After removing typing indicator, scroll to show the latest actual message
+        // Don't call any scroll here - let the next message handle it
+    });
 }
 
 // Update the existing function
@@ -2676,16 +3416,8 @@ function showTypingIndicator() {
     showTypingIndicatorWithoutScroll();
 }
 
-
-
-// Function to hide typing indicator
-function hideTypingIndicator() {
-    $('#typing-indicator').fadeOut(200, function() {
-        $(this).remove();
-    });
-}
-
-// Function to load chat history
+// Enhanced chat history loading with centralized scroll
+// Enhanced chat history loading with centralized scroll
 function loadChatHistory(sessionId) {
     if (!sessionId) return;
     
@@ -2706,7 +3438,7 @@ function loadChatHistory(sessionId) {
                 $chatMessages.find('.chat-welcome').remove();
                 $chatMessages.empty();
                 
-                // Add messages without auto-scrolling
+                // Add messages without individual scroll animations
                 response.messages.forEach(function(msg, index) {
                     if (msg.message_type === 'bot') {
                         // Convert old format to new format if needed
@@ -2733,12 +3465,9 @@ function loadChatHistory(sessionId) {
                     }
                 });
                 
-                // After loading history, scroll to bottom once
+                // FIXED: After loading all history, scroll to show the latest message (not user message)
                 setTimeout(() => {
-                    const chatMessages = document.getElementById('chat-messages');
-                    if (chatMessages) {
-                        chatMessages.scrollTop = chatMessages.scrollHeight;
-                    }
+                    scrollChatToShowLatestMessage();
                 }, 100);
                 
                 // Set conversation ID from history
@@ -2938,6 +3667,13 @@ function clearTerminalDisplayWithIds(hostId, sessionId, $terminalElement = null)
         <p><small>Command history is preserved in session records</small></p>
     </div>`;
     $terminal.append(clearIndicator);
+    
+    // Use centralized scrolling to show the clear indicator
+    if (sessionId === currentRemoteSessionId) {
+        setTimeout(() => {
+            scrollTerminalToShowLatestCommand();
+        }, 100);
+    }
     
     // Log the clear action in the database
     logTerminalClearWithSession(sessionId);
