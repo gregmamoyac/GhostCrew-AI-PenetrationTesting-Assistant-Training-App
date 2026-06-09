@@ -1,4 +1,4 @@
-# GhostCrew AI Penetration Testing Assistant and Training Application
+## GhostCrew AI Penetration Testing Assistant and Training Application
 
 An AI-powered simulation and decision-support platform for Red Team and penetration testing professionals.
 
