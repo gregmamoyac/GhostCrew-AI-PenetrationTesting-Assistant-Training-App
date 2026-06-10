@@ -224,3 +224,8 @@ GhostCrew addresses these challenges by providing an AI-powered platform that si
 - **Network Security**: Deploy over HTTPS in production environments
 - **Access Control**: Implement proper user authentication and authorization
 - **Regular Updates**: Keep all components updated with latest security patches
+
+
+## Acknowledgement
+
+Developed for the UC Berkeley School of Information [MICS Capstone Summer 2025 Project ](https://www.ischool.berkeley.edu/projects/2025/ghostcrew)
